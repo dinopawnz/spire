@@ -1,5 +1,5 @@
 <!--
-  MUDWATER SPIRE  v1  -  OtherGames event build  -  Otherside MML
+  MUDWATER SPIRE  v2  -  OtherGames event build  -  Otherside MML
   ============================================================
   LIVE BUILD: this document starts as a small PLACER CUBE. Open the host remote (spire_remote.html, PIN 7747 = S-P-I-R)
   and press LIVE BUILD to raise the whole tower. Press it again to fold everything back into the cube.
@@ -22,7 +22,7 @@
 (function () {
   "use strict";
   const BASE = "https://raw.githubusercontent.com/dinopawnz/spire/main/";
-  const VER = "?v=1";
+  const VER = "?v=2";
   const HOST_CODE = "7747";
   const AUTO_BUILD_MS = 0;
   const FRONT = 109;                 // tower centre is this far behind the origin (the foot of the boardwalk)
@@ -290,33 +290,48 @@
       const g = el("m-group", Object.assign({ x, y, z, ry }, sc ? { sx: sc, sy: sc, sz: sc } : {}), parent);
       const m = model("npc_" + key + ".glb", { collide: "false", anim: BASE + "npc_" + key + "_idle.glb" + VER, "anim-loop": "true" }, g);
       const hb = hitBox({ y: 1.0, width: 1.0, height: 2.0, depth: 0.9 }, g);
-      const n = { key, g, m, i: 0, busy: 0, greeted: new Map(), lines: D.npc[key].lines, x, y, z, parent };
-      hb.addEventListener("click", (e) => { const id = e.detail && e.detail.connectionId; if (id === undefined) return; npcTalk(n, nextLine(n), id); });
+      const n = { key, g, m, i: 0, talking: false, cur: null, greeted: new Map(), lines: D.npc[key].lines, x, y, z, parent };
+      hb.addEventListener("click", (e) => { const id = e.detail && e.detail.connectionId; if (id === undefined) return; if (npcTalk(n, peekLine(n), id, false, "click")) n.i++; });
       NPCS[key] = n; return n;
     }
-    function nextLine(n) { const ts = Object.keys(n.lines).filter((k) => /^t\d+$/.test(k)); const k = ts[n.i % ts.length]; n.i++; return k; }
+    function peekLine(n) { const ts = Object.keys(n.lines).filter((k) => /^t\d+$/.test(k)); return ts[n.i % ts.length]; }   // moves on only when the line is actually said
     function headPos(n) {
       if (n.parent && n.parent !== WORLD) { const px = +n.parent.getAttribute("x") || 0, py = +n.parent.getAttribute("y") || 0, pz = +n.parent.getAttribute("z") || 0; return [px + n.x, py + n.y, pz + n.z]; }
       return [n.x, n.y, n.z];
     }
-    function npcTalk(n, line, id, everyoneHears) {
-      const info = n.lines[line]; if (!info) return;
+    // NPC_MODE (host remote): "on" = click / greet / game announcements, "host" = clicks + greetings do nothing (game announcements
+    // still play), "off" = nothing talks by itself. Lines the host sends from the remote ("npc say <who> <line>") always play.
+    let NPC_MODE = "on";
+    function npcStop(n) {
+      if (!n.cur) return;
+      n.cur.timers.forEach(cancel); if (n.cur.bub) n.cur.bub.remove(); if (n.cur.audio) n.cur.audio.remove();
+      n.cur = null; n.talking = false;
+      n.m.setAttribute("anim", BASE + "npc_" + n.key + "_idle.glb" + VER);
+    }
+    // source: "click" | "greet" | "game" | "host". One line at a time: while a character talks, clicks and greetings are ignored;
+    // a game announcement or a host line cuts in (a host line is never cut off by anything but another host line).
+    function npcTalk(n, line, id, everyoneHears, source) {
+      source = source || "game";
+      const info = n.lines[line]; if (!info) return false;
+      if (source !== "host") {
+        if (NPC_MODE === "off") return false;
+        if (NPC_MODE === "host" && (source === "click" || source === "greet")) return false;
+        if (n.talking && (source === "click" || source === "greet")) return false;
+        if (n.talking && n.cur && n.cur.source === "host") return false;
+      }
+      npcStop(n);
       const [asp, dur] = info; const ms = Math.round(dur * 1000 + 1200);
-      // the speech bubble over the head (yours only, unless it's an announcement), turned to face you
       const hp = headPos(n), tall = (D.npcH[n.key] || 1.8) * (+n.g.getAttribute("sy") || 1);
       const p = id !== undefined ? pl(id) : null;
       const ry = p && p.pos ? faceTo(hp, p.pos) : (+n.g.getAttribute("ry") || 0);
       const bub = el("m-group", Object.assign({ x: hp[0], y: hp[1] + tall + 0.75, z: hp[2], ry }, everyoneHears || id === undefined ? {} : { "visible-to": String(id) }), priv);
       model("sb_" + n.key + "_" + line + ".glb", { sx: 0.95, sy: 0.95, sz: 0.95, collide: "false" }, bub);
-      later(ms, () => bub.remove());
-      if (VOICES) sfx("vo_" + n.key + "_" + line + ".mp3", hp[0], hp[1] + 1.6, hp[2], 1.0);
-      // talk animation for the length of the line
+      const audio = VOICES ? el("m-audio", { src: BASE + "vo_" + n.key + "_" + line + ".mp3" + VER, x: hp[0], y: hp[1] + 1.6, z: hp[2], loop: "false", volume: 1.0, "start-time": Math.round(now()) }) : null;
       n.m.setAttribute("anim", BASE + "npc_" + n.key + "_talk.glb" + VER);
-      n.busy++; later(ms - 600, () => { if (--n.busy <= 0) { n.busy = 0; n.m.setAttribute("anim", BASE + "npc_" + n.key + "_idle.glb" + VER); } });
-    }
-    function npcGesture(n, clip, secs) {
-      n.m.setAttribute("anim", BASE + "npc_" + n.key + "_" + clip + ".glb" + VER);
-      n.busy++; later(secs * 1000, () => { if (--n.busy <= 0) { n.busy = 0; n.m.setAttribute("anim", BASE + "npc_" + n.key + "_idle.glb" + VER); } });
+      n.talking = true;
+      const cur = { source, bub, audio, timers: [] }; n.cur = cur;
+      cur.timers.push(later(ms, () => { if (n.cur === cur) npcStop(n); }));
+      return true;
     }
     const W = D.where;
     npc("ferryman", ...W.ferryman);
@@ -333,7 +348,8 @@
         const hp = headPos(n);
         if (Math.abs(p.pos.y - hp[1]) > 3 || Math.hypot(p.pos.x - hp[0], p.pos.z - hp[2]) > 5) continue;
         if (t - (n.greeted.get(p.id) || -1e9) < 60000) continue;
-        n.greeted.set(p.id, t); npcTalk(n, "greet", p.id);
+        if (n.talking || NPC_MODE !== "on") continue;
+        n.greeted.set(p.id, t); npcTalk(n, "greet", p.id, false, "greet");
       }
     }
 
@@ -358,7 +374,7 @@
           const tz = D.barFront;
           tween(mug, "z", sp[2], tz, 600, "easeOutQuad"); tween(mug, "y", D.trayTop, D.barTop, 400, "easeInQuad");
           const dist = Math.abs(tx - sp[0]); tween(mug, "x", sp[0], tx, Math.max(700, dist * 260), "easeOutQuart");
-          if (NPCS.barkeep) npcTalk(NPCS.barkeep, "pour" + (i % 4), id);
+          if (NPCS.barkeep) npcTalk(NPCS.barkeep, "pour" + (i % 4), id, false, "click");
           MUGS.push(mug); if (MUGS.length > 30) MUGS.shift().remove();
           later(MUG_LIFE, () => { const k = MUGS.indexOf(mug); if (k >= 0) MUGS.splice(k, 1); mug.remove(); });
         });
@@ -401,6 +417,9 @@
       for (let i = 0; i < 7; i++) { const a = 45 + 45 * i, c = polar(D.cabApo + 0.03, a, 1.3); pad({ x: c[0], y: c[1], z: c[2], ry: a, width: 1.8, height: 2.6, depth: 0.12 }, CG); }
       pad({ y: -0.13, z: D.cabApo + 0.13, width: 1.7, height: 0.26, depth: 0.3 }, CG);               // the sill
       const cgatePad = pad({ y: 1.25, z: D.cabApo - 0.02, width: 1.8, height: 2.5, depth: 0.12 }, CG);
+      // elevator music, playing softly inside the cab (riders hear it; it fades a few metres outside the glass)
+      const music = el("m-audio", { src: BASE + "lift_music.mp3" + VER, y: 2.3, loop: "true", volume: 0.32, "start-time": id === "A" ? 0 : -9000 }, CG);
+      st.music = music; st.musicHome = CG;
       // the operator (the host's own ape) rides the Grand Cage
       if (id === "A") npc("operator", ci.operator[0], ci.operator[1], ci.operator[2], ci.operator_ry, CG);
       // floor buttons inside the cab (pictures of the floor names) on the front-left diagonal
@@ -665,7 +684,8 @@
         const finals = H.ph === "finals" || H.ph === "done";
         return { ph: H.ph, left: finals ? VT.length - H.vremoved.size : HL.length - H.removed.size, fin: H.fin.length, finMax: FINALISTS,
                  finalists: H.fin.map((id) => nameOf(pl(id))), winner: H.winner !== null ? nameOf(pl(H.winner)) : "",
-                 huntSecs: H.t0 ? Math.round((tn - H.t0) / 1000) : 0, inside: INSIDE.size,
+                 huntSecs: H.t0 ? Math.round((tn - H.t0) / 1000) : 0, inside: INSIDE.size, npcMode: NPC_MODE,
+                 talking: Object.values(NPCS).filter((n) => n.talking).map((n) => n.key), liftMusic: Object.values(LIFTS).some((s) => s.music.parentNode),
                  lifts: Object.fromEntries(Object.entries(LIFTS).map(([k, s]) => [k, s.status()])) };
       },
       players(tn) {
@@ -685,6 +705,25 @@
           const want = (parts[2] || "").toLowerCase(); let k = s.Lf.keys.indexOf(want);
           if (k < 0 && /^\d$/.test(want)) k = +want; if (k < 0 || k >= s.Lf.keys.length) return "LIFT " + s.id + " STOPS: " + s.Lf.keys.join(" / ");
           s.request(k); return "LIFT " + s.id + " CALLED TO " + s.Lf.keys[k].toUpperCase();
+        }
+        if (cmd === "liftmusic") {                                    // liftmusic on|off
+          const on = a1 === "on" ? true : a1 === "off" ? false : !Object.values(LIFTS).some((s) => s.music.parentNode);
+          Object.values(LIFTS).forEach((s) => { if (on && !s.music.parentNode) s.musicHome.appendChild(s.music); if (!on && s.music.parentNode) s.music.remove(); });
+          return on ? "ELEVATOR MUSIC ON" : "ELEVATOR MUSIC OFF";
+        }
+        if (cmd === "npc") {                                          // npc mode on|host|off   |   npc say <who> <line>   |   npc hush
+          if (a1 === "mode") {
+            const m = (parts[2] || "").toLowerCase(); if (!["on", "host", "off"].includes(m)) return "NPC MODE on / host / off";
+            NPC_MODE = m; if (m === "off") Object.values(NPCS).forEach((n) => { if (!n.cur || n.cur.source !== "host") npcStop(n); });
+            return m === "on" ? "CHARACTERS: ALL ON - CLICK TO TALK, GREETINGS AND ANNOUNCEMENTS" : m === "host" ? "CHARACTERS: HOST ONLY - CLICKS AND GREETINGS OFF, ONLY YOUR BUTTONS (AND GAME ANNOUNCEMENTS)" : "CHARACTERS: ALL OFF - NOBODY TALKS BY THEMSELVES (YOUR BUTTONS STILL WORK)";
+          }
+          if (a1 === "hush") { Object.values(NPCS).forEach(npcStop); return "EVERY CHARACTER STOPPED TALKING"; }
+          if (a1 === "say") {
+            const n = NPCS[(parts[2] || "").toLowerCase()], line = parts[3] || ""; if (!n) return "NPC SAY <who> <line> - WHO: " + Object.keys(NPCS).join(" / ");
+            if (!n.lines[line]) return "NO LINE " + line.toUpperCase() + " FOR " + n.key.toUpperCase();
+            npcTalk(n, line, undefined, true, "host"); return n.key.toUpperCase() + " SAYS: " + line.toUpperCase();
+          }
+          return "NPC: mode on|host|off, say <who> <line>, hush";
         }
         if (cmd === "name") {                                         // name <id> <text>
           const id = +parts[1]; const t = parts.slice(2).join(" ").slice(0, 18); if (!ONLINE.has(id) || !t) return "NAME <player id> <name>";
