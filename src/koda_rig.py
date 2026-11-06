@@ -64,7 +64,7 @@ class Rig:
             D[i] = (Wb.T @ axang(ax, deg) @ Wb) @ D.get(i, np.eye(3))        # later entries apply after earlier ones
         return {i: q_from_m(self.R[i] @ d) for i, d in D.items()}
 
-    def add_clip(self, name, keys, period):
+    def add_clip(self, name, keys, period, extra=()):
         """keys: [(t seconds, pose list, pelvis offset xyz)] - the first key is repeated at t=period so the loop is seamless"""
         keys = list(keys) + [(period, keys[0][1], keys[0][2])]
         bones = sorted({self.idx[b] for (_, p, _) in keys for (b, _, _) in p})
@@ -93,6 +93,9 @@ class Rig:
             tr = np.array([self.T[pi] + Wp.T @ np.array(k[2], float) for k in keys])
             samps.append({'input': ta, 'output': put(tr, 'VEC3'), 'interpolation': 'LINEAR'})
             chans.append({'sampler': len(samps) - 1, 'target': {'node': pi, 'path': 'translation'}})
+        for (node, path, tt, vals) in extra:                        # e.g. a held prop's scale (packs vanishing, cards appearing)
+            samps.append({'input': put(np.array(tt, np.float32), 'SCALAR', True), 'output': put(np.array(vals), 'VEC3' if path != 'rotation' else 'VEC4'), 'interpolation': 'LINEAR'})
+            chans.append({'sampler': len(samps) - 1, 'target': {'node': node, 'path': path}})
         self.js['animations'] = [{'name': name, 'channels': chans, 'samplers': samps}]
 
     def world_m(self, pose, bone):
@@ -106,40 +109,79 @@ class Rig:
         return M
 
     def attach(self, glb_path, bone, Mlocal):
-        """merge another GLB's meshes in as a child of `bone`, with local matrix Mlocal"""
+        """(v31, owner: "i dont see the kodas holding a glass of beer") Otherside only draws the SKINNED meshes of an animated
+        model, so a prop is merged in as its own skinned mesh: a new joint 'prop_N' (child of `bone`, local matrix Mlocal) and
+        every prop vertex weighted 100 % to it. Animating the joint's scale shows / hides the prop. Returns the joint index."""
         js2, b2 = read_glb(glb_path)
-        while len(self.bin) % 4: self.bin.append(0)
-        off = len(self.bin); self.bin.extend(b2)
-        nv, na, nm, ni, nt, ns, nmesh, nn = (len(self.js.get(k, [])) for k in ('bufferViews', 'accessors', 'materials', 'images', 'textures', 'samplers', 'meshes', 'nodes'))
-        for v in js2['bufferViews']: v = dict(v); v['buffer'] = 0; v['byteOffset'] = v.get('byteOffset', 0) + off; self.js['bufferViews'].append(v)
-        for a in js2['accessors']: a = dict(a); a['bufferView'] += nv; self.js['accessors'].append(a)
-        for im in js2.get('images', []): im = dict(im); im['bufferView'] += nv; self.js.setdefault('images', []).append(im)
+        N = self.js['nodes']
+        # 1. the joint
+        A = Mlocal[:3, :3]; sc = np.linalg.norm(A, axis=0)
+        jn = {'name': 'prop_%d' % len(N), 'translation': [float(v) for v in Mlocal[:3, 3]], 'rotation': [float(v) for v in q_from_m(A / sc)], 'scale': [float(v) for v in sc]}
+        N.append(jn); ji = len(N) - 1; N[self.idx[bone]].setdefault('children', []).append(ji)
+        Wj = self.world_m([], bone) @ Mlocal                         # the joint's bind (T-pose) world matrix
+        # 2. copy textures / materials
+        nm, ni, nt, ns = (len(self.js.get(k, [])) for k in ('materials', 'images', 'textures', 'samplers'))
+        def view(data):
+            while len(self.bin) % 4: self.bin.append(0)
+            self.js['bufferViews'].append({'buffer': 0, 'byteOffset': len(self.bin), 'byteLength': len(data)}); self.bin.extend(data)
+            return len(self.js['bufferViews']) - 1
+        def acc_arr(arr, typ, comp=5126, mm=False):
+            a = {'bufferView': view(arr.tobytes()), 'componentType': comp, 'count': len(arr), 'type': typ}
+            if mm: a['min'] = [float(v) for v in arr.min(0)]; a['max'] = [float(v) for v in arr.max(0)]
+            self.js['accessors'].append(a); return len(self.js['accessors']) - 1
+        def read(i):
+            a = js2['accessors'][i]; bv = js2['bufferViews'][a['bufferView']]; o = bv.get('byteOffset', 0) + a.get('byteOffset', 0)
+            n = {'SCALAR': 1, 'VEC2': 2, 'VEC3': 3, 'VEC4': 4}[a['type']]; dt = {5126: np.float32, 5123: np.uint16, 5125: np.uint32, 5121: np.uint8}[a['componentType']]
+            st = bv.get('byteStride')
+            if st and st != n * np.dtype(dt).itemsize:
+                raw = np.frombuffer(b2, np.uint8, st * a['count'], o).reshape(a['count'], st)[:, :n * np.dtype(dt).itemsize].copy()
+                return raw.view(dt).reshape(a['count'], n)
+            return np.frombuffer(b2, dt, a['count'] * n, o).reshape(a['count'], n).copy()
+        for im in js2.get('images', []):
+            v = js2['bufferViews'][im['bufferView']]; d = b2[v.get('byteOffset', 0): v.get('byteOffset', 0) + v['byteLength']]
+            im = dict(im); im['bufferView'] = view(d); self.js.setdefault('images', []).append(im)
         self.js.setdefault('samplers', []).extend(js2.get('samplers', []))
         for t in js2.get('textures', []):
             t = dict(t); t['source'] += ni
             if 'sampler' in t: t['sampler'] += ns
             self.js.setdefault('textures', []).append(t)
-        def fix_tex(o):                                             # every *Texture {index} in a material
+        def fix_tex(o):
             if isinstance(o, dict):
                 for k, v in o.items():
                     if k.endswith('Texture') and isinstance(v, dict) and 'index' in v: v['index'] += nt
                     fix_tex(v)
         for m in js2.get('materials', []): m = json.loads(json.dumps(m)); fix_tex(m); self.js['materials'].append(m)
-        for me in js2['meshes']:
-            me = json.loads(json.dumps(me))
-            for p in me['primitives']:
-                p['attributes'] = {k: v + na for k, v in p['attributes'].items()}
-                if 'indices' in p: p['indices'] += na
-                if 'material' in p: p['material'] += nm
-            self.js['meshes'].append(me)
-        for n in js2['nodes']:
-            n = json.loads(json.dumps(n))
-            if 'mesh' in n: n['mesh'] += nmesh
-            if 'children' in n: n['children'] = [c + nn for c in n['children']]
-            self.js['nodes'].append(n)
-        roots = [r + nn for r in js2['scenes'][js2.get('scene', 0)]['nodes']]
-        holder = {'name': 'held_prop', 'matrix': [float(v) for v in Mlocal.T.reshape(-1)], 'children': roots}
-        self.js['nodes'].append(holder); self.js['nodes'][self.idx[bone]].setdefault('children', []).append(len(self.js['nodes']) - 1)
+        # 3. every mesh node of the prop, its node transforms baked, moved into bind space, weighted to the joint
+        def local(n):
+            if 'matrix' in n: return np.array(n['matrix']).reshape(4, 4).T
+            L = np.eye(4); L[:3, :3] = m_from_q(n.get('rotation', [0, 0, 0, 1])) * np.array(n.get('scale', [1, 1, 1])); L[:3, 3] = n.get('translation', [0, 0, 0]); return L
+        prims = []
+        def walk(i, Mp):
+            n = js2['nodes'][i]; Mw = Mp @ local(n)
+            if 'mesh' in n:
+                for p in js2['meshes'][n['mesh']]['primitives']:
+                    G = Wj @ Mw; P = read(p['attributes']['POSITION']).astype(np.float64)
+                    P = (np.c_[P, np.ones(len(P))] @ G.T)[:, :3].astype(np.float32)
+                    attrs = {'POSITION': acc_arr(np.ascontiguousarray(P), 'VEC3', mm=True)}
+                    if 'NORMAL' in p['attributes']:
+                        Nn = read(p['attributes']['NORMAL']).astype(np.float64) @ np.linalg.inv(G[:3, :3])
+                        Nn /= np.linalg.norm(Nn, axis=1, keepdims=True) + 1e-12; attrs['NORMAL'] = acc_arr(np.ascontiguousarray(Nn.astype(np.float32)), 'VEC3')
+                    if 'TEXCOORD_0' in p['attributes']: attrs['TEXCOORD_0'] = acc_arr(np.ascontiguousarray(read(p['attributes']['TEXCOORD_0']).astype(np.float32)), 'VEC2')
+                    nv = len(P)
+                    attrs['JOINTS_0'] = acc_arr(np.zeros((nv, 4), np.uint16), 'VEC4', 5123)
+                    attrs['WEIGHTS_0'] = acc_arr(np.tile(np.array([1, 0, 0, 0], np.float32), (nv, 1)), 'VEC4')
+                    q = {'attributes': attrs}
+                    if 'indices' in p: q['indices'] = acc_arr(np.ascontiguousarray(read(p['indices']).reshape(-1).astype(np.uint32)), 'SCALAR', 5125)
+                    if 'material' in p: q['material'] = p['material'] + nm
+                    prims.append(q)
+            for c in n.get('children', []): walk(c, Mw)
+        for r in js2['scenes'][js2.get('scene', 0)]['nodes']: walk(r, np.eye(4))
+        self.js['meshes'].append({'name': 'prop', 'primitives': prims})
+        ibm = np.linalg.inv(Wj).T.reshape(1, 16).astype(np.float32)
+        self.js['skins'].append({'joints': [ji], 'inverseBindMatrices': acc_arr(ibm, 'MAT4'), 'skeleton': self.idx.get('root', self.idx['pelvis'])})
+        N.append({'name': 'prop_mesh_%d' % ji, 'mesh': len(self.js['meshes']) - 1, 'skin': len(self.js['skins']) - 1})
+        N[self.idx['root']].setdefault('children', []).append(len(N) - 1)
+        return ji
 
     def save(self, path, tex=512):
         self.js['buffers'] = [{'byteLength': len(self.bin)}]
@@ -200,6 +242,6 @@ if __name__ == '__main__':
         Hm = rig.world_m(rest, 'hand_r')                             # the stein, upright in the world in the resting pose, in the palm
         pr = Hm[:3, 3]; Wm = np.eye(4); MUGH = 0.16
         js2, _ = read_glb('/home/claude/spire/out/glb/sp_mug.glb')
-        Wm[:3, :3] *= 0.85; Wm[:3, 3] = pr + np.array([-0.032, -0.06, 0.035])
+        Wm[:3, :3] *= 1.25; Wm[:3, 3] = pr + np.array([-0.045, -0.085, 0.045])
         rig.attach('/home/claude/spire/out/glb/sp_mug.glb', 'hand_r', np.linalg.inv(Hm) @ Wm)
     print(dst, rig.save(dst) // 1024, 'KB')
