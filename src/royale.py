@@ -1,13 +1,13 @@
 """MUD ROYALE (game 2, floor 3 'cards', y 32) - the arena. Called by build_html.py: royale.apply(D, L, FL).
 
 The owner's rules (agreed): players WALK ONTO a team's area to join it and can switch until the host presses START. Then every player
-gets 5 Mudwater cards and places them on squares of a 100-square board (10 x 10). After 3 minutes the team holding the most squares wins.
+gets 5 Mudwater cards and places them on squares of a 196-square board (14 x 14; it was 10 x 10 until v36). After 3 minutes the team holding the most squares wins.
 Placing a card next to an enemy card captures it when your card's number on that side beats theirs (each card has top / left / right /
 bottom numbers, printed in its corner) - the Mudwater card rules, like the owner's Territory game but with cards.
 
 Built here (static GLBs) + D['royale'] for the game code in spire_src.html (block "MUD ROYALE"):
-  sp_royale.glb (one model, shared textures):
-                         a low dais with the 10 x 10 board (green felt squares, gold inlay, dark timber frame, gilt corner diamonds)
+  sp_royale.glb (one model, shared textures): corner score signs (no hanging scoreboard - owner) +
+                         a low dais with the 14 x 14 board (green felt squares, gold inlay, dark timber frame, gilt corner diamonds)
   sp_royale_pens.glb   : 4 team pens round the board (rope-and-post fences, team-colour flag poles, a hanging name board each)
   sp_royale_score.glb  : a four-sided scoreboard hanging over the middle of the board on chains
   sp_royale_hands.glb  : 4 hanging "YOUR HAND" boards, one over each edge of the board, tilted down at the players
@@ -29,11 +29,11 @@ TEAMS = [  # key, name sprite, colour (hex for the page), rgb 0..1 for the model
     ('bullfrogs', 'rt_2', '#f2b632', (0.95, 0.70, 0.18)),
     ('catfish', 'rt_3', '#33c9c0', (0.20, 0.76, 0.72)),
 ]
-N, TS = 10, 2.6                      # 10 x 10 squares, 2.6 m each
-B = N * TS / 2                       # half the board = 13 m
+N, TS = 14, 2.6                      # (v36, owner) 14 x 14 = 196 squares, 2.6 m each (36.4 m board) for 100+ players
+B = N * TS / 2                       # half the board = 18.2 m
 DH = 0.12                            # the dais is 12 cm high: you walk straight up onto it
 FRAME = 1.3                          # timber frame round the squares
-PENS = [(0.0, -23.0, 0.0), (26.5, 0.0, -90.0), (0.0, 23.0, 180.0), (-26.5, 0.0, 90.0)]   # x, z, ry: each pen faces the board
+PENS = [(0.0, -29.0, 0.0), (33.0, 0.0, -90.0), (0.0, 29.0, 180.0), (-33.0, 0.0, 90.0)]   # x, z, ry: each pen faces the board
 PEN_W, PEN_D = 12.0, 6.0
 
 
@@ -117,27 +117,35 @@ def pens_glb(m, mats, Y):
         bevel_box(m, 'team%d' % ti, 7.3, 0.12, 0.2, 0.01, m=L_(0, Y + 2.95, -PEN_D / 2 - 0.25))
 
 
-SC_Y, SC_HALF, SC_W, SC_H = 4.35, 4.6, 9.0, 3.3        # scoreboard bottom (above the floor), half depth, face width, face height
-HB_Y, HB_OUT, HB_TILT = 5.45, 0.6, 27.0                # hand boards: centre height, how far outside the board edge, tilt down
+SC_W, SC_H, SC_B = 6.8, 2.9, 0.95                       # corner score signs: face width, face height, height of the bottom edge
+CORNER = 24.0                                            # they stand at the four corners of the board, facing it
+
+
+def corner_frames():
+    """[x, z, ry] of the four corner score signs; ry turns the face towards the middle of the board"""
+    return [[sx * CORNER, sz * CORNER, round(math.degrees(math.atan2(-sx, -sz)), 1)] for sx in (-1, 1) for sz in (-1, 1)]
 
 
 def score_glb(m, mats, Y):
+    """(v36, owner: no jumbotron - "we just need to clearly see who's winning from signs around the board") a sturdy double-sided timber
+    sign at each corner: the scores face the board, the rules face outwards"""
     for ti, (_, _, _, rgb) in enumerate(TEAMS): mats['team%d' % ti] = team_mat(rgb, 0.45)
     mats['face'] = dict(color=(0.05, 0.035, 0.025, 1), rough=0.9)
-    y0 = Y + SC_Y
-    bevel_box(m, 'dark', 2 * SC_HALF + 0.3, 0.35, 2 * SC_HALF + 0.3, 0.04, m=T(0, y0 + SC_H + 0.17, 0), uvs=3.0)
-    bevel_box(m, 'dark', 2 * SC_HALF + 0.3, 0.3, 2 * SC_HALF + 0.3, 0.04, m=T(0, y0 - 0.15, 0), uvs=3.0)
-    for a in (0, 90, 180, 270):
-        R_ = Ry(a)
-        bevel_box(m, 'face', SC_W, SC_H, 0.12, 0.02, m=M(R_, T(0, y0 + SC_H / 2, SC_HALF)), uvs=2.0)
-        bevel_box(m, 'gold', SC_W + 0.1, 0.06, 0.16, 0.01, m=M(R_, T(0, y0 + SC_H - 0.03, SC_HALF + 0.02)))
-        bevel_box(m, 'gold', SC_W + 0.1, 0.06, 0.16, 0.01, m=M(R_, T(0, y0 + 0.03, SC_HALF + 0.02)))
-        for k in range(4):                                                       # a colour strip under each team's column
-            bevel_box(m, 'team%d' % k, 1.9, 0.08, 0.05, 0.01, m=M(R_, T(-3.3 + 2.2 * k, y0 + 2.12, SC_HALF + 0.08)))
-    for sx in (-1, 1):                                                           # corner posts + chains up to the ceiling beams
-        for sz in (-1, 1):
-            bevel_box(m, 'dark', 0.3, SC_H + 0.6, 0.3, 0.03, m=T(sx * SC_HALF, y0 + SC_H / 2, sz * SC_HALF), uvs=1.0)
-            tube(m, 'iron', [(sx * SC_HALF, y0 + SC_H + 0.3, sz * SC_HALF), (sx * SC_HALF * 0.6, Y + 7.95, sz * SC_HALF * 0.6)], 0.035, 5)
+    for (x, z, ry) in corner_frames():
+        W_ = M(T(x, Y, z), Ry(ry)); L_ = lambda a, b, c: M(W_, T(a, b, c))
+        for px in (-SC_W / 2 - 0.15, SC_W / 2 + 0.15):                       # two big posts with gilt caps
+            bevel_box(m, 'dark', 0.3, SC_B + SC_H + 0.5, 0.3, 0.03, m=L_(px, (SC_B + SC_H + 0.5) / 2, 0), uvs=1.5)
+            sphere(m, 'gold', 0.17, 10, 8, m=L_(px, SC_B + SC_H + 0.6, 0))
+        bevel_box(m, 'dark', SC_W + 0.3, SC_H + 0.3, 0.22, 0.03, m=L_(0, SC_B + SC_H / 2, 0), uvs=2.0)
+        bevel_box(m, 'face', SC_W, SC_H, 0.05, 0.01, m=L_(0, SC_B + SC_H / 2, 0.11), uvs=2.0)
+        for yy in (SC_B + 0.04, SC_B + SC_H - 0.04):
+            bevel_box(m, 'gold', SC_W + 0.35, 0.06, 0.28, 0.01, m=L_(0, yy, 0))
+        for k in range(4):                                                    # a colour strip over each team's column
+            bevel_box(m, 'team%d' % k, 1.35, 0.07, 0.04, 0.01, m=L_(-2.4 + 1.6 * k, SC_B + 2.02, 0.15))
+        bevel_box(m, 'dark', SC_W + 0.9, 0.16, 0.6, 0.03, m=L_(0, SC_B + SC_H + 0.3, 0), uvs=2.0)   # a little roof
+
+
+HB_Y, HB_OUT, HB_TILT = 5.45, 0.6, 27.0                # hand boards: centre height, how far outside the board edge, tilt down
 
 
 def hand_frames():
@@ -167,15 +175,10 @@ def apply(D, L, FL):
     card_images()
     m = Mesh(); mats = dict(MATS)                                  # ONE model for the whole arena: the wood/gold textures are shared
     board_glb(m, mats, Y); pens_glb(m, mats, Y); score_glb(m, mats, Y); hands_glb(m, mats, Y)
-    signs = []                                                      # the rules, on two posts at each corner of the board, facing out
-    for sx in (-1, 1):
-        for sz in (-1, 1):
-            x, z, ry = sx * 19.0, sz * 19.0, math.degrees(math.atan2(sx, sz))
-            for px in (-3.15, 3.15):
-                bevel_box(m, 'dark', 0.2, 3.1, 0.2, 0.02, m=M(T(x, Y + 1.55, z), Ry(ry), T(px, 0, -0.08)), uvs=1.0)
-                sphere(m, 'gold', 0.12, 8, 6, m=M(T(x, Y + 3.15, z), Ry(ry), T(px, 0, -0.08)))
-            bevel_box(m, 'dark', 6.5, 1.85, 0.08, 0.02, m=M(T(x, Y + 2.25, z), Ry(ry), T(0, 0, -0.1)), uvs=2.0)
-            signs.append([x, Y + 2.25, z, round(ry, 1)])
+    signs = []                                                      # the rules ride on the back of each corner sign, facing out
+    for (x, z, ry) in corner_frames():
+        a = math.radians(ry)
+        signs.append([round(x - 0.12 * math.sin(a), 3), Y + SC_B + SC_H / 2, round(z - 0.12 * math.cos(a), 3), round(ry + 180, 1)])
     write(OUTG + 'sp_royale.glb', m, mats)
     D.setdefault('roofModels', []).append(['sp_royale', 0, 0, 0])
     pads = D.setdefault('pads', [])
@@ -186,7 +189,7 @@ def apply(D, L, FL):
         y=Y, top=round(Y + DH + 0.02, 3), n=N, ts=TS, half=B,
         teams=[[k, spr, hx] for (k, spr, hx, _) in TEAMS],
         pens=[[x, z, ry, PEN_W, PEN_D] for (x, z, ry) in PENS],
-        score=[SC_Y, SC_HALF, SC_W, SC_H],
+        score=[[x, Y + SC_B, z, ry] for (x, z, ry) in corner_frames()],
         hands=hand_frames(),
         cards=[[cards[str(k)]['t'], cards[str(k)]['l'], cards[str(k)]['r'], cards[str(k)]['b']] for k in range(1, 121)],
         secs=180, hand=5, signs=signs,

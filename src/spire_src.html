@@ -540,18 +540,20 @@
         penSlab[ti] = slab;
       });
       (R.signs || []).forEach(([x, y, z, ry]) => { model("sg_royale_rules.glb", { x, y, z, ry, collide: "false" })._global = true; });
-      // ---- the four-sided scoreboard over the middle
-      const [SCY, SCH] = R.score;
-      const faces = [0, 90, 180, 270].map((a) => {
-        const f = el("m-group", { y: R.y + SCY, ry: a }); f._global = true;
-        const fg = el("m-group", { z: R.score[1] + 0.1 }, f);
-        word("royale", 0.62, { x: -2.3, y: 2.88 }, fg);
-        const clock = el("m-group", { x: 2.6, y: 2.7 }, fg);
-        const cap = el("m-group", { x: -2.3, y: 2.42 }, fg);
-        const cols = TM.map((t, k) => { word(t[1], 0.42, { x: -3.3 + 2.2 * k, y: 1.82 }, fg); return el("m-group", { x: -3.3 + 2.2 * k, y: 1.0 }, fg); });
-        const bar = el("m-cube", { y: 0.24, width: 8.2, height: 0.1, depth: 0.03, color: "#d9a441", collide: "false", "cast-shadows": "false" }, fg);
-        const big = el("m-group", {}, fg);                                    // winner / messages over the columns
-        return { fg, clock, cap, cols, bar, big, shown: {} };
+      // ---- (v36) the four corner score signs at eye level (owner: no jumbotron, just see who's winning from signs round the board).
+      // Each shows the clock and every team's squares (players before the start); the team in the lead gets a gold glow behind it.
+      const COLX = (k) => -2.4 + 1.6 * k;
+      const faces = R.score.map(([sx, sy, sz, sry]) => {
+        const f = el("m-group", { x: sx, y: sy, z: sz, ry: sry }); f._global = true;
+        const fg = el("m-group", { z: 0.15 }, f);
+        word("royale", 0.46, { x: -1.75, y: 2.5 }, fg);
+        const clock = el("m-group", { x: 1.95, y: 2.42, sx: 0.78, sy: 0.78, sz: 0.78 }, fg);
+        const cap = el("m-group", { x: -1.75, y: 2.16 }, fg);
+        const lead = el("m-cube", { y: 1.28, z: -0.012, width: 1.5, height: 1.62, depth: 0.01, color: "#b8892a", opacity: 0.6, visible: "false", collide: "false", "cast-shadows": "false" }, fg);
+        const cols = TM.map((t, k) => { word(t[1], 0.33, { x: COLX(k), y: 1.78 }, fg); return el("m-group", { x: COLX(k), y: 1.0 }, fg); });
+        const bar = el("m-cube", { y: 0.2, width: 6.2, height: 0.09, depth: 0.03, color: "#d9a441", collide: "false", "cast-shadows": "false" }, fg);
+        const big = el("m-group", { sx: 0.72, sy: 0.72, sz: 0.72, y: 0.15 }, fg);   // winner / tie over the columns
+        return { fg, clock, cap, cols, bar, big, lead, shown: {} };
       });
       const setNum = (g, n, h, key, cache) => { if (cache[key] === n) return; cache[key] = n; Array.from(g.children).forEach((c) => c.remove()); digits(n, h, {}, g); };
       function rCounts() {
@@ -560,9 +562,11 @@
         const players = TM.map((_, k) => Array.from(RY.roster.values()).filter((t) => t === k).length);
         penCount.forEach((g, k) => setNum(g, players[k], 1.55, "p" + k, faces[0].shown));
         faces.forEach((F, fi) => {
-          F.cols.forEach((g, k) => setNum(g, per[k], 1.05, "c" + k, F.shown));
+          F.cols.forEach((g, k) => setNum(g, per[k], 0.85, "c" + k, F.shown));
+          const best = Math.max(...per), lead = live && per.filter((v) => v === best).length === 1 && best > 0 ? per.indexOf(best) : -1;   // the leader glows
+          if (F.shown.lead !== lead) { F.shown.lead = lead; if (lead < 0) F.lead.setAttribute("visible", "false"); else { F.lead.setAttribute("x", String(COLX(lead))); F.lead.setAttribute("visible", "true"); } }
           const capKey = live ? "r_squares" : "r_players";
-          if (F.shown.cap !== capKey) { F.shown.cap = capKey; Array.from(F.cap.children).forEach((c) => c.remove()); word(capKey, 0.24, {}, F.cap); }
+          if (F.shown.cap !== capKey) { F.shown.cap = capKey; Array.from(F.cap.children).forEach((c) => c.remove()); word(capKey, 0.2, {}, F.cap); }
         });
         return per;
       }
@@ -574,7 +578,7 @@
           digits(m, 0.85, { x: -0.62 }, F.clock); word("r_colon", 0.85, { x: -0.17 }, F.clock); digits(Math.floor(sc / 10), 0.85, { x: 0.3 }, F.clock); digits(sc % 10, 0.85, { x: 0.84 }, F.clock);
         });
       }
-      function rBig(keys) { faces.forEach((F) => { Array.from(F.big.children).forEach((c) => c.remove()); (keys || []).forEach(([k, h, x, y]) => word(k, h * 1.4, { x, y }, F.big)); F.cols.forEach((g) => g.setAttribute("visible", keys && keys.length ? "false" : "true")); }); }
+      function rBig(keys) { faces.forEach((F) => { Array.from(F.big.children).forEach((c) => c.remove()); (keys || []).forEach(([k, h, x, y]) => word(k, h * 1.4, { x, y }, F.big)); F.cols.forEach((g) => g.setAttribute("visible", keys && keys.length ? "false" : "true")); if (keys && keys.length) F.lead.setAttribute("visible", "false"); else F.shown.lead = undefined; }); }
       // ---- the four YOUR HAND boards (each player's cards are shown only to that player)
       const HANDS = R.hands.map(([hx, hy, hz, hry, tilt]) => {
         const o = el("m-group", { x: hx, y: R.y + hy, z: hz, ry: hry }); o._global = true;
@@ -645,7 +649,7 @@
         if (best === 0) rBig([["r_time", 0.9, 0, 1.2]]);
         else if (top.length === 1) rBig([[TM[top[0]][1], 0.85, 0, 1.45], ["r_wins", 0.6, 0, 0.7]]);
         else rBig([["r_tie", 0.8, 0, 1.2]]);
-        if (mvp !== null) faces.forEach((F) => { word("r_mvp", 0.3, { x: -2.2, y: 0.25 }, F.big); el("m-label", { x: 0.6, y: 0.25, width: 4.6, height: 0.4, content: nameOf(pl(mvp)) + "  (" + mv + ")", "font-size": 30, alignment: "left", color: "#0d0907", "font-color": "#ffe6a8", emissive: 0.35, collide: "false" }, F.big); });
+        if (mvp !== null) faces.forEach((F) => { word("r_mvp", 0.32, { x: -3.0, y: 0.32 }, F.big); el("m-label", { x: 0.55, y: 0.32, width: 5.4, height: 0.5, content: nameOf(pl(mvp)) + "  (" + mv + ")", "font-size": 30, alignment: "left", color: "#0d0907", "font-color": "#ffe6a8", emissive: 0.35, collide: "false" }, F.big); });
         RY.hands.forEach((H, id) => { H.els.forEach((e) => e.remove()); H.els = []; handMsg(id, ["r_time"], 3000); });
         sfx("winner.mp3", 0, R.y + 4, 0, 0.9);
         hostMsg("MUD ROYALE OVER: " + TM.map((t, k) => t[0].toUpperCase() + " " + per[k]).join(", ") + (mvp !== null ? " - MVP " + nameOf(pl(mvp)) + " (" + mv + ")" : ""));

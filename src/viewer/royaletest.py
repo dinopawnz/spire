@@ -10,7 +10,7 @@ with sync_playwright() as p:
     b = p.chromium.launch(args=["--no-sandbox"]); pg = b.new_page(); errs = []
     pg.on("pageerror", lambda e: errs.append(str(e)))
     pg.goto("file://" + sys.argv[1]); time.sleep(1)
-    NB = 40
+    NB = 45
     pg.evaluate("(n) => { for (let id = 1; id <= n + 1; id++) window.dispatchEvent(new CustomEvent('connected', {detail:{connectionId:id}})); }", NB)
     say = lambda c: pg.evaluate("(c) => document.getElementById('sp-host').dispatchEvent(new CustomEvent('prompt', {detail:{value:'7747 '+c, connectionId:1}, bubbles:true}))", c)
     ack = lambda: json.loads(pg.evaluate("() => document.querySelector('[data-ack]').getAttribute('data-ack')"))['t']
@@ -40,8 +40,8 @@ with sync_playwright() as p:
     print("bot 2 hand:", hand(2), "| late joiner hand:", hand(50))
     board = {}            # tile -> [card, team]
     caps_ok = caps_bad = 0
-    N = 10
-    for rnd in range(5):
+    N = int(round(pg.evaluate('() => __R.tiles.length') ** 0.5)); NN = N * N; HALF = N * 2.6 / 2
+    for rnd in range(6):
         for id in range(2, NB + 2):
             h = hand(id)
             if not h: continue
@@ -49,7 +49,7 @@ with sync_playwright() as p:
             pg.evaluate("""([id, x]) => { const g = Array.from(document.querySelectorAll('m-group[visible-to="' + id + '"]')).filter(g => g.querySelector('m-image[src*="royale/c_"]'))[0];
                 const hb = Array.from(g.querySelectorAll('m-cube')).find(c => c.getAttribute('x') === String(x) && c.getAttribute('opacity') === '0'); __R.f(hb, 'click', {connectionId: id}); }""", [id, h[pick][1]])
             card = h[pick][0]
-            free = [i for i in range(100) if i not in board]
+            free = [i for i in range(NN) if i not in board]
             if not free: break
             i = rng.choice(free)
             time.sleep(0.36 / 40)
@@ -58,7 +58,7 @@ with sync_playwright() as p:
             mine = V(card); exp = []
             for d, ms, ts in ((-N, 0, 3), (N, 3, 0), (-1, 1, 2), (1, 2, 1)):
                 j = i + d
-                if j < 0 or j >= 100 or (d == -1 and i % N == 0) or (d == 1 and i % N == N - 1) or j not in board: continue
+                if j < 0 or j >= NN or (d == -1 and i % N == 0) or (d == 1 and i % N == N - 1) or j not in board: continue
                 if board[j][1] != team[id] and mine[ms] > V(board[j][0])[ts]: exp.append(j)
             board[i] = [card, team[id]]
             for j in exp: board[j][1] = team[id]
@@ -68,7 +68,7 @@ with sync_playwright() as p:
         return Array.from(document.querySelectorAll('m-image[src*="royale/t_"]')).map(im => { const g = im.parentNode; return [parseFloat(g.getAttribute('x')), parseFloat(g.getAttribute('z')), parseInt(im.getAttribute('src').match(/t_(\\d)/)[1])]; }); }""")
     page = {}
     for x, z, t in glows:
-        c = int(round((x + 13 - 1.3) / 2.6)); r = int(round((z + 13 - 1.3) / 2.6)); page[r * 10 + c] = t
+        c = int(round((x + HALF - 1.3) / 2.6)); r = int(round((z + HALF - 1.3) / 2.6)); page[r * N + c] = t
     same = sum(1 for i in board if page.get(i) == board[i][1])
     print("squares placed", len(board), "| page agrees with the card-number model on", same, "of", len(board))
     say("royale"); print(ack()); assert "LIVE" in ack(), "the game must keep running when the board is full"
@@ -80,7 +80,7 @@ with sync_playwright() as p:
         card, x = h[0]
         pg.evaluate("""([id, x]) => { const g = Array.from(document.querySelectorAll('m-group[visible-to="' + id + '"]')).filter(g => g.querySelector('m-image[src*="royale/c_"]'))[0];
             const hb = Array.from(g.querySelectorAll('m-cube')).find(c => c.getAttribute('x') === String(x) && c.getAttribute('opacity') === '0'); __R.f(hb, 'click', {connectionId: id}); }""", [id, x])
-        i = rng.randrange(100); time.sleep(0.01)
+        i = rng.randrange(NN); time.sleep(0.01)
         pg.evaluate("([id, i]) => __R.f(__R.tiles[i], 'click', {connectionId: id})", [id, i])
         after = hand(id) or []
         used = len(after) < len(h)
@@ -90,15 +90,15 @@ with sync_playwright() as p:
                 board[i] = [card, team[id]]; mine = V(card)
                 for d, ms, ts in ((-N, 0, 3), (N, 3, 0), (-1, 1, 2), (1, 2, 1)):
                     j = i + d
-                    if j < 0 or j >= 100 or (d == -1 and i % N == 0) or (d == 1 and i % N == N - 1): continue
+                    if j < 0 or j >= NN or (d == -1 and i % N == 0) or (d == 1 and i % N == N - 1): continue
                     if board[j][1] != team[id] and mine[ms] > V(board[j][0])[ts]: board[j][1] = team[id]
         else:
             up_refused += (not used); mism += used
     glows = pg.evaluate("""() => Array.from(document.querySelectorAll('m-image[src*="royale/t_"]')).map(im => { const g = im.parentNode; return [parseFloat(g.getAttribute('x')), parseFloat(g.getAttribute('z')), parseInt(im.getAttribute('src').match(/t_(\\d)/)[1])]; })""")
     page = {}
-    for x, z, t in glows: page[int(round((z + 11.7) / 2.6)) * 10 + int(round((x + 11.7) / 2.6))] = t
-    print("upgrades done", up_ok, "| weaker refused", up_refused, "| wrong", mism, "| squares on page", len(glows), "| page agrees on", sum(1 for i in board if page.get(i) == board[i][1]), "of 100")
-    assert mism == 0 and len(glows) == 100
+    for x, z, t in glows: page[int(round((z + HALF - 1.3) / 2.6)) * N + int(round((x + HALF - 1.3) / 2.6))] = t
+    print("upgrades done", up_ok, "| weaker refused", up_refused, "| wrong", mism, "| squares on page", len(glows), "| page agrees on", sum(1 for i in board if page.get(i) == board[i][1]), "of", NN)
+    assert mism == 0 and len(glows) == NN
     say("royale stop"); time.sleep(0.3)
     print([m for m in json.loads(pg.evaluate("() => document.querySelector('[data-ack]').getAttribute('data-ack')"))['l'] if 'OVER' in m['t']][-1]['t'])
     per = [sum(1 for v in board.values() if v[1] == k) for k in range(4)]; print("model per team", per)
