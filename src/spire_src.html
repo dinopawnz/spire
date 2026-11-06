@@ -11,7 +11,7 @@
   * HALL OF FAKES (Mud Match)  400 portraits of #62 The Founder along a ramp round the whole hall (399 fakes + 1 real).
                            4 rounds = 4 finalists, wrong pick = 5 s. Finals in the frosted glass vault at the top - 99 fake + 1 real #100 Black Flag.
   * MUD ROYALE   (game 2 - next version)
-  * Floor 4  GROUP MUD        (game 3 - next version)
+  * Floor 4  MUDWATER ESCAPE  (game 3)
   Text is pictures (glowing word models) everywhere except names on the leaderboard.
   Frame rate: every floor is its own ZONE (the castle's trick) - effects, signs and the 200 portraits are sent only to the players
   on that floor. LITE and REFRESH on the remote, as in the castle.
@@ -780,6 +780,292 @@
       RY.clear = () => { RY.roster.clear(); rOpen(); return "MUD ROYALE: TEAMS EMPTIED - EVERYONE PICKS AGAIN"; };
       RY.status = () => "MUD ROYALE " + RY.ph.toUpperCase() + ": " + TM.map((t, k) => t[0].toUpperCase() + " " + Array.from(RY.roster.values()).filter((v) => v === k).length + "p/" + RY.board.filter((b) => b && b.team === k).length + "sq").join(", ");
       rOpen();
+    }
+    // ---------------------------------------------------- MUDWATER ESCAPE (v43, game 3, floor 4). The owner's rules: every team begins in
+    // its own room and solves clues/puzzles to get to the next room (some up a stair). 6 teams walk in through a coloured door to join (they
+    // can switch until the host presses START, then the start doors lock). Each team: R1 LANTERN CODE -> R2 LILY PADS -> stair -> R3 CARD
+    // MEMORY -> R4 FROG CHOIR -> the VICTORY HALL. First team out wins. Codes, colours and card pairs are new every game.
+    // Host: escape open | start | end | reset | hint <team> | skip <team> | raffle (remote panel "Mudwater Escape").
+    const ES = { on: !!D.escape, ph: "open", roster: new Map(), tok: 0, t0: 0, order: [], teams: [] };
+    if (D.escape) {
+      const E = D.escape, TM = E.teams, NT = TM.length;
+      const eg = el("m-group", {}); eg._global = true;
+      model("sp_escape.glb", { collide: "false" }, eg);
+      model("sp_escape_col.glb", { collide: "true" }, eg);
+      (E.signs || []).forEach(([x, y, z, ry]) => model("sg_escape_rules.glb", { x, y, z, ry, collide: "false" }, eg));
+      const escStep = (g, attr, a, b, ms, n) => {                      // plain stepped moves (Otherside keeps the end value)
+        (g._steps || []).forEach((h) => cancel(h)); g._steps = [];
+        for (let i = 1; i <= n; i++) { const u = i / n, e = u < 0.5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2; g._steps.push(later(Math.round(ms * u), () => g.setAttribute(attr, String(r3(a + (b - a) * e))))); }
+        g._steps.push(later(ms + 500, () => g.setAttribute(attr, String(r3(b + (b > a ? 0.002 : -0.002))))));
+        g._steps.push(later(ms + 700, () => g.setAttribute(attr, String(r3(b)))));
+      };
+      const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+      const inTeam = (k) => Array.from(ES.roster.entries()).filter(([id, t]) => t === k && ONLINE.has(id)).map(([id]) => id);
+      // ---- the boards (corridor + Victory Hall): 4 lamps per team, the clock, the winner
+      const BOARDS = E.boards.map(([bx, by, bz, bry]) => {
+        const g = el("m-group", { x: bx, y: by, z: bz, ry: bry }, eg);
+        word("e_title", 0.5, { y: 1.62 }, g);
+        const lamps = TM.map((t, k) => [0, 1, 2, 3].map((r) => el("m-sphere", { x: (k - 2.5) * 1.45, y: 0.75 - r * 0.52, radius: 0.17, color: "#2a2018", emissive: 0, collide: "false", "cast-shadows": "false" }, g)));
+        const cnt = TM.map((t, k) => el("m-group", { x: (k - 2.5) * 1.45, y: -1.55 }, g));
+        const clock = el("m-group", { x: 3.6, y: 1.62, sx: 0.7, sy: 0.7, sz: 0.7 }, g);
+        const big = el("m-group", { y: 0.0, z: 0.25 }, g);
+        return { g, lamps, cnt, clock, big };
+      });
+      const clockShow = (secs) => BOARDS.forEach((B) => { Array.from(B.clock.children).forEach((c) => c.remove()); const m = Math.min(99, Math.floor(secs / 60)), s = secs % 60; digits(m, 0.42, { x: -0.55 }, B.clock); word("r_colon", 0.42, { x: -0.1 }, B.clock); word("d" + Math.floor(s / 10), 0.42, { x: 0.18 }, B.clock); word("d" + (s % 10), 0.42, { x: 0.46 }, B.clock); });
+      const lampsShow = () => BOARDS.forEach((B) => ES.teams.forEach((T, k) => B.lamps[k].forEach((l, r) => { const on = T.stage > r; l.setAttribute("color", on ? TM[k].c : "#2a2018"); l.setAttribute("emissive", on ? "1.4" : "0"); })));
+      const countsShow = () => BOARDS.forEach((B) => TM.forEach((t, k) => { Array.from(B.cnt[k].children).forEach((c) => c.remove()); digits(inTeam(k).length, 0.34, {}, B.cnt[k]); }));
+      // ---- one team's rooms
+      TM.forEach((t, k) => {
+        const T = { k, stage: 0, doors: [], code: [], typed: [], lant: [], found: [false, false, false, false], pads: [], padOn: new Map(), holdT: 0,
+                    cards: [], pairs: [], up: [], matched: new Set(), busy: false, frogs: [], song: [], round: 0, pos: 0, playing: false, rl: [], lastIn: 0, hints: [] };
+        ES.teams.push(T);
+        // doors: a timber leaf in each doorway (solid), slid into the wall to open
+        t.doors.forEach(([x, y, z], d) => {
+          const g = el("m-group", { x, y, z }, eg);
+          model("sp_esc_door.glb", { collide: "true" }, g);
+          T.doors.push({ g, z, open: false });
+        });
+        // join: the rug in R1 (a visible slab, the owner's Territory pads)
+        const [rx, ry_, rz, rw, rd] = t.rug;
+        const dim = "#" + [1, 3, 5].map((j) => Math.round(parseInt(t.c.substr(j, 2), 16) * 0.32).toString(16).padStart(2, "0")).join("");
+        const rug = el("m-cube", { x: rx, y: ry_ + 0.04, z: rz, width: rw, height: 0.08, depth: rd, color: dim, collide: "true", "collision-interval": 120, "cast-shadows": "false" }, eg);
+        const join = (e) => { const id = e.detail && e.detail.connectionId; if (typeof id === "number") eJoin(k, id); };
+        rug.addEventListener("collisionstart", join); rug.addEventListener("collisionmove", join);
+        word(t.word, 0.9, { x: t.doors[0][0] + t.side * 0.4, y: E.y0 + 4.0, z: t.zc, ry: 90 * t.side }, eg);       // the team colour over the start door (aisle side)
+        // R1: lanterns (click to see its number), the clue painting (4 gems in order), the keypad
+        t.lanterns.forEach(([x, y, z], i) => {
+          const g = el("m-group", { x, y, z }, eg);
+          const glass = el("m-sphere", { y: 0.18, radius: 0.16, color: "#ffffff", emissive: 1.2, collide: "false", "cast-shadows": "false" }, g);
+          const num = el("m-group", { y: 0.75 }, g);
+          const hb = hitBox({ y: 0.2, width: 0.6, height: 0.6, depth: 0.6 }, g);
+          [hb, glass].forEach((n) => n.addEventListener("click", () => { if (ES.ph === "live" && T.stage === 0) lanternShow(T, i); }));
+          T.lant.push({ g, glass, num });
+        });
+        T.clue = t.clue; T.gems = [0, 1, 2, 3].map((j) => el("m-sphere", { x: t.clue[0] + 0.02 * -t.side, y: t.clue[1], z: t.clue[2] + (j - 1.5) * 0.55 * t.side, radius: 0.19, color: "#555", emissive: 1.0, collide: "false", "cast-shadows": "false" }, eg));
+        t.keys.forEach(([x, y, z], d) => {
+          const g = el("m-group", { x, y, z, ry: 90 * t.side }, eg);
+          const w_ = word("d" + d, 0.24, { z: 0.035 }, g);
+          const hb = hitBox({ z: -0.01, width: 0.36, height: 0.36, depth: 0.04 }, g);
+          [w_, hb].forEach((n) => n.addEventListener("click", (e) => keyPress(T, d, e.detail && e.detail.connectionId)));
+        });
+        T.disp = el("m-group", { x: t.disp[0], y: t.disp[1], z: t.disp[2], ry: t.disp[3] }, eg);
+        T.dispBg = el("m-cube", { width: 1.3, height: 0.42, depth: 0.03, z: -0.02, color: "#0d0907", emissive: 0, collide: "false", "cast-shadows": "false" }, T.disp);
+        // R2: lily pads (stand on them; any 4 at once, fewer if the team is smaller)
+        t.pads.forEach(([x, y, z], i) => {
+          const p = el("m-cylinder", { x, y: y + 0.06, z, radius: 1.05, height: 0.12, color: "#2f6b2a", emissive: 0, collide: "true", "collision-interval": 150, "cast-shadows": "false" }, eg);
+          el("m-cylinder", { x, y: y + 0.125, z, radius: 0.18, height: 0.01, color: "#f2e6a8", emissive: 0.6, collide: "false", "cast-shadows": "false" }, eg);
+          const on = (e) => { const id = e.detail && e.detail.connectionId; if (typeof id === "number") padStep(T, i, id, true); };
+          const off = (e) => { const id = e.detail && e.detail.connectionId; if (typeof id === "number") padStep(T, i, id, false); };
+          p.addEventListener("collisionstart", on); p.addEventListener("collisionmove", on); p.addEventListener("collisionend", off);
+          T.pads.push({ p, who: new Map() });
+        });
+        // R3: 12 memory cards on the wall
+        t.cards.forEach(([x, y, z, ry], i) => {
+          const img = el("m-image", { x, y, z, ry, width: 1.15, height: 1.6, src: BASE + "esc/back.jpg" + VER, emissive: 0.35, collide: "false", "cast-shadows": "false" }, eg);
+          const back = polar(-0.09, ry, 0), hb = hitBox({ x: x + back[0], y, z: z + back[2], ry, width: 1.2, height: 1.65, depth: 0.05 }, eg);
+          [img, hb].forEach((n) => n.addEventListener("click", (e) => cardFlip(T, i, e.detail && e.detail.connectionId)));
+          T.cards.push({ img, face: 0, up: false });
+        });
+        // R4: four frogs on stumps; each lights up and croaks in its own voice
+        t.frogs.forEach(([x, y, z, ry], i) => {
+          const g = el("m-group", { x, y, z, ry }, eg), body = el("m-group", {}, g);
+          const ring = el("m-cylinder", { y: 0.0, radius: 0.55, height: 0.04, color: E.fcols[i], emissive: 0.15, collide: "false", "cast-shadows": "false" }, g);
+          const fm = E.frogm[i % 2]; model(fm[0] + ".glb", { x: fm[1], y: fm[2], z: fm[3], sx: fm[5], sy: fm[5], sz: fm[5], collide: "false" }, body);
+          const hb = hitBox({ y: 0.3, width: 1.0, height: 0.8, depth: 1.0 }, g);
+          [hb, ring].forEach((n) => n.addEventListener("click", (e) => frogPress(T, i, e.detail && e.detail.connectionId)));
+          T.frogs.push({ g, body, ring, x, y, z });
+        });
+        T.rlamps = [0, 1, 2].map((r) => el("m-sphere", { x: t.rounds[0], y: t.rounds[1] + 1.4 + r * 0.42, z: t.rounds[2], radius: 0.14, color: "#2a2018", emissive: 0, collide: "false", "cast-shadows": "false" }, eg));
+        el("m-cylinder", { x: t.rounds[0], y: t.rounds[1] + 0.6, z: t.rounds[2], radius: 0.08, height: 1.25, color: "#2a1d12", collide: "false" }, eg);
+      });
+      // ---- doors
+      function door(T, d, open) {
+        const D_ = T.doors[d]; if (D_.open === open) return; D_.open = open;
+        escStep(D_.g, "z", open ? D_.z : D_.z - E.slide, open ? D_.z - E.slide : D_.z, 1600, 9);
+        const [x, y, z] = TM[T.k].doors[d]; sfx(open ? "lift_chime.mp3" : "pool_rail.mp3", x, y + 1.6, z, 0.6);
+      }
+      function solved(T, room) {
+        if (ES.ph !== "live" || T.stage !== room) return;
+        T.stage = room + 1; door(T, room + 1, true); lampsShow();
+        const [x, y, z] = TM[T.k].doors[room + 1]; sfx("winner.mp3", x, y + 2, z, 0.45);
+        if (room === 3) finish(T);
+        else if (room === 2) later(3500, () => frogRound(T, 0));
+      }
+      function finish(T) {
+        ES.order.push(T.k); const secs = Math.round((now() - ES.t0) / 1000);
+        if (ES.order.length === 1) {
+          BOARDS.forEach((B) => { Array.from(B.big.children).forEach((c) => c.remove()); word(TM[T.k].word, 0.75, { y: -0.2 }, B.big); word("r_wins", 0.5, { y: -0.85 }, B.big); });
+          confetti(TM[T.k].c);
+          hostMsg("MUDWATER ESCAPE: " + TM[T.k].k.toUpperCase() + " ESCAPED FIRST! (" + Math.floor(secs / 60) + ":" + String(secs % 60).padStart(2, "0") + ") - " + inTeam(T.k).length + " PLAYERS");
+        } else hostMsg("MUDWATER ESCAPE: " + TM[T.k].k.toUpperCase() + " OUT IN PLACE " + ES.order.length + " (" + Math.floor(secs / 60) + ":" + String(secs % 60).padStart(2, "0") + ")");
+      }
+      function confetti(c) {
+        const [vx, vy, vz] = E.vh; sfx("winner.mp3", vx, vy + 2, vz, 1.0); sfx("finals.mp3", vx, vy + 2, vz - 20, 0.7);
+        for (let b = 0; b < 6; b++) later(b * 700, () => {
+          const g = el("m-group", { x: vx, y: vy + 3.2, z: vz + (b - 2.5) * 9 }, eg);
+          for (let i = 0; i < 16; i++) {
+            const a = i / 16 * Math.PI * 2, s = el("m-sphere", { radius: 0.12, color: i % 3 ? c : "#ffe08a", emissive: 3, collide: "false", "cast-shadows": "false" }, g);
+            tween(s, "x", 0, Math.cos(a) * 3.2, 1300, "easeOutQuad"); tween(s, "z", 0, Math.sin(a) * 3.2, 1300, "easeOutQuad"); tween(s, "y", 0, -2.4 + Math.random() * 1.4, 1300, "easeOutQuad");
+          }
+          later(1500, () => g.remove());
+        });
+      }
+      // ---- R1: lanterns + keypad
+      function lanternShow(T, i) {
+        if (T.found[i]) return; T.found[i] = true;
+        const L_ = T.lant[i]; digits(T.code[T.lcol.indexOf(i)], 0.45, {}, L_.num);
+        sfx("pool_clack_1.mp3", ...TM[T.k].lanterns[i], 0.5);
+      }
+      function keyPress(T, d, id) {
+        if (ES.ph !== "live" || T.stage !== 0 || T.typed.length >= 4) return;
+        const t = now(); if (t - T.lastIn < 180) return; T.lastIn = t;
+        T.typed.push(d); dispShow(T);
+        const [x, y, z] = TM[T.k].disp; sfx("pool_clack_0.mp3", x, y, z, 0.4);
+        if (T.typed.length === 4) {
+          const ok = T.typed.every((v, j) => v === T.code[j]);
+          T.dispBg.setAttribute("color", ok ? "#1f6b2a" : "#7a1a12"); T.dispBg.setAttribute("emissive", "0.8");
+          later(900, () => { T.typed = []; dispShow(T); T.dispBg.setAttribute("color", "#0d0907"); T.dispBg.setAttribute("emissive", "0"); if (ok) solved(T, 0); });
+          if (!ok) sfx("pool_rail.mp3", x, y, z, 0.7);
+        }
+      }
+      function dispShow(T) { Array.from(T.disp.children).forEach((c) => { if (c !== T.dispBg) c.remove(); }); T.typed.forEach((v, j) => word("d" + v, 0.32, { x: (j - 1.5) * 0.28, z: 0.01 }, T.disp)); }
+      // ---- R2: lily pads
+      function padStep(T, i, id, on) {
+        const P = T.pads[i];
+        if (on) P.who.set(id, now()); else P.who.delete(id);
+        padCheck(T);
+      }
+      function padsLit(T) {
+        const t = now(); return T.pads.map((P) => { P.who.forEach((ts, id) => { if (t - ts > 45000 || !ONLINE.has(id)) P.who.delete(id); }); return P.who.size > 0; });
+      }
+      function padCheck(T) {
+        const lit = padsLit(T);
+        T.pads.forEach((P, i) => { const v = lit[i] ? "0.9" : "0"; if (P.p.getAttribute("emissive") !== v) { P.p.setAttribute("emissive", v); P.p.setAttribute("color", lit[i] ? "#7fe05a" : "#2f6b2a"); } });
+        if (ES.ph !== "live" || T.stage !== 1) return;
+        const need = Math.max(1, Math.min(4, inTeam(T.k).length)), n = lit.filter(Boolean).length;
+        if (n >= need) { if (!T.holdT) { T.holdT = now(); const tok = ES.tok; later(1600, () => { if (ES.tok !== tok || T.stage !== 1) return; const n2 = padsLit(T).filter(Boolean).length; if (n2 >= need) solved(T, 1); else T.holdT = 0; }); } }
+        else T.holdT = 0;
+      }
+      every(2000, () => { if (ES.ph === "live") ES.teams.forEach((T) => { if (T.stage === 1) padCheck(T); }); });
+      // ---- R3: memory cards
+      function cardFlip(T, i, id) {
+        if (ES.ph !== "live" || T.stage !== 2 || T.busy) return;
+        const C = T.cards[i]; if (C.up || T.matched.has(i)) return;
+        C.up = true; C.img.setAttribute("src", BASE + "esc/k_" + String(T.pairs[i]).padStart(3, "0") + ".jpg" + VER); T.up.push(i);
+        const [x, y, z] = TM[T.k].cards[i]; sfx("pool_clack_1.mp3", x, y, z, 0.35);
+        if (T.up.length < 2) return;
+        const [a, b] = T.up; T.up = [];
+        if (T.pairs[a] === T.pairs[b]) { T.matched.add(a); T.matched.add(b); sfx("lift_chime.mp3", x, y, z, 0.4); if (T.matched.size === T.cards.length) later(700, () => solved(T, 2)); return; }
+        T.busy = true; const tok = ES.tok;
+        later(1300, () => { if (ES.tok !== tok) return; [a, b].forEach((j) => { T.cards[j].up = false; T.cards[j].img.setAttribute("src", BASE + "esc/back.jpg" + VER); }); T.busy = false; });
+      }
+      // ---- R4: frog choir
+      function croak(T, i, ms) {
+        const F = T.frogs[i]; F.ring.setAttribute("emissive", "3"); F.body.setAttribute("y", "0.25");
+        sfx("frog_" + i + ".mp3", F.x, F.y + 0.3, F.z, 0.8);
+        later(ms || 420, () => { F.ring.setAttribute("emissive", "0.15"); F.body.setAttribute("y", "0"); });
+      }
+      const LENS = [4, 5, 6];
+      function frogRound(T, r) {
+        if (ES.ph !== "live" || T.stage !== 3) return;
+        T.round = r; T.pos = 0; T.song = Array.from({ length: LENS[r] }, () => Math.floor(Math.random() * 4));
+        T.rlamps.forEach((l, j) => { l.setAttribute("color", j < r ? "#7fe05a" : "#2a2018"); l.setAttribute("emissive", j < r ? "1.2" : "0"); });
+        frogPlay(T, 1);
+      }
+      function frogPlay(T, slow) {
+        if (ES.ph !== "live" || T.stage !== 3) return;
+        const tok = ++T.ptok || (T.ptok = 1); T.playing = true; T.pos = 0; const gap = slow > 1 ? 1200 : 750;
+        T.song.forEach((f, j) => later(600 + j * gap, () => { if (T.ptok === tok) croak(T, f, slow > 1 ? 700 : 420); }));
+        later(600 + T.song.length * gap + 200, () => { if (T.ptok === tok) { T.playing = false; T.waitAt = now(); } });
+      }
+      every(3000, () => { if (ES.ph === "live") ES.teams.forEach((T) => { if (T.stage === 3 && !T.playing && T.pos === 0 && T.waitAt && now() - T.waitAt > 12000) frogPlay(T, 1); }); });   // nobody tried: play it again
+      function frogPress(T, i, id) {
+        if (ES.ph !== "live" || T.stage !== 3 || T.playing) return;
+        const t = now(); if (t - T.lastIn < 250) return; T.lastIn = t;
+        croak(T, i);
+        if (T.song[T.pos] !== i) {
+          T.frogs.forEach((F) => { F.ring.setAttribute("color", "#ff2a1a"); F.ring.setAttribute("emissive", "2"); });
+          sfx("pool_rail.mp3", T.frogs[i].x, T.frogs[i].y, T.frogs[i].z, 0.7);
+          later(700, () => T.frogs.forEach((F, j) => { F.ring.setAttribute("color", E.fcols[j]); F.ring.setAttribute("emissive", "0.15"); }));
+          T.pos = 0; T.playing = true; later(1400, () => frogPlay(T, 1)); return;
+        }
+        T.pos++; T.waitAt = now();
+        if (T.pos >= T.song.length) {
+          if (T.round + 1 >= LENS.length) { T.rlamps.forEach((l) => { l.setAttribute("color", "#7fe05a"); l.setAttribute("emissive", "1.2"); }); solved(T, 3); }
+          else { T.playing = true; later(1200, () => frogRound(T, T.round + 1)); }
+        }
+      }
+      // ---- setup / phases
+      function eJoin(k, id) {
+        if (ES.ph !== "open" || REMOTES.has(id) || ES.roster.get(id) === k) return;
+        ES.roster.set(id, k); countsShow();
+        const t = TM[k]; privWords(["r_youre", t.word], [t.rug[0], E.y0 + 2.6, t.rug[2]], 90 * t.side, id, 2200, 0.5);
+      }
+      function freshPuzzles(T) {
+        const t = TM[T.k];
+        T.stage = 0; T.typed = []; T.found = [false, false, false, false]; T.holdT = 0; T.up = []; T.matched = new Set(); T.busy = false; T.round = 0; T.pos = 0; T.playing = false; T.ptok = (T.ptok || 0) + 1; T.waitAt = 0;
+        T.code = [0, 1, 2, 3].map(() => Math.floor(Math.random() * 10));
+        T.lcol = shuffle([0, 1, 2, 3]);                                  // T.lcol[j] = which lantern holds digit j (in the painting's order)
+        const cols = shuffle(E.lcols.slice());
+        T.lcol.forEach((li, j) => { T.lant[li].glass.setAttribute("color", cols[j]); T.gems[j].setAttribute("color", cols[j]); });
+        T.lant.forEach((L_) => Array.from(L_.num.children).forEach((c) => c.remove()));
+        dispShow(T); T.dispBg.setAttribute("color", "#0d0907");
+        T.pads.forEach((P) => P.who.clear()); padCheck(T);
+        const pick = shuffle(E.cards.slice()).slice(0, T.cards.length / 2);
+        T.pairs = shuffle(pick.concat(pick));
+        T.cards.forEach((C) => { C.up = false; C.img.setAttribute("src", BASE + "esc/back.jpg" + VER); });
+        T.rlamps.forEach((l) => { l.setAttribute("color", "#2a2018"); l.setAttribute("emissive", "0"); });
+        T.hints.forEach((h) => h.remove()); T.hints = [];
+      }
+      function eOpen() {
+        ES.tok++; ES.ph = "open"; ES.order = []; ES.t0 = 0;
+        ES.teams.forEach((T) => { freshPuzzles(T); T.doors.forEach((_, d) => door(T, d, d === 0)); });
+        BOARDS.forEach((B) => Array.from(B.big.children).forEach((c) => c.remove()));
+        lampsShow(); countsShow(); clockShow(0);
+        return "MUDWATER ESCAPE: DOORS OPEN - WALK INTO A COLOURED DOOR TO JOIN THAT TEAM";
+      }
+      function eStart() {
+        if (ES.ph === "live") return "MUDWATER ESCAPE IS ALREADY RUNNING";
+        const ids = Array.from(ES.roster.keys()).filter((id) => ONLINE.has(id));
+        if (!ids.length) return "NOBODY HAS JOINED A TEAM YET";
+        ES.ph = "live"; ES.t0 = now(); ES.order = []; const tok = ++ES.tok;
+        ES.teams.forEach((T) => { T.doors.forEach((_, d) => door(T, d, false)); });
+        sfx("finals.mp3", 0, E.y0 + 3, 0, 0.8);
+        ids.forEach((id) => { const t = TM[ES.roster.get(id)]; privWords(["r_go"], [t.rug[0], E.y0 + 2.8, t.rug[2]], 90 * t.side, id, 2500, 0.5); });
+        lampsShow(); countsShow();
+        const tick = () => { if (ES.tok !== tok || ES.ph !== "live") return; clockShow(Math.round((now() - ES.t0) / 1000)); later(1000, tick); };
+        tick();
+        return "MUDWATER ESCAPE STARTED - " + ids.length + " PLAYERS: " + TM.map((t, k) => t.k.toUpperCase() + " " + inTeam(k).length).join(", ");
+      }
+      function eEnd() {
+        if (ES.ph !== "live") return "MUDWATER ESCAPE ISN'T RUNNING";
+        ES.ph = "done"; ES.tok++;
+        ES.teams.forEach((T) => T.doors.forEach((_, d) => door(T, d, true)));          // let everybody out
+        return "MUDWATER ESCAPE ENDED - ALL DOORS OPEN. " + (ES.order.length ? "ORDER: " + ES.order.map((k) => TM[k].k.toUpperCase()).join(", ") : "NOBODY ESCAPED");
+      }
+      function teamArg(a) { const k = TM.findIndex((t) => t.k === a || String(TM.indexOf(t) + 1) === a); return k; }
+      function eHint(k) {
+        const T = ES.teams[k]; if (!T || ES.ph !== "live") return "NO HINT (GAME NOT RUNNING)";
+        if (T.stage === 0) { T.lant.forEach((L_, i) => { if (!T.found[i]) { const a = anim(L_.glass, "radius", 0.16, 0.45, 600, { pingPong: true }); later(12000, () => a.remove()); } }); return TM[k].k.toUpperCase() + " HINT: THE HIDDEN LANTERNS ARE PULSING"; }
+        if (T.stage === 1) { const need = Math.max(1, Math.min(4, inTeam(k).length)); T.pads.forEach((P, i) => { if (i < need) { const a = anim(P.p, "emissive", 0, 1.5, 500, { pingPong: true }); later(8000, () => { a.remove(); padCheck(T); }); } }); return TM[k].k.toUpperCase() + " HINT: " + need + " PADS FLASHING - STAND ON THEM TOGETHER"; }
+        if (T.stage === 2) { const left = T.cards.map((_, i) => i).filter((i) => !T.matched.has(i) && !T.cards[i].up); if (left.length < 2) return "NOTHING TO HINT"; const a = left[0], b = left.find((j) => j !== a && T.pairs[j] === T.pairs[a]); [a, b].forEach((j) => T.cards[j].img.setAttribute("src", BASE + "esc/k_" + String(T.pairs[j]).padStart(3, "0") + ".jpg" + VER)); later(2500, () => [a, b].forEach((j) => { if (!T.matched.has(j) && !T.cards[j].up) T.cards[j].img.setAttribute("src", BASE + "esc/back.jpg" + VER); })); return TM[k].k.toUpperCase() + " HINT: ONE PAIR SHOWN FOR 2 SECONDS"; }
+        if (T.stage === 3) { T.pos = 0; frogPlay(T, 2); return TM[k].k.toUpperCase() + " HINT: THE FROGS SING IT SLOWLY"; }
+        return TM[k].k.toUpperCase() + " IS ALREADY OUT";
+      }
+      function eSkip(k) { const T = ES.teams[k]; if (!T || ES.ph !== "live" || T.stage > 3) return "NOTHING TO SKIP"; const r = T.stage; solved(T, r); return TM[k].k.toUpperCase() + ": ROOM " + (r + 1) + " SKIPPED BY THE HOST"; }
+      function eRaffle() {
+        if (!ES.order.length) return "NO TEAM HAS ESCAPED YET";
+        const ids = inTeam(ES.order[0]); if (!ids.length) return "NOBODY FROM THE WINNING TEAM IS ONLINE";
+        const id = ids[Math.floor(Math.random() * ids.length)], nm = nameOf(pl(id));
+        BOARDS.forEach((B) => { const lab = el("m-label", { y: -1.5, z: 0.06, width: 7.5, height: 0.6, content: "RAFFLE: " + nm, "font-size": 34, alignment: "center", color: "#0d0907", "font-color": "#ffe6a8", emissive: 0.4, collide: "false" }, B.big); later(60000, () => lab.remove()); });
+        return "RAFFLE WINNER (" + TM[ES.order[0]].k.toUpperCase() + "): " + nm;
+      }
+      ES.open = eOpen; ES.start = eStart; ES.end = eEnd; ES.hint = eHint; ES.skip = eSkip; ES.raffle = eRaffle; ES.teamArg = teamArg;
+      ES.clear = () => { ES.roster.clear(); eOpen(); return "MUDWATER ESCAPE: TEAMS EMPTIED - EVERYONE PICKS A DOOR AGAIN"; };
+      ES.status = () => "ESCAPE " + ES.ph.toUpperCase() + (ES.t0 && ES.ph === "live" ? " " + Math.round((now() - ES.t0) / 1000) + "s" : "") + ": " + TM.map((t, k) => t.k.toUpperCase() + " " + inTeam(k).length + "p room " + Math.min(4, ES.teams[k].stage + 1) + (ES.teams[k].stage > 3 ? " OUT" : "")).join(", ");
+      ES.info = () => ({ ph: ES.ph, secs: ES.t0 && ES.ph === "live" ? Math.round((now() - ES.t0) / 1000) : 0, teams: TM.map((t, k) => [t.k, t.c, inTeam(k).length, ES.teams[k].stage]), order: ES.order.map((k) => TM[k].k) });
+      ES._T = ES.teams; try { window.__ES = ES; } catch (e) {}          // (for the bot test)
+      eOpen();
     }
     // ---------------------------------------------------- THE STAGE BAND: click the drums, piano keys, harp strings or the guitar to play.
     // Each player can play one sound every 0.18 s, at most 10 sounds ring at once, and the host can switch the instruments off (trolls).
@@ -1791,7 +2077,7 @@
                   setRound(H.ph === "hunt" ? "round" + H.round : H.ph === "between" ? "round" + (H.round + 1) : ""); if (H.ph !== "between") setCounter(); boards(); },
       game(tn) {
         const finals = H.ph === "finals" || H.ph === "done";
-        return { ph: H.ph, left: finals ? VT.length - H.vremoved.size : HL.length - H.removed.size, fin: H.fin.length, finMax: FINALISTS,
+        return { esc: ES.on && ES.info ? ES.info() : null, ph: H.ph, left: finals ? VT.length - H.vremoved.size : HL.length - H.removed.size, fin: H.fin.length, finMax: FINALISTS,
                  finalists: H.fin.map((id) => nameOf(pl(id))), ready: H.ph === "allfound", round: H.round, rounds: FINALISTS, auto: H.auto, nextIn: H.ph === "between" && H.nextAt ? Math.max(0, Math.ceil((H.nextAt - tn) / 1000)) : -1, inVault: H.fin.filter((id) => { const p = pl(id); return p.pos && Math.abs(p.pos.x) < D.room[0] && Math.abs(p.pos.z) < D.room[1] && Math.abs(p.pos.y - D.yv) < 3; }).length, winner: H.winner !== null ? nameOf(pl(H.winner)) : "",
                  huntSecs: H.t0 ? Math.round((tn - H.t0) / 1000) : 0, inside: INSIDE.size, npcMode: NPC_MODE,
                  talking: Object.values(NPCS).filter((n) => n.talking).map((n) => n.key), liftMusic: Object.values(LIFTS).some((s) => s.music.parentNode), instruments: BAND.on, music: MUSIC.on, song: MUSIC.title,
@@ -1811,6 +2097,17 @@
           if (a1 === "clear") return RY.clear();
           if (a1 === "demo") return RY.demo();
           return RY.status();
+        }
+        if (cmd === "escape") {                                       // escape open | start | end | reset | clear | hint <team> | skip <team> | raffle
+          if (!ES.on) return "NO MUDWATER ESCAPE IN THIS BUILD";
+          const a2 = (parts[2] || "").toLowerCase();
+          if (a1 === "open" || a1 === "reset") return ES.open();
+          if (a1 === "start") return ES.start();
+          if (a1 === "stop" || a1 === "end") return ES.end();
+          if (a1 === "clear") return ES.clear();
+          if (a1 === "raffle") return ES.raffle();
+          if (a1 === "hint" || a1 === "skip") { const k = ES.teamArg(a2); if (k < 0) return "WHICH TEAM? (RED GOLD GREEN BLUE PURPLE ORANGE)"; return a1 === "hint" ? ES.hint(k) : ES.skip(k); }
+          return ES.status();
         }
         if (cmd === "art") {                                          // art clear | art lock | art unlock
           if (!ART.on) return "NO ART WALL IN THIS BUILD";

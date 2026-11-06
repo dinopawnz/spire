@@ -27,14 +27,14 @@
 | Hall of Fakes (2) | 10.5 | find the real card among 400 portraits, 4 rounds, finals vault | **done, game 1** |
 | Gallery | 24.9 | ramp/balcony over the hall | done |
 | Cards (3) | 32.0 | **Mud Royale** (game 2) | built + bot-tested (v34-v37), floor dressed to lounge standard (v39) |
-| Rooms (4+) | 40.0 | **Mudroom Escape** (game 3) | **NOT BUILT** |
+| Rooms (4) | 40.0 (+ upper level 45.3) | **Mudwater Escape** (game 3) | built + bot-tested (v43), looks still basic |
 | Roof | 51.0 | grand finale photo terrace + light-curtain backdrop + fireworks + paintable art wall | done (v33) |
 
 **Versions:**
 | Where | Version | What |
 |---|---|---|
 | branch `main` | v13 | the old LIVE build. Untouched. Push to main ONLY when the owner says. |
-| branch **`handoff-v14`** | **v42** | everything from sessions 6–11. This is what the owner tests. |
+| branch **`handoff-v14`** | **v43** | everything from sessions 6–11. This is what the owner tests. |
 
 The owner's files load assets from `https://raw.githubusercontent.com/dinopawnz/spire/handoff-v14/` (baked into spire.html by `build_html.py`), so **assets must be pushed to `handoff-v14` before the owner's HTML works.** Remote PIN: **7747**, then press LIVE BUILD.
 
@@ -212,6 +212,16 @@ Raised dark-timber photo stage with steps, Meshy photo arch (8 m) with the Mudwa
 - **Pack-ripping Kodas (5077, 9924)** (owner: cards farther from the face / turned to us): fan held at full stretch (a Koda's hand can't get more than ~0.16 m in front of its chest), cards bigger, and a SHOW-OFF: at 7.6-9.7 s of the 14 s clip the fan is turned round and pushed out in front of the hand, card faces to the room. The raw 5077/9924 files weren't kept, so `koda_pack.strip_props()` takes a built pack Koda back to a bare rig first (`/home/claude/kodas/raw_*.glb`).
 - **Card tables / armchairs** (owner: chairs too short for the table): the Meshy card table was 1.7 m tall. `tables.py`: card tables squashed to 68 % height (top ~1.15 m), the armchairs round them 1.25x bigger and pulled back 0.12 m (lounge + Mud Royale floor). Koda 5077 re-seated (`_seat` is scale-aware).
 - Waterfall "cut off by the rock": the lounge falls and the outdoor crag falls render fine here - waiting for the owner's screenshot with a circle.
+### v43 (session 11): MUDWATER ESCAPE (game 3) built
+- Owner's rules (this session): "all the teams will begin in a different room and to progress, they must solve clues/puzzles to get to the next room which may or may not be on another floor" -> no taller tower: floor 4 (y 40, ~10 m high) got an UPPER LEVEL at y 45.3.
+- `escape.py` (called from build_html after royale.py) builds `sp_escape.glb` (walls, slabs, stairs, glass, door frames, team colour bars, keypad buttons, lantern caps, rug borders, boards), `sp_escape_col.glb` (invisible colliders), `sp_esc_door.glb`, `out/esc/k_NNN.jpg` + `back.jpg` (24 small Mudwater cards; **runtime images: copy `out/esc/` to the repo `esc/` by hand**), decor via D.sdeco, and `D.escape`.
+- Layout: 6 lanes (west z -24/0/24 = red/gold/green, east = blue/purple/orange), complex |x| 8..44, |z| < 36; side aisles (lifts + stairs) stay free. Per lane: R1 lower outer (u 0-18 from the outer wall), R2 lower inner, an enclosed stair well inside R1's corner (u 14.5-18, v -3..12) from R2 up to R3 (upper outer), R4 upper inner, then the VICTORY HALL (upper, |x| < 8). Doors D0 start (outer wall, from the aisle), D1 R1->R2, D2 R2->well, D3 R3->R4, D4 R4->hall; doors slide 2.5 m along z into the wall (stepped attribute moves). Middle corridor downstairs (open at both ends) with glass into every R2 and a stair at the front end (z 33.5 -> 23.5) up to the Victory Hall (glass into every R4). Progress boards (6 teams x 4 lamps + clock + winner) at the back of both.
+- Puzzles (JS block "MUDWATER ESCAPE" in spire_src.html; new random codes/colours/pairs every game): R1 LANTERN CODE (4 hidden lanterns - shelf top, under the table, behind barrels, hanging in a corner - show a digit when clicked; the painting's 4 gems give the colour order; 10-key keypad beside D1, 4 digits auto-checked); R2 LILY PADS (4 visible collide cylinders; need min(4, team size) occupied at once for 1.6 s; occupancy = collisionstart/move add, collisionend remove, 45 s expiry in case collisionend never comes); R3 CARD MEMORY (12 m-images, 6 pairs, mismatches flip back after 1.3 s); R4 FROG CHOIR (4 frogs, own croak + colour; rounds of 4/5/6, replays every 12 s if idle, wrong croak = red flash + replay).
+- Joining: walk onto the team's rug in R1 (visible collide slab, collisionstart/move) before START; START shuts every start door; late joiners refused. First team to solve R4 wins (confetti in the hall, winner on the boards, host message); later teams get their place. Host: `escape open|start|end|clear|raffle|hint <team>|skip <team>` + remote panel "Mudwater Escape" (live progress line, 6 HINT + 6 SKIP buttons). END opens every door.
+- `viewer/escapetest.py`: 45 bots, all checks pass (wrong code, too few pads, mismatches, wrong croak, finish order, hint/skip/raffle/end/open).
+- Sprites: e_title + 6 colour words; sign `sg_escape_rules` (4 in the aisles); floor 4 renamed "MUDWATER ESCAPE" everywhere (lift plaques via `build_lift.py`, remote).
+- **Found while rebuilding the lifts: the repo's `sp_lift_cab_col.glb` and `sp_lift_cgate_col.glb` were still the v1 size** (cab floor/walls 2.13 m half-width vs the 2.98 m cab since v24; cab gate collider 1.7 m wide vs the 2.4 m door). The pipeline step `cp spire_repo/*.glb out/glb/` kept overwriting the fresh colliders with the stale ones. v43 pushes the correct ones. **Don't blindly copy repo GLBs over freshly built collider files.**
+- Still to do: dress the rooms to lounge standard (looks second, as the owner said), confirm click targets + collisionend in Otherside.
 - Possible next looks items: the team pens read a bit like boxing rings (owner asked what the "gator ring" was) - offer a restyle (timber platform / moss-and-lantern clearing).
 - (old note) NEXT for floor 3: decoration pass to lounge standard (owner: "every floor must keep the same standard as the first floor") - it's dark and bare apart from the arena: lantern rings + warm light pools, Mudwater banners, framed cards on the walls, spectator benches/bleachers, plants, moss on beams.
 
@@ -239,7 +249,7 @@ Owner: *"we probably need 4 teams for the mud royale… areas where we can separ
 - Game rules were never fully defined. Old notes: territory card game on a giant board using Mudwater rules (cards have top/left/right/bottom values in `src/cards/cards.json`, Triple-Triad style), 2-minute timer, most squares wins, MVP. **Ask the owner for the rules before building**; propose a simple version (e.g. teams claim tiles of a giant Mudwater board by clicking; stronger card values steal neighbouring tiles; 2-minute rounds).
 - Host panel on the remote: start, reset, timer, scores, team counts.
 
-### 5.4 Mudroom Escape (game 3, floor 4 "rooms" y 40 and up)
+### 5.4 Mudwater Escape (game 3) - BUILT in v43, see the v43 section; the notes below are the older plan
 See `src/ESCAPE_TOWER_NOTES.md`. Agreed: 6 teams pick one of 6 coloured doors on floor 4, host presses START; 6 escape floors × 6 rooms, one room per team per floor, each a puzzle unlocking the door to the next floor; first team out reaches the Victory Hall; raffle. No guard, no stealing. Hosts ride a NORMAL slow lift (glass/express lift REJECTED) and watch via a stair with landings round a glass core + a watch wall. **The tower must get taller** (raise `FL['roof']` in `build_rect.py` and everything that reads it: lifts `stops`, roof.py, outside.py, music speakers, sky/galaxy heights). Puzzle ideas (not yet approved): hidden keys in a shack, lily-pad pressure plates (4 people), Mudwater card code keypad, lights-out lanterns, valve order, frog-choir pattern.
 
 ### 5.5 Ideas offered to the owner, no answer yet

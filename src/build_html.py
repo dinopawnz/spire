@@ -193,6 +193,7 @@ D['fx'] = fx
 import outside; outside.apply(D, L, FL, rg)
 import roof; roof.apply(D, L, FL)
 import royale; royale.apply(D, L, FL)      # (v34) MUD ROYALE on floor 3
+import escape; escape.apply(D, L, FL)          # (v43) MUDWATER ESCAPE, game 3, floor 4
 import band; band.apply(D, F1)
 # the Mudwater Swamp Blues (swamp_jazz.py): speakers round every floor, the roof and out on the water
 X1_, Z1_ = L['X1'], L['Z1']

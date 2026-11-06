@@ -23,7 +23,8 @@ def font(path, size, bold=True):
     return f
 
 PAL = {'gold': ((255, 226, 140), (214, 150, 40)), 'red': ((255, 120, 100), (200, 30, 30)), 'teal': ((150, 255, 236), (30, 190, 170)),
-       'cream': ((255, 248, 225), (220, 200, 160)), 'green': ((190, 255, 150), (60, 190, 60))}
+       'cream': ((255, 248, 225), (220, 200, 160)), 'green': ((190, 255, 150), (60, 190, 60)),
+       'blue': ((170, 210, 255), (40, 110, 230)), 'purple': ((225, 190, 255), (150, 80, 220)), 'orange': ((255, 205, 150), (240, 120, 30))}
 
 def glow_text(lines, color='gold', size=150, face=INTER, pad=60, line_gap=0.18):
     f = font(face, size)
@@ -141,7 +142,7 @@ SPRITES = {
     'lift_express': (['EXPRESS'], 'red'), 'lift_finalists': (['FINALISTS ONLY', 'TO THE VAULT'], 'teal'),
     'fl_lounge': (['THE LOUNGE'], 'gold'), 'fl_hall': (['HALL OF FAKES'], 'gold'), 'fl_gallery': (['THE GALLERY'], 'gold'),
     'fl_cards': (['MUD ROYALE'], 'gold'), 'fl_deck': (["CAPTAIN'S DECK"], 'gold'),
-    'fl_rooms': (['GROUP MUD'], 'gold'), 'fl_roof': (['ROOF DECK'], 'gold'), 'stairs': (['STAIRS'], 'gold'),
+    'fl_rooms': (['MUDWATER ESCAPE'], 'gold'), 'fl_roof': (['ROOF DECK'], 'gold'), 'stairs': (['STAIRS'], 'gold'),
     'realone': (['THE REAL ONE'], 'gold'),
     'signup': (['MUDWATER', 'SIGN-UP BOOK'], 'gold'), 'signup_sub': (['SIGN YOUR NAME HERE'], 'cream'),
     'bt_cardshop': (['CARD SHOP'], 'gold'), 'bt_merch': (['MUDWATER MERCH'], 'gold'), 'bt_trophies': (['TROPHY ROOM'], 'gold'), 'bt_photos': (['PHOTO BOOTH'], 'gold'),
@@ -156,6 +157,11 @@ SPRITES.update({
     'r_youre': (["YOU'RE ON"], 'cream'), 'r_wait': (['WAIT FOR THE', 'HOST TO START'], 'cream'), 'r_time': (['TIME!'], 'red'),
     'r_pick': (['PICK A TEAM'], 'gold'), 'aw_sign': (['SIGN THE ART WALL', 'AT THE LECTERN'], 'gold'), 'r_full': (['BOARD FULL!', 'UPGRADE CARDS'], 'gold'), 'r_weak': (['NEED A STRONGER', 'CARD TO UPGRADE'], 'red'), 'r_capture': (['CAPTURED!'], 'gold'), 'r_ready': (['GET READY'], 'teal'),
 })
+# MUDWATER ESCAPE (v43)
+SPRITES.update({
+    'e_title': (['MUDWATER ESCAPE'], 'gold'), 'e_red': (['RED'], 'red'), 'e_gold': (['GOLD'], 'gold'), 'e_green': (['GREEN'], 'green'),
+    'e_blue': (['BLUE'], 'blue'), 'e_purple': (['PURPLE'], 'purple'), 'e_orange': (['ORANGE'], 'orange'),
+})
 for k in range(10): SPRITES['d%d' % k] = ([str(k)], 'gold')
 for k in range(10): SPRITES['r%d' % k] = ([str(k)], 'red')
 for k in range(1, 5): SPRITES['round%d' % k] = (['ROUND %d OF 4' % k], 'teal')
@@ -165,7 +171,8 @@ SIGNS = {
     'vault_rules': ('THE FINALS VAULT', 'Four finalists. A hundred portraits of BLACK FLAG. One is real.\nThe glass unfrosts when the host starts the finals.\nWrong click = 5 seconds out. First to find it wins.', 5.0),
     'gallery': ('THE GALLERY', 'Watch the finals through the glass.', 3.6),
     'royale_rules': ('MUD ROYALE', 'Four teams: Gators, Crawdads, Bullfrogs, Catfish.\nWALK ONTO a team pad to join. You can switch until the host starts.\nAt the start everyone gets 5 Mudwater cards (on the YOUR HAND boards) + a new card every 10 seconds.\nClick a card in your hand, then click an empty square on the board to play it.\nYour card CAPTURES an enemy card next to it if its number on that side (the big numbers) is higher.\nBOARD FULL? Upgrade: play a card with a higher total on top of any card.\nAfter 3 minutes the team holding the most squares wins.', 6.0),
-    'lifts': ('THE LIFTS', 'Every floor: Lounge - Hall of Fakes - Gallery - Mud Royale - Group Mud - Roof Deck', 3.6),
+    'lifts': ('THE LIFTS', 'Every floor: Lounge - Hall of Fakes - Gallery - Mud Royale - Mudwater Escape - Roof Deck', 3.6),
+    'escape_rules': ('MUDWATER ESCAPE', 'Six teams. Walk in through a coloured door to join that team - you can switch until the host starts.\nThen the doors lock. Solve each room to open the door to the next one:\n1. LANTERN CODE - find 4 hidden lanterns, read their numbers in the painting\'s colour order, type the code.\n2. LILY PADS - stand on the lily pads together (4 at once).\n3. CARD MEMORY - find the 6 pairs of Mudwater cards.\n4. FROG CHOIR - copy the frogs\' song, 3 rounds.\nFirst team into the VICTORY HALL wins!', 6.0),
 }
 
 if __name__ == '__main__':

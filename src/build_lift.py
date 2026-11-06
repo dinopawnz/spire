@@ -38,7 +38,7 @@ SA = LY['shaft_apo']; CA = LY['cab_apo']; BASE = LY['shaft_base']; TOP = LY['sha
 DW = LY['door_w']; DH = LY['door_h']
 FP = [tuple(p) for p in LY['shaft_fp']]
 FLOORS = LY['floors_through']                                     # floors the shafts pass through (F1 is the base)
-NAMES = {'lounge': 'THE LOUNGE', 'hall': 'HALL OF FAKES', 'gallery': 'THE GALLERY', 'cards': 'MUD ROYALE', 'rooms': 'GROUP MUD', 'roof': 'THE ROOF DECK'}
+NAMES = {'lounge': 'THE LOUNGE', 'hall': 'HALL OF FAKES', 'gallery': 'THE GALLERY', 'cards': 'MUD ROYALE', 'rooms': 'MUDWATER ESCAPE', 'roof': 'THE ROOF DECK'}
 DIAL = {'lounge': '1', 'hall': '2', 'gallery': 'G', 'cards': '3', 'rooms': '4', 'roof': 'R'}
 SHEAVE_R = (SA + 0.5) / 2.0; SHEAVE_Y = TOP + 1.6; SHEAVE_Z = -SHEAVE_R - 0.01     # cab ropes drop at z 0, counterweight ropes at z -2.61
 CE = 0.85                                                             # (v24, owner) taller cabs: everything above the wainscot sits CE higher

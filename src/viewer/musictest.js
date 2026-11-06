@@ -10,7 +10,7 @@ const n = () => Array.from(document.querySelectorAll("m-audio")).filter((a) => /
   console.log(cmd("music off"), "->", n().length); console.log(cmd("music on"), "->", n().length);
   const k = Array.from(document.querySelectorAll("m-model")).filter((m) => /sp_koda_/.test(m.getAttribute("src")));
   console.log("kodas", k.length, "animated", k.filter((m) => m.getAttribute("anim")).length);
-  const fr = Array.from(document.querySelectorAll("m-model")).filter((m) => /sp_m_frog/.test(m.getAttribute("src")));
+  const fr = Array.from(document.querySelectorAll("m-model")).filter((m) => /sp_m_frog/.test(m.getAttribute("src")) && parseFloat(m.parentNode.parentNode.getAttribute("y") || "0") < 10);   // the lounge pond (not the escape choir)
   console.log("frogs", fr.length, "dragonflies", Array.from(document.querySelectorAll("m-model")).filter((m) => /dragonfly/.test(m.getAttribute("src"))).length);
   // click a frog
   const hb = fr[0].parentNode.parentNode.querySelector("m-cube");
