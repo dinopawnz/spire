@@ -97,6 +97,10 @@ The owner does **not** want to drag files into GitHub by hand. Push them yoursel
    ```
 4. **Always bump the version number** (`build_html.py <ver>`). Every URL then gets a new `?v=`, so Otherside and GitHub's ~5-minute cache serve the fresh files.
 
+**To try a branch in Otherside without touching the live world:** the built page loads files from `main` by default. Build it against the branch instead:
+`python3 build_html.py 15 https://raw.githubusercontent.com/dinopawnz/spire/handoff-v14/`. Push it, then give the owner the raw link of that branch's `spire.html` to paste in their world.
+(The `spire.html` currently on handoff-v14 was built against `main`, so it still shows the OLD lounge. Rebuild it as above to preview the new one.)
+
 ### B. If you are another AI or a plain computer
 
 1. The owner makes a **fine-grained personal access token** at GitHub → Settings → Developer settings → Fine-grained tokens:
