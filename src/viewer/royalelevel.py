@@ -1,5 +1,6 @@
-"""MUD ROYALE level rule (v45, owner): LEVEL 1 cards go on empty squares; LEVEL 2+ cards are upgrades - only on top of a lower-level
-card (an enemy card becomes yours). Full board: same level + higher total may upgrade. Starting hands hold at least 2 level-1 cards.
+"""MUD ROYALE - the OFFICIAL Mudwater rules (v47, owner's rules sheet): PLACE a level-1 card face up on an empty square; UPGRADE with a
+card exactly ONE level higher on top of a square YOUR TEAM controls (never an enemy's); ROCK = any card face down (click it twice) on an
+empty square - captures nothing, can't be captured, counts as level 1, one per player at a time. Captures: higher touching number wins.
 python3 royalelevel.py /home/claude/spire/out/spire.html"""
 import sys, time, json, random
 from playwright.sync_api import sync_playwright
@@ -20,48 +21,57 @@ with sync_playwright() as p:
         tiles: Array.from(document.querySelectorAll('m-cube')).filter(c => c.getAttribute('width') === '2.46' && c.getAttribute('height') === '0.1') }; }""")
     for id in range(2, NB + 2): pg.evaluate("([id, t]) => __R.f(__R.slabs[t], 'collisionstart', {connectionId: id})", [id, id % 4])
     say("royale start"); time.sleep(0.5)
-    LV = pg.evaluate("() => __RLV")
+    LV = pg.evaluate("() => __RLV"); team = lambda id: id % 4
     hands = lambda: pg.evaluate("() => Object.fromEntries(Array.from(__RY.hands.entries()).map(([id, H]) => [id, H.cards]))")
-    h0 = hands()
-    ok(all(sum(1 for c in cs if c is not None and LV[c] == 1) >= 2 for cs in h0.values()), "every starting hand has 2+ level-1 cards")
-    board = lambda: pg.evaluate("() => __RY.board.map(b => b ? [b.c, b.team] : null)")
-    def play(id, slot, tile):
-        pg.evaluate("([id, k]) => { __RY.hands.get(id).sel = k; }", [id, slot])
+    ok(all(sum(1 for c in cs if c is not None and LV[c] == 1) >= 2 for cs in hands().values()), "every starting hand has 2+ level-1 cards")
+    board = lambda: pg.evaluate("() => __RY.board.map(b => b ? [b.c, b.team, b.rock ? 1 : 0, b.by] : null)")
+    lvl = lambda sq: 1 if sq[2] else LV[sq[0]]
+    seen = [0]
+    def play(id, slot, tile, rock=False):
+        pg.evaluate("([id, k, r]) => { const H = __RY.hands.get(id); H.sel = k; H.rock = r; }", [id, slot, rock])
         before = hands()[str(id)][slot]
         time.sleep(0.36); pg.evaluate("([id, i]) => __R.f(__R.tiles[i], 'click', {connectionId: id})", [id, tile])
-        seen[0] = max(seen[0], pg.evaluate("() => Array.from(document.querySelectorAll('m-model')).filter(m => /ms_r_lvup|ms_r_lvlow/.test(m.getAttribute('src'))).length"))
+        seen[0] = max(seen[0], pg.evaluate("() => Array.from(document.querySelectorAll('m-model')).filter(m => /ms_r_lvup|ms_r_lvlow|ms_r_enemy|ms_r_rock1/.test(m.getAttribute('src'))).length"))
         return hands()[str(id)][slot] is None and before is not None
-    n_ok1 = n_ref = n_up = n_upref = 0; wrong = 0; seen = [0]
-    for rnd in range(3):
+    st = dict(place=0, lvup_ref=0, up=0, up_ref_lv=0, up_ref_enemy=0, rock=0, rock2_ref=0, rock_cap=0); wrong = 0
+    for rnd in range(4):
         for id in range(2, NB + 2):
             cs = hands()[str(id)]
             for slot, c in enumerate(cs):
                 if c is None: continue
                 B = board(); empty = [i for i, x in enumerate(B) if x is None]
+                if rnd == 1 and empty:                                   # rocks: one is fine, a second (while the first is uncovered) is refused
+                    mine_rock = any(x and x[2] and x[3] == id for x in B)
+                    r = play(id, slot, rng.choice(empty), True)
+                    if mine_rock: st['rock2_ref'] += (not r); wrong += r
+                    else: st['rock'] += r; wrong += (not r)
+                    break
                 if LV[c] == 1:
-                    if not empty: continue
-                    if play(id, slot, rng.choice(empty)): n_ok1 += 1
-                    else: wrong += 1; print("  level-1 refused on empty square", id, c)
-                else:
-                    if empty:                                            # level 2+ on an empty square: must be refused
-                        if play(id, slot, rng.choice(empty)): wrong += 1; print("  level", LV[c], "card went on an empty square!")
-                        else: n_ref += 1
-                    B = board()
-                    lower = [i for i, x in enumerate(B) if x and LV[x[0]] < LV[c]]
-                    same = [i for i, x in enumerate(B) if x and LV[x[0]] >= LV[c]]
-                    if same and None in B:
-                        if play(id, slot, rng.choice(same)): wrong += 1; print("  upgrade onto same/higher level allowed (board not full)")
-                        else: n_upref += 1
-                    if lower:
-                        t = rng.choice(lower); was = B[t]
-                        if play(id, slot, t):
-                            n_up += 1; nb = board()[t]
-                            if not (nb and nb[0] == c and nb[1] == (id % 4)): wrong += 1; print("  upgrade square wrong", nb)
-                        else: wrong += 1; print("  upgrade onto lower level refused", LV[c], LV[was[0]])
+                    if empty: wrong += not play(id, slot, rng.choice(empty)); st['place'] += 1
+                    break
+                if empty:
+                    if play(id, slot, rng.choice(empty)): wrong += 1; print("  level", LV[c], "went on an empty square!")
+                    else: st['lvup_ref'] += 1
+                B = board()
+                good = [i for i, x in enumerate(B) if x and x[1] == team(id) and lvl(x) == LV[c] - 1]
+                enemy = [i for i, x in enumerate(B) if x and x[1] != team(id) and lvl(x) == LV[c] - 1]
+                jump = [i for i, x in enumerate(B) if x and x[1] == team(id) and lvl(x) < LV[c] - 1]
+                if enemy:
+                    if play(id, slot, rng.choice(enemy)): wrong += 1; print("  upgrade on an ENEMY square allowed!")
+                    else: st['up_ref_enemy'] += 1
+                if jump:
+                    if play(id, slot, rng.choice(jump)): wrong += 1; print("  upgrade jumped more than one level!")
+                    else: st['up_ref_lv'] += 1
+                if good:
+                    t = rng.choice(good)
+                    if play(id, slot, t): st['up'] += 1
+                    else: wrong += 1; print("  legal upgrade refused", LV[c], board()[t])
                 break
-    ok(wrong == 0, "level-1 on empty: %d placed | level 2+ on empty refused: %d | upgrades on lower level: %d | upgrades onto same/higher refused: %d | wrong: %d" % (n_ok1, n_ref, n_up, n_upref, wrong))
-    msgs = seen[0]
-    ok(msgs > 0 or n_ref == 0, "players are told why (%d level messages shown)" % msgs)
+    # rocks are never captured: every rock is still its owner's team
+    B = board(); rocks = [x for x in B if x and x[2]]
+    ok(all(x[1] == team(x[3]) for x in rocks), "%d rocks on the board, none captured" % len(rocks))
+    ok(wrong == 0, "  ".join("%s %d" % kv for kv in st.items()) + " | wrong %d" % wrong)
+    ok(seen[0] > 0, "players are told why a play is refused (%d messages seen)" % seen[0])
     say("royale stop"); time.sleep(0.3)
     print("ERRORS:", errs or "none"); b.close()
     sys.exit(1 if bad or errs else 0)

@@ -637,6 +637,7 @@
         const o = el("m-group", { x: hx, y: R.y + hy, z: hz, ry: hry }); o._global = true;
         const g = el("m-group", { rx: tilt }, o);
         word("r_hand", 0.62, { y: 1.22, z: 0.04 }, g);
+        word("r_tip", 0.26, { y: -1.72, z: 0.04 }, g);                       // (v47) how to play a rock
         for (let k = 0; k < 5; k++) el("m-image", { src: BASE + "royale/back.jpg" + VER, x: -4.0 + 2.0 * k, y: -0.25, z: 0.03, width: CW * 0.92, height: CH * 0.92, emissive: 0.25, collide: "false", "cast-shadows": "false" }, g);     // card backs until you're dealt in
         return g;
       });
@@ -648,10 +649,12 @@
           const pg = el("m-group", { "visible-to": String(id) }, g); H.els.push(pg);
           H.cards.forEach((c, k) => {
             if (c === null) return;
-            if (k === H.sel) el("m-cube", { x: slotX(k), y: -0.25, z: 0.045, width: CW * 0.92 + 0.14, height: CH * 0.92 + 0.14, depth: 0.02, color: "#ffd257", collide: "false", "cast-shadows": "false" }, pg);
-            el("m-image", { src: BASE + "royale/c_" + String(c + 1).padStart(3, "0") + ".jpg" + VER, x: slotX(k), y: -0.25, z: 0.06, width: CW * 0.92, height: CH * 0.92, emissive: 0.35, collide: "false", "cast-shadows": "false" }, pg);
+            const down = k === H.sel && H.rock;                             // (v47) the selected card turned face down = a ROCK
+            if (k === H.sel) el("m-cube", { x: slotX(k), y: -0.25, z: 0.045, width: CW * 0.92 + 0.14, height: CH * 0.92 + 0.14, depth: 0.02, color: down ? "#cfd6dc" : "#ffd257", collide: "false", "cast-shadows": "false" }, pg);
+            el("m-image", { src: BASE + (down ? "royale/back.jpg" : "royale/c_" + String(c + 1).padStart(3, "0") + ".jpg") + VER, x: slotX(k), y: -0.25, z: 0.06, width: CW * 0.92, height: CH * 0.92, emissive: 0.35, collide: "false", "cast-shadows": "false" }, pg);
+            if (down) word("r_rockon", 0.3, { x: slotX(k), y: -0.25, z: 0.08 }, pg);
             const hb = hitBox({ x: slotX(k), y: -0.25, z: 0.1, width: CW * 0.92, height: CH * 0.92, depth: 0.06 }, pg);
-            hb.addEventListener("click", (e) => { if ((e.detail && e.detail.connectionId) !== id) return; const H2 = RY.hands.get(id); if (!H2 || H2.cards[k] === null) return; H2.sel = k; handDraw(id); });
+            hb.addEventListener("click", (e) => { if ((e.detail && e.detail.connectionId) !== id) return; const H2 = RY.hands.get(id); if (!H2 || H2.cards[k] === null) return; if (H2.sel === k) H2.rock = !H2.rock; else { H2.sel = k; H2.rock = false; } handDraw(id); });
           });
         });
       }
@@ -734,33 +737,37 @@
         let k = H.sel; if (H.cards[k] === null) k = H.cards.findIndex((c) => c !== null);
         if (k < 0) { handMsg(id, ["r_out"]); return; }
         const sum = (cc) => CARDS[cc][0] + CARDS[cc][1] + CARDS[cc][2] + CARDS[cc][3];
-        const old = RY.board[i], mine = H.cards[k];
-        // (v45, owner: "im able to play cards that are not level 1 on the board without upgrading a card. that should not be a thing")
-        // LEVEL 1 cards go on EMPTY squares. Level 2+ cards are UPGRADES: they go on top of a card of a LOWER level (theirs or an
-        // enemy's - an enemy's square becomes yours). Once the whole board is full, a same-level card with a higher total may upgrade too
-        // (so nobody is stuck holding level-1 cards at the end).
-        if (!old) { if (LV[mine] > 1) { handMsg(id, ["r_lvup"], 1800); return; } }
-        else {
-          const ok = LV[mine] > LV[old.c] || (RY.board.every((b) => b) && LV[mine] === LV[old.c] && sum(mine) > sum(old.c));
-          if (!ok) { handMsg(id, LV[mine] > 1 ? ["r_lvlow"] : ["r_taken"], 1600); return; }
+        const old = RY.board[i], mine = H.cards[k], rock = !!H.rock, team0 = RY.roster.get(id);
+        // (v47) THE OFFICIAL MUDWATER RULES (owner's rules sheet; the only change: the game runs the full clock, it doesn't end when the
+        // board fills): PLACE a LEVEL I card face up in an empty square; ROCK - any card face down in an empty square (captures nothing,
+        // can never be captured, counts as Level I for upgrades, only one rock per player at a time - once it's covered you can play
+        // another); UPGRADE - a card EXACTLY ONE LEVEL higher on top of a square YOUR TEAM controls (even a captured one or a rock).
+        // Never on an enemy's square: capture it instead.
+        if (!old) {
+          if (rock) { if (RY.board.some((b) => b && b.rock && b.by === id)) { handMsg(id, ["r_rock1"], 1800); return; } }
+          else if (LV[mine] !== 1) { handMsg(id, ["r_lvup"], 2000); return; }
+        } else {
+          if (rock) { handMsg(id, ["r_taken"], 1400); return; }
+          if (old.team !== team0) { handMsg(id, ["r_enemy"], 1800); return; }
+          if (LV[mine] !== (old.rock ? 1 : LV[old.c]) + 1) { handMsg(id, ["r_lvlow"], 2000); return; }
           old.g.remove(); RY.board[i] = null;
         }
-        const c = H.cards[k], team = RY.roster.get(id); H.cards[k] = null;
+        const c = H.cards[k], team = RY.roster.get(id); H.cards[k] = null; H.rock = false;
         const nx = H.cards.findIndex((cc) => cc !== null); H.sel = nx < 0 ? 0 : nx; handDraw(id);
         const [x, z] = tileXZ(i);
         const g = el("m-group", { x, y: TOP, z }, rg);
         const glow = el("m-image", { src: BASE + "royale/t_" + team + ".png" + VER, y: 0.006, rx: -90, width: TS - 0.16, height: TS - 0.16, emissive: 0.6, collide: "false", "cast-shadows": "false" }, g);
         const card = el("m-group", { y: 0.012 }, g);
-        el("m-image", { src: BASE + "royale/c_" + String(c + 1).padStart(3, "0") + ".jpg" + VER, rx: -90, width: CW, height: CH, emissive: 0.3, collide: "false", "cast-shadows": "false" }, card);
-        RY.board[i] = { c, team, by: id, g, glow, card };
+        el("m-image", { src: BASE + (rock ? "royale/back.jpg" : "royale/c_" + String(c + 1).padStart(3, "0") + ".jpg") + VER, rx: -90, width: CW, height: CH, emissive: 0.3, collide: "false", "cast-shadows": "false" }, card);
+        RY.board[i] = { c, team, by: id, g, glow, card, rock };
         tween(card, "sy", 3, 1, 260, "easeOutQuad");
         sfx("pool_clack_" + (i % 3) + ".mp3", x, TOP + 0.5, z, 0.5);
         // captures: my number on each side against the neighbour's facing number
         const col = i % N; let caps = 0;
-        SIDE.forEach(([d, mine, theirs]) => {
+        if (!rock) SIDE.forEach(([d, mine, theirs]) => {
           const j = i + d; if (j < 0 || j >= N * N) return;
           if ((d === -1 && col === 0) || (d === 1 && col === N - 1)) return;
-          const o = RY.board[j]; if (!o || o.team === team) return;
+          const o = RY.board[j]; if (!o || o.team === team || o.rock) return;       // rocks can never be captured
           if (CARDS[c][mine] > CARDS[o.c][theirs]) {
             o.team = team; o.by = id; caps++;
             o.glow.setAttribute("src", BASE + "royale/t_" + team + ".png" + VER);

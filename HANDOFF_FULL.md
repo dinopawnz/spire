@@ -34,7 +34,7 @@
 | Where | Version | What |
 |---|---|---|
 | branch `main` | v13 | the old LIVE build. Untouched. Push to main ONLY when the owner says. |
-| branch **`handoff-v14`** | **v46** | everything from sessions 6–11. This is what the owner tests. |
+| branch **`handoff-v14`** | **v47** | everything from sessions 6–11. This is what the owner tests. |
 
 The owner's files load assets from `https://raw.githubusercontent.com/dinopawnz/spire/handoff-v14/` (baked into spire.html by `build_html.py`), so **assets must be pushed to `handoff-v14` before the owner's HTML works.** Remote PIN: **7747**, then press LIVE BUILD.
 
@@ -238,6 +238,11 @@ Raised dark-timber photo stage with steps, Meshy photo arch (8 m) with the Mudwa
 - **Lift jerk / riders dropped at the start of a ride** (owner): `glider()` (cab, ropes, counterweight, needles) used `tween()`, which writes the FINAL value first and then adds the animation - for an instant the cab (with its floor colliders) was at the destination. Now the animation starts from where the cab is, the final value is written under the finished animation 120 ms after the ride, and the animation is removed 450 ms after (plus the v41 resend). `heal()` cancels these timers too. lifttest (702 rides), healtest, gatecheck pass.
 - **Escape keypad showed no numbers**: the button plates baked into sp_escape.glb sat in front of the number sprites (wrong side). Fixed; numbers at z 0.05.
 - **Escape: a how-to sign in every room** (`sg_esc_r1..r4`, pictures of text): what to look for and do. Rooms 3-4 signs describe card memory / frog choir until those rooms are replaced.
+### v47 (session 11): Mud Royale = the OFFICIAL Mudwater rules (owner's rules sheet: `src/Mudwater_Rules_Sheet.pdf`)
+- Owner: "upgrades cannot go on an enemy's card and a card cannot jump more than 1 level. these are the official mudwater rules. the only thing we're changing is that the game doesn't automatically end when we fill up the board."
+- PLACE: Level I face up on an empty square. UPGRADE: a card EXACTLY one level higher on top of a square YOUR TEAM controls (captured squares and rocks count; rock = level I). Never on an enemy square. ROCK: click a hand card twice (it turns face down, "ROCK") then an empty square: captures nothing, can never be captured, counts as level I, one uncovered rock per player at a time. Captures: higher touching number wins, ties hold, no chains (as before). The v45 "same level + higher total on a full board" rule is gone. The game still runs the full 3 minutes (team version, 196 squares, refills).
+- New words r_enemy, r_rock1, r_rockon, r_tip (hint under every hand board), r_lvup/r_lvlow reworded; rules sign updated. Test `viewer/royalelevel.py` (place / upgrade +1 own / refused enemy / refused jump / rocks never captured / one rock at a time).
+- NOTE: sprites.py SIGNS strings are single-quoted - escape apostrophes (a syntax error silently skipped all sprites once).
 - Possible next looks items: the team pens read a bit like boxing rings (owner asked what the "gator ring" was) - offer a restyle (timber platform / moss-and-lantern clearing).
 - (old note) NEXT for floor 3: decoration pass to lounge standard (owner: "every floor must keep the same standard as the first floor") - it's dark and bare apart from the arena: lantern rings + warm light pools, Mudwater banners, framed cards on the walls, spectator benches/bleachers, plants, moss on beams.
 
