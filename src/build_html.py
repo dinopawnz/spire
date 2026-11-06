@@ -175,7 +175,13 @@ D['galaxy'] = gal
 # over the water, sky lanterns rising, clouds of fireflies, a glowing bayou rune circle round the island and rings round the steeple
 fx = dict(sky=['sp_sky', 0.0, 0.0, 20.0, 1.0], pack=[0.0, 90.0, 4.0, 4.0], moon=[], wisps=[], lanterns=[], runes=[], motes=[])
 fx['packRings'] = [['fx_ring_gold', 0.0, 19.0, 72.0, 0.0, 26000], ['fx_ring_teal', 0.0, 24.0, 18.0, 10.0, 34000]]
-fx['packBeam'] = ['mwm_diskbeam_t', 0.0, FL['roof'] + 0.5, 4.0, 7.0, 8.5]
+# (v44, owner: "maybe this blue beam of light can be a little less distracting") our own soft beam: half as wide, faint and see-through
+def _soft_beam():
+    from glb import Mesh, write as _w, lathe
+    bm = Mesh(); lathe(bm, 'beam', [(0.22, 0.0), (0.3, 3.4)], 24, None, None, 1.0, 1.0, False, False)
+    _w(O + 'glb/sp_beam_soft.glb', bm, dict(beam=dict(color=(0.5, 1.0, 0.92, 0.10), emis=(0.035, 0.2, 0.18), alpha='BLEND', unlit=True, double=True)))
+_soft_beam()
+fx['packBeam'] = ['sp_beam_soft', 0.0, FL['roof'] + 0.5, 4.0, 7.0, 8.5]
 fx['moonDisc'] = [-226.7, 264.7, -231.8, 42.0, 38.0, 105.0]      # (v23) the golden crescent: x, y, z, turn, tilt, size (m) - up and left of the building as you walk in
 fx['moon'] = [[-84.0, 0.0, 72.0, -14.0, 8.0, 16.0, 150.0], [86.0, 0.0, -38.0, 10.0, -12.0, 14.0, 140.0]]
 for k in range(70):
@@ -293,7 +299,10 @@ print('kodas', [(k[0], k[1:4]) for k in kodas])
 print('deco pieces', len(D['deco']))
 
 # (v42, fps) every repeated static model on a floor baked into one file (merge.py); set NOMERGE=1 to build without it
-if not os.environ.get('NOMERGE'):
+# (v44, owner: "for the forgery game, i am not able to click on a majority of the paintings") merging is OFF: a merged file is ONE object
+# spanning a whole floor (all the hanging lanterns, chains, rings), and Otherside seems to let such a big object catch clicks meant for
+# the portraits behind it (the drums too). Turn it back on with MERGE=1 only together with a fix that keeps merged pieces small.
+if os.environ.get('MERGE'):
     import merge as _mg
     _mg.merge_all(D, L)
 

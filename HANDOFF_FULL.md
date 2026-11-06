@@ -34,7 +34,7 @@
 | Where | Version | What |
 |---|---|---|
 | branch `main` | v13 | the old LIVE build. Untouched. Push to main ONLY when the owner says. |
-| branch **`handoff-v14`** | **v43** | everything from sessions 6–11. This is what the owner tests. |
+| branch **`handoff-v14`** | **v44** | everything from sessions 6–11. This is what the owner tests. |
 
 The owner's files load assets from `https://raw.githubusercontent.com/dinopawnz/spire/handoff-v14/` (baked into spire.html by `build_html.py`), so **assets must be pushed to `handoff-v14` before the owner's HTML works.** Remote PIN: **7747**, then press LIVE BUILD.
 
@@ -222,6 +222,14 @@ Raised dark-timber photo stage with steps, Meshy photo arch (8 m) with the Mudwa
 - Sprites: e_title + 6 colour words; sign `sg_escape_rules` (4 in the aisles); floor 4 renamed "MUDWATER ESCAPE" everywhere (lift plaques via `build_lift.py`, remote).
 - **Found while rebuilding the lifts: the repo's `sp_lift_cab_col.glb` and `sp_lift_cgate_col.glb` were still the v1 size** (cab floor/walls 2.13 m half-width vs the 2.98 m cab since v24; cab gate collider 1.7 m wide vs the 2.4 m door). The pipeline step `cp spire_repo/*.glb out/glb/` kept overwriting the fresh colliders with the stale ones. v43 pushes the correct ones. **Don't blindly copy repo GLBs over freshly built collider files.**
 - Still to do: dress the rooms to lounge standard (looks second, as the owner said), confirm click targets + collisionend in Otherside.
+### v44 (session 11): owner bug reports
+- **Hall of Fakes portraits mostly unclickable (major)** -> the v42 MERGE is now OFF by default (`MERGE=1` turns it on). Most likely cause: a merged file is ONE object spanning a whole floor (all the lanterns/chains/rings) and Otherside lets that big object catch clicks meant for things behind it. If merging comes back, merge only small, local clusters and never over clickable things - and confirm with the owner in Otherside.
+- **"Ding dong" over the whole world when the build opened**: the two lifts arrived at the lounge with a chime + gate sound at build (now silent: `arrive(k, quiet)`), and the escape set-up opened/closed doors with chimes (now silent at open/start/reset/end; only a door a team just unlocked makes a soft click).
+- **Drums didn't play**: each drum's click box sat INSIDE the drum; now the boxes sit on top of each piece (0.55 m tall) AND the drum kit model itself is clickable (`D.bandDrum`: the click's spot picks the nearest piece).
+- **Roof photo wall**: the bulb curtain is replaced by ALL 120 MUDWATER CARDS (4 x 30 on gold mounts, two atlas pictures `tex/cardwall_0/1.jpg`, soft glow) + one row of bulbs along the top; the Mudwater logo now hangs IN FRONT of the arch (z0 + 3.3) so the posts don't cut it off.
+- **Blue beam under the floating pack**: replaced by `sp_beam_soft.glb` (narrower, faint, see-through).
+- **Art wall made big squares in Otherside**: one click without a position used to switch the whole wall to the 0.8 m grid for everyone. Now such clicks are ignored (counted in `art` status: "clicks with a spot / without"), the click target is solid (collide true) so clicks carry their spot, and dots are small round paint dots (11 cm). Host can still force squares with `art grid`.
+- Escape puzzles: owner wants easy + fun + TEAMWORK (math like Dippy's Carrot Sums), no card memory (too easy), no frog choir (sound). Proposed: room 3 CRITTER SUMS (picture sums spread round the room -> 4-digit code), room 4 THE WEIGH-IN (math tells how many players stand on each critter pad, exactly). Waiting for the owner's OK.
 - Possible next looks items: the team pens read a bit like boxing rings (owner asked what the "gator ring" was) - offer a restyle (timber platform / moss-and-lantern clearing).
 - (old note) NEXT for floor 3: decoration pass to lounge standard (owner: "every floor must keep the same standard as the first floor") - it's dark and bare apart from the arena: lantern rings + warm light pools, Mudwater banners, framed cards on the walls, spectator benches/bleachers, plants, moss on beams.
 

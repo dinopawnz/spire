@@ -7,9 +7,9 @@ Everything stands ON the deck (y = FL['roof']):
   - tall Meshy lantern posts carrying strings of warm festival lights up to the steeple house eave
   - the Old Skipper by the stage
 Colliders are invisible pads (D['pads']) so nothing is walk-through. The CELEBRATE fireworks live in spire_src.html."""
-import math, random
+import math, os, random
 import numpy as np
-from glb import Mesh, write, tube, sphere, T, M, Ry
+from glb import Mesh, write, tube, sphere, quad, T, M, Ry
 from kit import MATS, bevel_box, flat_deck
 import outside
 from outside import place, r3
@@ -57,7 +57,8 @@ def apply(D, L, FL):
         mn, mx = outside.META['photoarch']; s = 8.0 / (mx[1] - mn[1]); half = (mx[0] - mn[0]) * s / 2
         for sx in (-1, 1): pads.append([sx * (half - 0.45), ys + 4.0, z0 + 2.2, 0.8, 8.0, 0.8, 0])
     # the Mudwater logo (Coliseum GLB, an image-like plaque) high on the stage, under the arch
-    D['deco'].append(['mw_logo', 0.0, r3(ys + 5.6), r3(z0 + 2.0), 0.0, 1.9])
+    # (v44, owner: "the mudwater sign cannot be cut off by the arch") hung IN FRONT of the arch posts, not between them
+    D['deco'].append(['mw_logo', 0.0, r3(ys + 5.7), r3(z0 + 3.3), 0.0, 1.9])
     # ---- planters with little cypress trees all round the terrace edge
     if have('planter'):
         spots = [(x, -27.0) for x in (-26, 26)] + [(sx * 29.0, z) for sx in (-1, 1) for z in (-18, -6, 6, 18)] + [(x, 25.0) for x in (-24, -14, 14, 24)]
@@ -131,14 +132,28 @@ def backdrop(D, L, FL, zb=-9.2, half=12.4, top=8.6):
     bevel_box(m, 'dark', 2 * half + 4.0, 0.55, 0.6, 0.05, m=T(0, y + top + 0.15, zb), uvs=3.0)
     for yy in (y + top - 0.13, y + top + 0.43):
         bevel_box(m, 'gold', 2 * half + 4.1, 0.06, 0.64, 0.01, m=T(0, yy, zb))
-    # the light curtain: a strand every 0.45 m, bulbs every 0.42 m, the bottoms scalloped
-    xs = np.arange(-half + 0.55, half - 0.5, 0.5)
-    for k, x in enumerate(xs):
-        bot = y + 1.0 + 0.55 * abs(math.sin(k * math.pi / 9.0))
-        z = zb + 0.05 + 0.04 * math.sin(k * 1.7)
-        tube(m, 'wire', [(x, y + top - 0.12, z), (x, bot, z)], 0.008, 3)
-        for yy in np.arange(y + top - 0.45, bot - 0.01, -0.42):
-            sphere(m, 'bulb', 0.055, 6, 4, m=T(x, yy, z + 0.02))
+    # (v44, owner: "we need something more than just dots back there. maybe put all the cards back there so we can take a picture in
+    # front of all the cards") ALL 120 MUDWATER CARDS on the drape, 4 rows x 30, each on a gold mount, glowing softly at night; two
+    # pictures (atlases) hold all the cards, so the whole wall is just a few pieces to draw. A row of warm bulbs runs along the top.
+    from PIL import Image
+    MWR = '/home/claude/mudwater_repo/'; CW_, CH_ = 200, 278; AC, AR = 10, 6
+    nums = [n for n in range(1, 121) if os.path.exists(MWR + 'mwc_%03d.jpg' % n)]
+    for ai in range(2):
+        atl = Image.new('RGB', (AC * CW_, AR * CH_), (20, 14, 8))
+        for j, n in enumerate(nums[ai * 60:(ai + 1) * 60]):
+            atl.paste(Image.open(MWR + 'mwc_%03d.jpg' % n).convert('RGB').resize((CW_, CH_), Image.LANCZOS), ((j % AC) * CW_, (j // AC) * CH_))
+        ap = '/home/claude/spire/tex/cardwall_%d.jpg' % ai; atl.save(ap, quality=88)
+        mats['cw%d' % ai] = dict(tex=ap, emis_tex=ap, emis=(0.42, 0.42, 0.42), rough=0.55)
+    COLS, ROWS = 30, 4; cw, ch, gx, gy = 1.08, 1.5, 0.1, 0.12
+    x0 = -(COLS * cw + (COLS - 1) * gx) / 2; ybot = y + 0.9
+    for j, n in enumerate(nums[:COLS * ROWS]):
+        c, r = j % COLS, j // COLS
+        cx = x0 + c * (cw + gx) + cw / 2; cy = ybot + (ROWS - 1 - r) * (ch + gy) + ch / 2; z = zb + 0.12
+        ai, k = j // 60, j % 60; u0, v0 = (k % AC) / AC, (k // AC) / AR
+        quad(m, 'cw%d' % ai, cw, ch, T(cx, cy, z + 0.012), uv=(u0, v0, u0 + 1 / AC, v0 + 1 / AR))
+        quad(m, 'gold', cw + 0.08, ch + 0.08, T(cx, cy, z))
+    for x in np.arange(-half + 0.6, half - 0.5, 0.42):
+        sphere(m, 'bulb', 0.06, 6, 4, m=T(x, y + top - 0.42, zb + 0.14))
     # a Mudwater banner at each end, on iron arms off the beam
     w, h, tip = 2.5, 5.2, 0.9
     for sx in (-1, 1):

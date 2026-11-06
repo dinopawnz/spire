@@ -383,7 +383,7 @@
         const t = el("m-group", { y: dy, rx, rz }, pk); const sp = el("m-group", {}, t); anim(sp, "ry", 0, i % 2 ? -360 : 360, per);
         mw(f, { sx: sc, sy: sc, sz: sc }, sp);
       });
-      const pb = F.packBeam; mw(pb[0], { x: pb[1], y: pb[2], z: pb[3], sx: pb[4], sy: pb[5], sz: pb[4] });
+      const pb = F.packBeam; (pb[0].startsWith("sp_") ? model : mw)(pb[0] + (pb[0].startsWith("sp_") ? ".glb" : ""), { x: pb[1], y: pb[2], z: pb[3], sx: pb[4], sy: pb[5], sz: pb[4], collide: "false" });
       // floating rock islands and far cliffs, bobbing slowly in the night sky
       (F.islands || []).forEach(([f, x, y, z, ry, s, amp, per], i) => {
         const g = el("m-group", { x, y, z });
@@ -474,7 +474,7 @@
       };
       // one big click target over the canvas: Otherside sends where on it you clicked. If a client ever sends no position, the wall
       // switches itself to a grid of 300 small click targets (one per square) so painting still works.
-      let big = hitBox({ y: H / 2, z: 0.06, width: W, height: H, depth: 0.06 }, AG);
+      let big = hitBox({ y: H / 2, z: 0.06, width: W, height: H, depth: 0.06, collide: "true" }, AG);     // (v44) solid, so the click carries its spot
       const toGrid = () => {
         if (ART.grid) return; ART.grid = true; big.remove();
         for (let r = 0; r < AW.rows; r++) for (let c = 0; c < AW.cols; c++) {
@@ -499,14 +499,20 @@
         }
         const k = r * DCOLS + c, have = ART.dots.get(k);
         if (have) { if (have.getAttribute("color") !== col) have.setAttribute("color", col); ART.dots.delete(k); ART.dots.set(k, have); return; }
-        ART.dots.set(k, el("m-cube", { x: -W / 2 + DOT * (c + 0.5), y: DOT * (r + 0.5), z: 0.02, width: DOT * 1.15, height: DOT * 1.15, depth: 0.01, color: col, collide: "false", "cast-shadows": "false" }, AG));
+        ART.dots.set(k, el("m-cylinder", { x: -W / 2 + DOT * (c + 0.5), y: DOT * (r + 0.5), z: 0.02, rx: 90, radius: DOT * 0.55, height: 0.01, color: col, collide: "false", "cast-shadows": "false" }, AG));   // a round dot of paint
         if (ART.dots.size > MAXD) { const [k0, e0] = ART.dots.entries().next().value; e0.remove(); ART.dots.delete(k0); }
       };
+      // (v44, owner: "instead of drawing a big square block whenever we click... every click should just be a small dot of paint") the wall
+      // no longer switches itself to big squares when one click arrives without a spot (one odd client used to flip it for everyone);
+      // such a click just does nothing. The host can still force squares with "art grid". Counts show on the remote's art status.
+      ART.okClicks = 0; ART.noPos = 0;
       big.addEventListener("click", (e) => {
-        const p = e.detail && e.detail.position, id = e.detail && e.detail.connectionId;
-        if (!p || (Math.abs(p.x) < 1e-6 && Math.abs(p.y) < 1e-6)) { toGrid(); return; }
+        const p = e.detail && (e.detail.position || (e.detail.hit && e.detail.hit.position)), id = e.detail && e.detail.connectionId;
+        if (!p || typeof p.x !== "number" || (Math.abs(p.x) < 1e-6 && Math.abs(p.y) < 1e-6)) { ART.noPos++; return; }
+        ART.okClicks++;
         dotAt(p.x, p.y + H / 2, id);
       });
+      ART.toGrid = toGrid;
       // the paint stands: a row of paint pots (13 colours + the eraser) on each table; click one to load your brush
       AW.stands.forEach(([sx, sy, sz, sry]) => {
         const g = el("m-group", { x: sx, y: sy, z: sz, ry: sry || 0 }); g._global = true;
@@ -879,15 +885,18 @@
         el("m-cylinder", { x: t.rounds[0], y: t.rounds[1] + 0.6, z: t.rounds[2], radius: 0.08, height: 1.25, color: "#2a1d12", collide: "false" }, eg);
       });
       // ---- doors
-      function door(T, d, open) {
+      // (v44, owner: "when i opened the build there was a big ding dong sound that played throughout the whole world") doors are
+      // silent when the game is set up, started, reset or ended (that was 6-30 chimes at once); only a door a team just unlocked
+      // makes a soft sound, right there
+      function door(T, d, open, quiet) {
         const D_ = T.doors[d]; if (D_.open === open) return; D_.open = open;
         escStep(D_.g, "z", open ? D_.z : D_.z - E.slide, open ? D_.z - E.slide : D_.z, 1600, 9);
-        const [x, y, z] = TM[T.k].doors[d]; sfx(open ? "lift_chime.mp3" : "pool_rail.mp3", x, y + 1.6, z, 0.6);
+        if (!quiet && ES.ph === "live") { const [x, y, z] = TM[T.k].doors[d]; sfx("pool_clack_1.mp3", x, y + 1.6, z, 0.3); }
       }
       function solved(T, room) {
         if (ES.ph !== "live" || T.stage !== room) return;
         T.stage = room + 1; door(T, room + 1, true); lampsShow();
-        const [x, y, z] = TM[T.k].doors[room + 1]; sfx("winner.mp3", x, y + 2, z, 0.45);
+
         if (room === 3) finish(T);
         else if (room === 2) later(3500, () => frogRound(T, 0));
       }
@@ -900,7 +909,7 @@
         } else hostMsg("MUDWATER ESCAPE: " + TM[T.k].k.toUpperCase() + " OUT IN PLACE " + ES.order.length + " (" + Math.floor(secs / 60) + ":" + String(secs % 60).padStart(2, "0") + ")");
       }
       function confetti(c) {
-        const [vx, vy, vz] = E.vh; sfx("winner.mp3", vx, vy + 2, vz, 1.0); sfx("finals.mp3", vx, vy + 2, vz - 20, 0.7);
+        const [vx, vy, vz] = E.vh; sfx("winner.mp3", vx, vy + 2, vz, 0.45);
         for (let b = 0; b < 6; b++) later(b * 700, () => {
           const g = el("m-group", { x: vx, y: vy + 3.2, z: vz + (b - 2.5) * 9 }, eg);
           for (let i = 0; i < 16; i++) {
@@ -1019,7 +1028,7 @@
       }
       function eOpen() {
         ES.tok++; ES.ph = "open"; ES.order = []; ES.t0 = 0;
-        ES.teams.forEach((T) => { freshPuzzles(T); T.doors.forEach((_, d) => door(T, d, d === 0)); });
+        ES.teams.forEach((T) => { freshPuzzles(T); T.doors.forEach((_, d) => door(T, d, d === 0, true)); });
         BOARDS.forEach((B) => Array.from(B.big.children).forEach((c) => c.remove()));
         lampsShow(); countsShow(); clockShow(0);
         return "MUDWATER ESCAPE: DOORS OPEN - WALK INTO A COLOURED DOOR TO JOIN THAT TEAM";
@@ -1029,8 +1038,7 @@
         const ids = Array.from(ES.roster.keys()).filter((id) => ONLINE.has(id));
         if (!ids.length) return "NOBODY HAS JOINED A TEAM YET";
         ES.ph = "live"; ES.t0 = now(); ES.order = []; const tok = ++ES.tok;
-        ES.teams.forEach((T) => { T.doors.forEach((_, d) => door(T, d, false)); });
-        sfx("finals.mp3", 0, E.y0 + 3, 0, 0.8);
+        ES.teams.forEach((T) => { T.doors.forEach((_, d) => door(T, d, false, true)); });
         ids.forEach((id) => { const t = TM[ES.roster.get(id)]; privWords(["r_go"], [t.rug[0], E.y0 + 2.8, t.rug[2]], 90 * t.side, id, 2500, 0.5); });
         lampsShow(); countsShow();
         const tick = () => { if (ES.tok !== tok || ES.ph !== "live") return; clockShow(Math.round((now() - ES.t0) / 1000)); later(1000, tick); };
@@ -1040,7 +1048,7 @@
       function eEnd() {
         if (ES.ph !== "live") return "MUDWATER ESCAPE ISN'T RUNNING";
         ES.ph = "done"; ES.tok++;
-        ES.teams.forEach((T) => T.doors.forEach((_, d) => door(T, d, true)));          // let everybody out
+        ES.teams.forEach((T) => T.doors.forEach((_, d) => door(T, d, true, true)));    // let everybody out (silently)
         return "MUDWATER ESCAPE ENDED - ALL DOORS OPEN. " + (ES.order.length ? "ORDER: " + ES.order.map((k) => TM[k].k.toUpperCase()).join(", ") : "NOBODY ESCAPED");
       }
       function teamArg(a) { const k = TM.findIndex((t) => t.k === a || String(TM.indexOf(t) + 1) === a); return k; }
@@ -1399,6 +1407,17 @@
       later(first, () => { puff(); every(period, puff); });
     });
 
+    if (D.bandDrum) {        // (v44) the whole drum kit is a click target: the spot clicked (model space) picks the nearest piece
+      const [f, x, y, z, ry, s] = D.bandDrum.e, PC = D.bandDrum.pieces;
+      const kit = model(f + ".glb", { x, y, z, ry, sx: s, sy: s, sz: s, collide: "false" });
+      const hitOf = (k) => (D.bandHits || []).find((h) => h[7] === "drum" && h[8] === k);
+      kit.addEventListener("click", (e) => {
+        const id = e.detail && e.detail.connectionId, p = e.detail && e.detail.position; if (id === undefined) return;
+        let best = PC[3], bd = 1e9;                              // the snare if the client sent no spot
+        if (p && typeof p.x === "number") [1, 1 / s].forEach((m) => PC.forEach((pc) => { const d = Math.hypot(p.x * m - pc[1], p.y * m - pc[2], p.z * m - pc[3]); if (d < bd) { bd = d; best = pc; } }));
+        const h = hitOf(best[0]); bandPlay("drum", best[0], id, h ? h[0] : x, h ? h[1] : y + 1, h ? h[2] : z);
+      });
+    }
     (D.bandHits || []).forEach(([x, y, z, w, h, d, ry, inst, k]) => {
       const hb = hitBox({ x, y, z, width: w, height: h, depth: d, ry });
       hb.addEventListener("click", (e) => bandPlay(inst, k, e.detail && e.detail.connectionId, x, y, z));
@@ -1767,7 +1786,7 @@
         g._steps.push(later(ms + 500, () => g.setAttribute(attr, String(r3(b + (b > a ? 0.002 : -0.002))))));     // a nudge + the final value again:
         g._steps.push(later(ms + 700, () => g.setAttribute(attr, String(r3(b)))));                                    // a client that missed a step catches up
       }
-      function gates(open, k) {
+      function gates(open, k, quiet) {
         const s0 = open ? 1 : 0.15, s1 = open ? 0.15 : 1, l = LANDS[k];
         // (v40, owner: "the second gate didn't open so I can't get out") no m-attr-anim on the gates any more: they open/close in 9 plain
         // attribute steps (every client always shows the last value it was sent), and the final value is sent again a moment later
@@ -1775,7 +1794,7 @@
         // the invisible gate walls follow the leaves: gone once the door is mostly open, back once it is mostly shut
         // (so a door that looks open is always walkable, and nobody gets stopped by glass while it still looks open)
         later(open ? 850 : 750, () => { if (st.open !== open) return; cgatePad.setAttribute("y", open ? -60 : D.cabGateH / 2); l.gp.setAttribute("y", open ? -300 : l.gpY); });
-        sfx("lift_gate.mp3", l.po.gate_col[0], l.po.gate_col[1] + 1.4, l.po.gate_col[2], 0.7);
+        if (!quiet) sfx("lift_gate.mp3", l.po.gate_col[0], l.po.gate_col[1] + 1.4, l.po.gate_col[2], 0.7);
         st.open = open;
       }
       function move(k0, k1, done) {
@@ -1792,10 +1811,10 @@
         if (id === OP_LIFT && NPCS.operator) { try { npcTalk(NPCS.operator, up ? "up" : "down", undefined, true); } catch (e) {} }
         later(ms, () => { spins.forEach((s) => s.remove()); hum.remove(); done(); });
       }
-      function arrive(k) {
+      function arrive(k, quiet) {
         const l = LANDS[k]; if (l.glow.parentNode) l.glow.remove();
-        sfx("lift_chime.mp3", l.po.call[0], l.po.call[1] + 1.5, l.po.call[2], 0.9);
-        gates(true, k);
+        if (!quiet) sfx("lift_chime.mp3", l.po.call[0], l.po.call[1] + 1.5, l.po.call[2], 0.9);
+        gates(true, k, quiet);
         if (id === OP_LIFT && NPCS.operator) later(600, () => { try { npcTalk(NPCS.operator, "s_" + Lf.keys[k], undefined, true); } catch (e) {} });
       }
       function pump() {
@@ -1853,7 +1872,7 @@
       st.status = () => ({ at: Lf.keys[st.at], busy: st.busy, open: st.open, req: Array.from(st.req).map((k) => Lf.keys[k]), heals: st.heals || 0, err: LAST_ERR });
       LIFTS[id] = st;
       // start: cab at the lounge with its gates open
-      later(1500, () => arrive(0));
+      later(1500, () => arrive(0, true));      // (v44, owner: a "ding dong" when the build opened) the cages open silently at build
     });
     // (v23, owner: a cage only moves when somebody presses a button - no more going home to the lounge by itself)
 
@@ -2114,7 +2133,8 @@
           if (a1 === "clear") { ART.clear(); return "ART WALL WIPED CLEAN"; }
           if (a1 === "lock") { ART.locked = true; return "ART WALL LOCKED - NOBODY CAN PAINT OR SIGN"; }
           if (a1 === "unlock") { ART.locked = false; return "ART WALL OPEN FOR PAINTING"; }
-          return "ART WALL: " + (ART.dots ? ART.dots.size : 0) + " DOTS + " + ART.cells.size + " SQUARES PAINTED, " + ART.names.length + " NAMES" + (ART.locked ? " (LOCKED)" : "") + (ART.grid ? " [GRID MODE]" : "");
+          if (a1 === "grid") { ART.toGrid(); return "ART WALL SWITCHED TO BIG SQUARES (FALLBACK) - REBUILD TO GO BACK TO DOTS"; }
+          return "ART WALL: " + (ART.dots ? ART.dots.size : 0) + " DOTS + " + ART.cells.size + " SQUARES PAINTED, " + ART.names.length + " NAMES" + (ART.locked ? " (LOCKED)" : "") + (ART.grid ? " [GRID MODE]" : "") + " | clicks with a spot " + ART.okClicks + ", without " + ART.noPos;
         }
         if (cmd === "pool") { POOL.forEach((T) => { T.busy = false; POOL.rack(T); }); return "BOTH POOL TABLES RACKED"; }
         if (cmd === "music") {

@@ -40,7 +40,11 @@ def apply(D, F1):
         for (k, lx, ly, lz, sz) in PIECES:
             ox, oz = (lx - cxm) * s_, (lz - czm) * s_
             wx, wz = ox * c + oz * sn, -ox * sn + oz * c
-            hits.append([round(wx, 3), round(y + (ly - mn[1]) * s_, 3), round(zb + 3.0 + wz, 3), round(sz * s_ * 0.5, 3), round(0.18 * s_, 3), round(sz * s_ * 0.5, 3), 0, 'drum', k])
+            # (v44, owner: "all the instruments work on stage except for the drums") the click box used to sit INSIDE each drum, so the
+            # drum itself caught the click; now it sits on top of the piece and reaches up 0.5 m (click the top of the drum)
+            hits.append([round(wx, 3), round(y + (ly - mn[1]) * s_ + 0.2, 3), round(zb + 3.0 + wz, 3), round(sz * s_ * 0.6, 3), 0.55, round(sz * s_ * 0.6, 3), 0, 'drum', k])
+        # ...and the drum kit model itself is clickable too: the click's spot on the model picks the nearest piece
+        ek = D['sdeco'].pop(); D['bandDrum'] = dict(e=ek, pieces=[[k, lx, ly, lz] for (k, lx, ly, lz, _) in PIECES])
     # the grand piano and the harp from the owner's castle build (Dippy's Lost Crown): every key / string plays its own recorded
     # note (piano_<midi>.mp3, harp_<midi>.mp3). Their key/string layouts (castle_instruments.json) are in each model's own space.
     import json
