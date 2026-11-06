@@ -131,7 +131,8 @@ def apply(D, L, FL):
         blk('plank', cx, (Y0 + 4.5 + YU) / 2, zc, WT, YU - Y0 - 4.5, 2 * HALF)
         for zz in (Zl + 0.6, Zh - 0.6): blk('plank', cx, (Y0 + 0.9 + Y0 + 4.5) / 2, zz, WT, 3.6, 1.2)
         glass_x(cx, Zl + 1.2, Zh - 1.2, Y0 + 0.9, Y0 + 4.5)
-        blk('plank', cx, YU + 0.45, zc, WT, 0.9, 2 * HALF)
+        # (v45, owner: "the bottom of the door is blocked by wood") the low wall under the windows now stops either side of the last door
+        for (a, b) in ((Zl, zc - DW / 2), (zc + DW / 2, Zh)): blk('plank', cx, YU + 0.45, (a + b) / 2, WT, 0.9, b - a)
         blk('plank', cx, (YU + 4.2 + YT) / 2, zc, WT, YT - YU - 4.2, 2 * HALF)
         for (a, b) in ((Zl, Zl + 1.2), (zc - 4.2, zc - DW / 2), (zc + DW / 2, zc + 4.2), (Zh - 1.2, Zh)):
             blk('plank', cx, (YU + 0.9 + YU + 4.2) / 2, (a + b) / 2, WT, 3.3, b - a)

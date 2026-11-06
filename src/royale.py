@@ -40,7 +40,7 @@ PEN_W, PEN_D = 12.0, 6.0
 BADGE_FONT = '/usr/share/fonts/opentype/inter/Inter-ExtraBold.otf'
 
 
-def badge_card(src, vals, size=(360, 500)):
+def badge_card(src, vals, size=(360, 500), lv=None):
     """(v37, owner) one BIG number on each side of the card - top, left, right, bottom - so a player only reads the edge that is
     touching the card they're battling (the printed numbers are tiny and all bunched in the top-left corner)"""
     from PIL import ImageFont
@@ -55,6 +55,12 @@ def badge_card(src, vals, size=(360, 500)):
         d.ellipse([cx - R, cy - R, cx + R, cy + R], fill=(214, 168, 66, 255))                  # gold rim
         d.ellipse([cx - R + 6, cy - R + 6, cx + R - 6, cy + R - 6], fill=(28, 18, 10, 255))      # dark centre
         d.text((cx, cy + 2), str(v), font=f, fill=(255, 238, 196, 255), anchor='mm', stroke_width=2, stroke_fill=(0, 0, 0, 255))
+    if lv is not None:                      # (v45) the card's LEVEL, big and clear in the bottom-left corner: green LV 1 = goes on an empty
+        fl = ImageFont.truetype(BADGE_FONT, 40)                     # square, gold LV 2+ = an upgrade (played on a lower-level card)
+        x0, y0, x1, y1 = 10, H - 74, 118, H - 22
+        d.rounded_rectangle([x0 - 3, y0 - 3, x1 + 3, y1 + 3], 14, fill=(0, 0, 0, 200))
+        d.rounded_rectangle([x0, y0, x1, y1], 12, fill=(64, 168, 72, 255) if lv == 1 else (214, 168, 66, 255))
+        d.text(((x0 + x1) / 2, (y0 + y1) / 2 + 1), 'LV %d' % lv, font=fl, fill=(255, 255, 255, 255) if lv == 1 else (28, 18, 10, 255), anchor='mm', stroke_width=1, stroke_fill=(0, 0, 0, 255) if lv == 1 else (255, 238, 196, 255))
     return Image.alpha_composite(im, lay).convert('RGB')
 
 
@@ -65,7 +71,7 @@ def card_images():
     for k in range(1, 121):
         dst = OUT + 'royale/c_%03d.jpg' % k
         v = cards[str(k)]
-        badge_card(MW + 'mwc_%03d.jpg' % k, (v['t'], v['l'], v['r'], v['b'])).save(dst, quality=84, optimize=True)
+        badge_card(MW + 'mwc_%03d.jpg' % k, (v['t'], v['l'], v['r'], v['b']), lv=v['lv']).save(dst, quality=84, optimize=True)
     for ti, (_, _, hx, rgb) in enumerate(TEAMS):
         S = 256; im = Image.new('RGBA', (S, S), (0, 0, 0, 0)); d = ImageDraw.Draw(im)
         c = tuple(int(v * 255) for v in rgb)
@@ -258,8 +264,10 @@ def decor(D, L, FL):
         if sd_ == 'front' and abs(x) > 6 and clear('front', x, z): frame(x, Z1 - 0.12, 180, next(cards))
         if sd_ in ('west', 'east') and abs(z) > 11.0 and z > -27.0 and clear(sd_, (-X1 if sd_ == 'west' else X1), z):
             frame(-X1 + 0.12 if sd_ == 'west' else X1 - 0.12, z, 90 if sd_ == 'west' else -90, next(cards))
-    for zz in (-3.0, 3.0):
-        frame(-L['sw']['xi'] + 0.25, zz + (7.0 if zz > 0 else -7.0), 90, next(cards)); frame(L['sw']['xi'] - 0.25, zz + (7.0 if zz > 0 else -7.0), -90, next(cards))
+    # (v45, owner: "a couple of paintings on the mud royale floor are just hovering in air") these were at z +-10, just PAST the ends of the
+    # stair tower wall (it runs z -9.5..9.5), so nothing was behind them. Now both hang ON that wall, clear of its door (z -9.5..-6)
+    for zz in (-2.0, 6.0):
+        frame(-L['sw']['xi'] + 0.25, zz, 90, next(cards)); frame(L['sw']['xi'] - 0.25, zz, -90, next(cards))
     # giant Meshy swamp trees (the lounge's trunks; colliders so nobody walks through them)
     for i, (x, z) in enumerate(TREES3):
         sd.append(['sp_mtree_%d' % (1 + i % 2), x, round(Y + (0.946 if i % 2 == 0 else 0.951) * 4.0 - 0.08 + 0.25, 3), z, (i * 67 + 20) % 360, 4.0])
@@ -338,6 +346,7 @@ def apply(D, L, FL):
         score=[[x, Y + SC_B, z, ry] for (x, z, ry) in corner_frames()],
         hands=hand_frames(),
         cards=[[cards[str(k)]['t'], cards[str(k)]['l'], cards[str(k)]['r'], cards[str(k)]['b']] for k in range(1, 121)],
+        lv=[cards[str(k)]['lv'] for k in range(1, 121)],                  # (v45) card levels: only level 1 goes on an empty square
         secs=180, hand=5, refill=10, signs=signs,
     )
     art = decor(D, L, FL)

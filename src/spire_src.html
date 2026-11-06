@@ -564,6 +564,8 @@
     const RY = { on: !!D.royale, ph: "open", roster: new Map(), hands: new Map(), board: [], last: new Map(), tok: 0, t0: 0, winner: null };
     if (D.royale) {
       const R = D.royale, N = R.n, TS = R.ts, HB = R.half, TOP = R.top, TM = R.teams, CARDS = R.cards, NT = TM.length;
+      const LV = R.lv || CARDS.map(() => 1), LV1 = LV.map((v, i) => v === 1 ? i : -1).filter((i) => i >= 0);
+      const deal = (n1) => (Math.random() < (n1 ? 1 : 0.55) ? LV1[Math.floor(Math.random() * LV1.length)] : Math.floor(Math.random() * CARDS.length));   // level 1 more often
       const CW = 1.78, CH = 2.47;                                            // a card on its square (the art is 720 x 1000)
       const rg = el("m-group", {}); rg._global = true;
       const tileXZ = (i) => [-HB + TS * (i % N + 0.5), -HB + TS * (Math.floor(i / N) + 0.5)];
@@ -682,7 +684,7 @@
         rClearBoard(); rClearHands(); rBig(null);
         RY.ph = "live"; RY.t0 = now(); RY.full = false; const tok = ++RY.tok;
         faces.forEach((F) => F.bar.setAttribute("color", "#d9a441"));
-        ids.forEach((id) => { RY.hands.set(id, { cards: Array.from({ length: R.hand }, () => Math.floor(Math.random() * CARDS.length)), sel: 0, els: [], next: 0 }); handDraw(id); handMsg(id, ["r_go"], 2500); });
+        ids.forEach((id) => { RY.hands.set(id, { cards: Array.from({ length: R.hand }, (_, j) => deal(j < 2)), sel: 0, els: [], next: 0 }); handDraw(id); handMsg(id, ["r_go"], 2500); });
         faces.forEach((F) => tween(F.bar, "sx", 1, 0.001, R.secs * 1000, "linear"));
         sfx("finals.mp3", 0, R.y + 4, 0, 0.8);
         rClock(R.secs); rCounts();
@@ -696,7 +698,7 @@
             const k = H.cards.indexOf(null);
             if (k < 0) { H.next = 0; return; }
             if (!H.next) H.next = t + R.refill * 1000;
-            if (t >= H.next) { H.cards[k] = Math.floor(Math.random() * CARDS.length); if (H.cards[H.sel] === null) H.sel = k; H.next = H.cards.indexOf(null) < 0 ? 0 : t + R.refill * 1000; handDraw(pid); }
+            if (t >= H.next) { H.cards[k] = deal(H.cards.every((cc) => cc === null || LV[cc] > 1)); if (H.cards[H.sel] === null) H.sel = k; H.next = H.cards.indexOf(null) < 0 ? 0 : t + R.refill * 1000; handDraw(pid); }
           });
           // (v37) the finale: at 30 s the clock bar turns red and everyone is told; the last 10 s tick at every corner sign
           if (left === 30) { faces.forEach((F) => F.bar.setAttribute("color", "#e5533d")); RY.hands.forEach((_, pid) => handMsg(pid, ["r_30"], 2500)); R.score.forEach(([sx, sy, sz]) => sfx("lift_chime.mp3", sx, sy + 1.5, sz, 0.7)); }
@@ -732,12 +734,15 @@
         let k = H.sel; if (H.cards[k] === null) k = H.cards.findIndex((c) => c !== null);
         if (k < 0) { handMsg(id, ["r_out"]); return; }
         const sum = (cc) => CARDS[cc][0] + CARDS[cc][1] + CARDS[cc][2] + CARDS[cc][3];
-        const old = RY.board[i];
-        if (old) {
-          // (v35, owner) the game never ends early: once EVERY square is filled, players UPGRADE - play a stronger card (higher total
-          // of its four numbers) on top of any card, theirs or an enemy's. Before the board is full, a taken square stays taken.
-          if (!RY.board.every((b) => b)) { handMsg(id, ["r_taken"], 1200); return; }
-          if (sum(H.cards[k]) <= sum(old.c)) { handMsg(id, ["r_weak"], 1500); return; }
+        const old = RY.board[i], mine = H.cards[k];
+        // (v45, owner: "im able to play cards that are not level 1 on the board without upgrading a card. that should not be a thing")
+        // LEVEL 1 cards go on EMPTY squares. Level 2+ cards are UPGRADES: they go on top of a card of a LOWER level (theirs or an
+        // enemy's - an enemy's square becomes yours). Once the whole board is full, a same-level card with a higher total may upgrade too
+        // (so nobody is stuck holding level-1 cards at the end).
+        if (!old) { if (LV[mine] > 1) { handMsg(id, ["r_lvup"], 1800); return; } }
+        else {
+          const ok = LV[mine] > LV[old.c] || (RY.board.every((b) => b) && LV[mine] === LV[old.c] && sum(mine) > sum(old.c));
+          if (!ok) { handMsg(id, LV[mine] > 1 ? ["r_lvlow"] : ["r_taken"], 1600); return; }
           old.g.remove(); RY.board[i] = null;
         }
         const c = H.cards[k], team = RY.roster.get(id); H.cards[k] = null;
@@ -782,7 +787,7 @@
           RY.board[i] = { c, team, by: -1, g, glow, card }; }
         return "MUD ROYALE DEMO BOARD";
       };
-      RY.open = rOpen; RY.start = rStart; RY.end = rEnd;
+      RY.open = rOpen; RY.start = rStart; RY.end = rEnd; try { window.__RY = RY; window.__RLV = LV; } catch (e) {}     // (for the bot tests)
       RY.clear = () => { RY.roster.clear(); rOpen(); return "MUD ROYALE: TEAMS EMPTIED - EVERYONE PICKS AGAIN"; };
       RY.status = () => "MUD ROYALE " + RY.ph.toUpperCase() + ": " + TM.map((t, k) => t[0].toUpperCase() + " " + Array.from(RY.roster.values()).filter((v) => v === k).length + "p/" + RY.board.filter((b) => b && b.team === k).length + "sq").join(", ");
       rOpen();
@@ -819,7 +824,11 @@
       });
       const clockShow = (secs) => BOARDS.forEach((B) => { Array.from(B.clock.children).forEach((c) => c.remove()); const m = Math.min(99, Math.floor(secs / 60)), s = secs % 60; digits(m, 0.42, { x: -0.55 }, B.clock); word("r_colon", 0.42, { x: -0.1 }, B.clock); word("d" + Math.floor(s / 10), 0.42, { x: 0.18 }, B.clock); word("d" + (s % 10), 0.42, { x: 0.46 }, B.clock); });
       const lampsShow = () => BOARDS.forEach((B) => ES.teams.forEach((T, k) => B.lamps[k].forEach((l, r) => { const on = T.stage > r; l.setAttribute("color", on ? TM[k].c : "#2a2018"); l.setAttribute("emissive", on ? "1.4" : "0"); })));
-      const countsShow = () => BOARDS.forEach((B) => TM.forEach((t, k) => { Array.from(B.cnt[k].children).forEach((c) => c.remove()); digits(inTeam(k).length, 0.34, {}, B.cnt[k]); }));
+      const countsShow = () => {
+        BOARDS.forEach((B) => TM.forEach((t, k) => { Array.from(B.cnt[k].children).forEach((c) => c.remove()); digits(inTeam(k).length, 0.34, {}, B.cnt[k]); }));
+        ES.teams.forEach((T, k) => { if (!T.doorCnt) return; const n = inTeam(k).length; if (T.doorCnt._n === n) return; T.doorCnt._n = n; Array.from(T.doorCnt.children).forEach((c) => c.remove()); digits(n, 0.75, {}, T.doorCnt); });
+      };
+      every(3000, () => countsShow());                          // people who log off drop off the counts
       // ---- one team's rooms
       TM.forEach((t, k) => {
         const T = { k, stage: 0, doors: [], code: [], typed: [], lant: [], found: [false, false, false, false], pads: [], padOn: new Map(), holdT: 0,
@@ -838,6 +847,10 @@
         const join = (e) => { const id = e.detail && e.detail.connectionId; if (typeof id === "number") eJoin(k, id); };
         rug.addEventListener("collisionstart", join); rug.addEventListener("collisionmove", join);
         word(t.word, 0.9, { x: t.doors[0][0] + t.side * 0.4, y: E.y0 + 4.0, z: t.zc, ry: 90 * t.side }, eg);       // the team colour over the start door (aisle side)
+        // (v45, owner: "there should be a counter somewhere on the outside that tells us how many players are on each team") the team's
+        // player count, big, over its start door on the aisle side (+ the word PLAYERS under it)
+        T.doorCnt = el("m-group", { x: t.doors[0][0] + t.side * 0.4, y: E.y0 + 5.15, z: t.zc, ry: 90 * t.side }, eg);
+        word("r_players", 0.32, { x: t.doors[0][0] + t.side * 0.4, y: E.y0 + 4.55, z: t.zc, ry: 90 * t.side }, eg);
         // R1: lanterns (click to see its number), the clue painting (4 gems in order), the keypad
         t.lanterns.forEach(([x, y, z], i) => {
           const g = el("m-group", { x, y, z }, eg);
