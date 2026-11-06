@@ -3,6 +3,7 @@
 // Otherside has no m-light here: light = soft sky light + emissive materials + bloom.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
@@ -60,7 +61,9 @@ export async function setup(opt) {
       const url = resolve(n.getAttribute('src'));
       if (!url) missing.add(n.getAttribute('src'));
       else pending.push(loadG(url).then((g) => {
-        if (!g) return; const c = g.scene.clone(true);
+        if (!g) return; const animd = n.getAttribute('anim') && g.animations && g.animations.length;
+        const c = animd ? SkeletonUtils.clone(g.scene) : g.scene.clone(true);
+        if (animd) { const mx = new THREE.AnimationMixer(c); mx.clipAction(g.animations[0]).play(); mx.update(opt.animT ?? 6.8); c.updateMatrixWorld(true); }
         c.traverse((m) => { if (m.isMesh) { m.frustumCulled = false; if (m.material && m.material.name === 'col') m.visible = false; else tris += m.geometry.index ? m.geometry.index.count / 3 : m.geometry.attributes.position.count / 3; } });
         o.add(c); count++;
       }));

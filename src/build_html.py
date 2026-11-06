@@ -1,5 +1,5 @@
 """bake every position the game needs into spire.html (from the layout JSONs the build scripts write)."""
-import json, sys
+import json, sys, os
 O = '/home/claude/spire/out/'
 VER = sys.argv[1] if len(sys.argv) > 1 else '1'
 BASE = sys.argv[2] if len(sys.argv) > 2 else 'https://raw.githubusercontent.com/dinopawnz/spire/main/'
@@ -198,7 +198,64 @@ X1_, Z1_ = L['X1'], L['Z1']
 spk = [[sx * X1_ * 0.5, FL['lounge'] + 5.5, sz * Z1_ * 0.5] for sx in (-1, 1) for sz in (-1, 1)] + [[0.0, FL['lounge'] + 5.5, 0.0]]
 spk += [[sx * X1_ * 0.55, FL['hall'] + 9.0, 0.0] for sx in (-1, 1)] + [[0.0, FL['cards'] + 3.0, 0.0], [0.0, FL['rooms'] + 3.0, 0.0]]
 spk += [[sx * 20.0, FL['roof'] + 3.0, 0.0] for sx in (-1, 1)] + [[0.0, 2.5, L['walk']['z1'] - 10.0], [0.0, 2.5, Z1_ + 25.0]]
-D['music'] = dict(parts=[46957, 46957], speakers=[[round(v, 2) for v in p] for p in spk])                    # the lounge stage band (drums, harp, guitar, piano, microphone)                 # the roof: the grand finale photo terrace          # the outside, to the owner's concept
+# the swamp radio (music_prep.py): real public-domain 1920s jazz records; falls back to the original Swamp Blues
+_mt = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'music_tracks.json')
+_tracks = [t[:4] for t in json.load(open(_mt))] if os.path.exists(_mt) else [['swamp_jazz_00', 46957, 'Mudwater Swamp Blues', 'the Spire band'], ['swamp_jazz_01', 46957, 'Mudwater Swamp Blues', 'the Spire band']]
+D['music'] = dict(tracks=_tracks, gap=1500, vol=0.5, speakers=[[round(v, 2) for v in p] for p in spk])                    # the lounge stage band (drums, harp, guitar, piano, microphone)                 # the roof: the grand finale photo terrace          # the outside, to the owner's concept
+# THE OWNER'S KODAS (koda_rig.py adds their animations): two in the card-room / fireside armchairs, two on bar stools with a beer,
+# two strolling round the island bar. [file, x, y, z, ry, scale, walk radius (0 = sitting), walk lap ms (+ = clockwise from above)]
+KS = 1.25
+_chairs = {(round(e[1], 1), round(e[3], 1)): e for e in F1.get('mprops', []) if e[0] == 'sp_m_armchair'}
+_stools = [e for e in F1.get('mprops', []) if e[0] == 'sp_m_stool']
+def _seat(e, top, butt, back):
+    ry = e[4]; x = e[1] - back * math.sin(math.radians(ry)); z = e[3] - back * math.cos(math.radians(ry))
+    floor = e[2] + (-0.9517) * e[5]
+    return [round(x, 3), round(floor + top - butt * KS, 3), round(z, 3), ry]
+kodas = []
+for name, xz in (('sp_koda_5077', (13.2, -8.8)), ('sp_koda_9924', (21.8, 37.5))):
+    e = _chairs.get(xz)
+    if e: kodas.append([name] + _seat(e, 0.6, 0.072, 0.12) + [KS, 0, 0])
+bx, bz = 0.0, 1.0
+for name, k in (('sp_koda_119', 0), ('sp_koda_9929', 2)):
+    if k < len(_stools):
+        e = _stools[k]; ry = math.degrees(math.atan2(bx - e[1], bz - e[3]))
+        kodas.append([name, e[1], round(e[2] - 0.9517 * e[5] + 0.9 - 0.042 * KS, 3), e[3], round(ry, 1), KS, 0, 0])
+for name, r, lap in (('sp_koda_9372', 9.5, 133000), ('sp_koda_9923', 12.5, -175000)):
+    kodas.append([name, bx, round(FL['lounge'] + 0.005, 3), bz, 0, KS, r, lap])
+D['kodas'] = kodas
+# THE BAYOU GARDEN POND comes alive (owner: "ribbitting frogs... fill it with something appropriate"): Meshy lily pads with
+# bullfrogs and green treefrogs sitting on them (they croak - a real Everglades pig frog recording, public domain, NPS - and hop
+# round when you click them), a red-eared slider basking on a log at the edge, dragonflies darting over the water.
+import outside as _o
+PCX, PCZ, WY = -25.0, 4.0, FL['lounge'] + 0.125                     # pond centre (build_lounge.garden) and its water level
+_rp = _r.Random(808)
+# a still, tea-dark water surface over the open middle of the pond (players can wade through it), lily pads floating on it
+from glb import Mesh as _Mesh, write as _write
+_wm = _Mesh(); _bl = [(PCX + (4.6 + 0.5 * math.sin(3 * t) + 0.3 * math.cos(5 * t)) * math.cos(t), PCZ + (4.2 + 0.4 * math.sin(2 * t + 1)) * math.sin(t)) for t in np.linspace(0, 2 * math.pi, 48, endpoint=False)]
+_P = [[x, WY + 0.04, z] for x, z in _bl] + [[PCX, WY + 0.04, PCZ]]; _n = len(_bl)
+_I = []
+for i in range(_n): _I += [_n, (i + 1) % _n, i]
+_wm.add('water', _P, [[0, 1, 0]] * len(_P), [[p[0] / 3, p[2] / 3] for p in _P], _I)
+_write(O + 'glb/sp_pond_water.glb', _wm, dict(water=dict(color=(0.05, 0.11, 0.08, 0.72), metal=0.0, rough=0.04, emis=(0.01, 0.05, 0.04), alpha='BLEND', double=True)))
+D.setdefault('roofModels', []).append(['sp_pond_water', 0, 0, 0])
+pads_ = [(-2.3, -0.9, 'frogbull', 0.52), (1.9, 1.5, 'frogtree', 0.32), (2.7, -1.7, 'frogbull', 0.46), (-0.7, 2.2, 'frogtree', 0.3), (-1.0, -2.4, 'frogbull', 0.5), (0.6, -0.2, None, 0)]
+frogs_ = []
+for (dx, dz, kind, sz) in pads_:
+    x, z = PCX + dx, PCZ + dz
+    if 'lily' in _o.META: D['sdeco'].append(_o.place('lily', x, WY + 0.035, z, _rp.uniform(0, 360), 1.5 if kind else 1.1, 'l'))
+    if kind and kind in _o.META:
+        e = _o.place(kind, 0, 0, 0, 0, sz, 'l'); ry = math.degrees(math.atan2(-dx, -dz)) + _rp.uniform(-140, 140)
+        frogs_.append([e[0], round(x, 3), round(WY + 0.1, 3), round(z, 3), round(ry, 1), e[1], e[2], e[3], e[5], 0 if kind == 'frogbull' else 1])
+turtle_ = _o.place('turtle', PCX + 3.7, WY - 0.12, PCZ + 0.4, -95, 1.1, 'l') if 'turtle' in _o.META else None
+if turtle_: D['sdeco'].append(turtle_)
+flies_ = []
+if 'dragonfly' in _o.META:
+    e = _o.place('dragonfly', 0, 0, 0, 0, 0.4, 'w')
+    for k in range(4):
+        flies_.append([e[0], round(PCX + _rp.uniform(-2.5, 2.5), 2), round(WY + 0.6 + _rp.uniform(0, 0.9), 2), round(PCZ + _rp.uniform(-2, 2), 2), e[5]])
+D['pond'] = dict(frogs=frogs_, flies=flies_, sounds=['frog_0', 'frog_1', 'frog_2', 'frog_3'])
+print('pond: %d frogs, %d dragonflies, turtle %s' % (len(frogs_), len(flies_), bool(turtle_)))
+print('kodas', [(k[0], k[1:4]) for k in kodas])
 print('deco pieces', len(D['deco']))
 
 src = open('/home/claude/spire/spire_src.html').read()

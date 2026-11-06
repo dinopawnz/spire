@@ -477,24 +477,81 @@
       });
     });
     if (D.bandGuitar) { const [x, y, z, ry, rz, s] = D.bandGuitar; const g = el("m-group", { x, y, z, ry }); model("sp_m_guitarsolo.glb", { rz, sx: s, sy: s, sz: s, collide: "false" }, g); }
-    // ---------------------------------------------------- THE MUDWATER SWAMP BLUES: background music on speakers all over the Spire,
-    // two halves played back to back, every speaker given the same start-time so they stay in sync (the castle's method)
-    const MUSIC = { on: true, parts: D.music.parts, vol: 0.42, part: 0, next: now(), cur: [], h: null };
+    // ---------------------------------------------------- THE SWAMP RADIO: real 1920s New Orleans jazz records (public domain) on speakers
+    // all over the Spire, one record after another like an old radio; every speaker gets the same start-time so they stay in sync.
+    // D.music.tracks = [[file, ms, title, artist]]. The playlist is shuffled once at load, then loops.
+    const MUSIC = { on: true, tracks: D.music.tracks.slice(), vol: D.music.vol || 0.5, part: 0, next: now(), cur: [], h: null, title: "" };
+    for (let i = MUSIC.tracks.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [MUSIC.tracks[i], MUSIC.tracks[j]] = [MUSIC.tracks[j], MUSIC.tracks[i]]; }
     function musicNext() {
       if (!MUSIC.on) return;
-      const start = Math.round(MUSIC.next), old = MUSIC.cur;
-      MUSIC.cur = D.music.speakers.map(([x, y, z]) => el("m-audio", { src: BASE + "swamp_jazz_" + String(MUSIC.part).padStart(2, "0") + ".mp3" + VER, x, y, z, volume: MUSIC.vol, loop: "false", "start-time": start }));
+      const start = Math.round(MUSIC.next), old = MUSIC.cur, [file, ms, title, artist] = MUSIC.tracks[MUSIC.part];
+      MUSIC.cur = D.music.speakers.map(([x, y, z]) => el("m-audio", { src: BASE + file + ".mp3" + VER, x, y, z, volume: MUSIC.vol, loop: "false", "start-time": start }));
       old.forEach((n) => n.remove());
-      MUSIC.next = start + MUSIC.parts[MUSIC.part]; MUSIC.part = (MUSIC.part + 1) % MUSIC.parts.length;
+      MUSIC.title = title + " - " + artist;
+      MUSIC.next = start + ms + (D.music.gap || 0); MUSIC.part = (MUSIC.part + 1) % MUSIC.tracks.length;
+      if (MUSIC.h) cancel(MUSIC.h);
       MUSIC.h = later(Math.max(500, MUSIC.next - now()), musicNext);
     }
     function musicSet(on) {
       if (on === MUSIC.on) return;
       MUSIC.on = on;
-      if (on) { MUSIC.part = 0; MUSIC.next = now(); musicNext(); }
-      else { if (MUSIC.h) cancel(MUSIC.h); MUSIC.cur.forEach((n) => n.remove()); MUSIC.cur = []; }
+      if (on) { MUSIC.next = now(); musicNext(); }
+      else { if (MUSIC.h) cancel(MUSIC.h); MUSIC.h = null; MUSIC.cur.forEach((n) => n.remove()); MUSIC.cur = []; MUSIC.title = ""; }
     }
+    function musicSkip() { if (!MUSIC.on) return musicSet(true); MUSIC.next = now(); musicNext(); }
     if (D.music) musicNext();
+    // ---------------------------------------------------- THE POND: frogs croak now and then (throat puffs, a little bounce) and hop round
+    // when clicked; dragonflies dart about over the water.
+    const POND = { frogs: [], last: new Map() };
+    if (D.pond) {
+      D.pond.frogs.forEach(([f, x, y, z, ry, ox, oy, oz, s, kind], i) => {
+        const g = el("m-group", { x, y, z, ry }), body = el("m-group", {}, g);
+        model(f + ".glb", { x: ox, y: oy, z: oz, sx: s, sy: s, sz: s, collide: "false" }, body);
+        const fr = { g, body, x, y, z, ry, kind, busy: false };
+        const hb = hitBox({ y: 0.2, width: 0.75, height: 0.5, depth: 0.75 }, g);
+        hb.addEventListener("click", (e) => {
+          const id = e.detail && e.detail.connectionId; const t = now();
+          if (fr.busy || t - (POND.last.get(id) || 0) < 600) return; POND.last.set(id, t);
+          frogHop(fr);
+        });
+        POND.frogs.push(fr);
+      });
+      D.pond.flies.forEach(([f, x, y, z, s], i) => {
+        const g = el("m-group", { x, y, z }), sp = el("m-group", {}, g);
+        anim(g, "x", x - 1.6, x + 1.6, 5300 + i * 900, { pingPong: true, easing: "easeInOutSine", delay: i * 1300 });
+        anim(g, "z", z - 1.3, z + 1.3, 3900 + i * 700, { pingPong: true, easing: "easeInOutSine", delay: i * 800 });
+        anim(g, "y", y - 0.25, y + 0.3, 1700 + i * 300, { pingPong: true, easing: "easeInOutSine", delay: i * 500 });
+        anim(sp, "ry", 0, i % 2 ? 360 : -360, 9000 + i * 1700);
+        model(f + ".glb", { sx: s, sy: s, sz: s, collide: "false" }, sp);
+      });
+    }
+    function frogCroak(fr) {
+      const k = fr.kind ? 3 : [0, 1, 2][Math.floor(Math.random() * 3)];
+      sfx(D.pond.sounds[k] + ".mp3", fr.x, fr.y + 0.2, fr.z, fr.kind ? 0.55 : 0.75);
+      tween(fr.body, "sy", 1, 1.12, 220, "easeOutQuad"); later(260, () => tween(fr.body, "sy", 1.12, 1, 380, "easeInOutQuad"));
+    }
+    function frogHop(fr) {
+      fr.busy = true; frogCroak(fr);
+      const turn = (Math.random() < 0.5 ? -1 : 1) * (120 + Math.random() * 120), ry2 = fr.ry + turn;
+      tween(fr.body, "y", 0, 0.55, 260, "easeOutQuad"); later(270, () => tween(fr.body, "y", 0.55, 0, 300, "easeInQuad"));
+      tween(fr.g, "ry", fr.ry, ry2, 560, "easeInOutQuad"); fr.ry = ry2;
+      later(700, () => { fr.busy = false; });
+    }
+    (function frogChorus() {                                 // one croak somewhere on the pond every few seconds
+      if (POND.frogs.length) { const fr = POND.frogs[Math.floor(Math.random() * POND.frogs.length)]; if (!fr.busy) frogCroak(fr); }
+      later(2600 + Math.random() * 5200, frogChorus);
+    })();
+
+    // ---------------------------------------------------- THE OWNER'S KODAS: lounging in the armchairs, a beer at the bar, strolling round
+    // the island bar. Each GLB carries its own looping clip (sit / bar / walk); walkers ride a slowly turning group round the bar.
+    (D.kodas || []).forEach(([f, x, y, z, ry, s, r, lap], i) => {
+      const a = { sx: s, sy: s, sz: s, anim: BASE + f + ".glb" + VER, "anim-loop": "true", "anim-start-time": -Math.round(1700 * i + 900), collide: "false" };
+      if (!r) { model(f + ".glb", a, el("m-group", { x, y, z, ry })); return; }
+      const c = el("m-group", { x, y, z, ry: (i * 97) % 360 }), turn = el("m-group", {}, c);
+      anim(turn, "ry", 0, lap > 0 ? 360 : -360, Math.abs(lap), { delay: i * 4100 });
+      model(f + ".glb", a, el("m-group", { x: r, ry: lap > 0 ? 180 : 0 }, turn));
+    });
+
     (D.bandHits || []).forEach(([x, y, z, w, h, d, ry, inst, k]) => {
       const hb = hitBox({ x, y, z, width: w, height: h, depth: d, ry });
       hb.addEventListener("click", (e) => bandPlay(inst, k, e.detail && e.detail.connectionId, x, y, z));
@@ -1133,7 +1190,7 @@
         return { ph: H.ph, left: finals ? VT.length - H.vremoved.size : HL.length - H.removed.size, fin: H.fin.length, finMax: FINALISTS,
                  finalists: H.fin.map((id) => nameOf(pl(id))), ready: H.ph === "allfound", round: H.round, rounds: FINALISTS, auto: H.auto, nextIn: H.ph === "between" && H.nextAt ? Math.max(0, Math.ceil((H.nextAt - tn) / 1000)) : -1, inVault: H.fin.filter((id) => { const p = pl(id); return p.pos && Math.abs(p.pos.x) < D.room[0] && Math.abs(p.pos.z) < D.room[1] && Math.abs(p.pos.y - D.yv) < 3; }).length, winner: H.winner !== null ? nameOf(pl(H.winner)) : "",
                  huntSecs: H.t0 ? Math.round((tn - H.t0) / 1000) : 0, inside: INSIDE.size, npcMode: NPC_MODE,
-                 talking: Object.values(NPCS).filter((n) => n.talking).map((n) => n.key), liftMusic: Object.values(LIFTS).some((s) => s.music.parentNode), instruments: BAND.on, music: MUSIC.on,
+                 talking: Object.values(NPCS).filter((n) => n.talking).map((n) => n.key), liftMusic: Object.values(LIFTS).some((s) => s.music.parentNode), instruments: BAND.on, music: MUSIC.on, song: MUSIC.title,
                  lifts: Object.fromEntries(Object.entries(LIFTS).map(([k, s]) => [k, s.status()])) };
       },
       players(tn) {
@@ -1142,7 +1199,10 @@
       command(cmd, rest, parts) {
         const a1 = (parts[1] || "").toLowerCase();
         if (cmd === "celebrate") return celebrate();
-        if (cmd === "music") { musicSet(a1 === "on" ? true : a1 === "off" ? false : !MUSIC.on); return MUSIC.on ? "MUSIC ON - THE MUDWATER SWAMP BLUES" : "MUSIC OFF"; }
+        if (cmd === "music") {
+          if (a1 === "next" || a1 === "skip") { musicSkip(); return "NOW PLAYING: " + MUSIC.title.toUpperCase(); }
+          musicSet(a1 === "on" ? true : a1 === "off" ? false : !MUSIC.on); return MUSIC.on ? "MUSIC ON - " + MUSIC.title.toUpperCase() : "MUSIC OFF";
+        }
         if (cmd === "instruments") { BAND.on = a1 === "on" ? true : a1 === "off" ? false : !BAND.on; return BAND.on ? "INSTRUMENTS ON - ANYONE ON THE STAGE CAN PLAY" : "INSTRUMENTS OFF - NOBODY CAN PLAY THEM"; }
         if (cmd === "hall") {
           if (a1 === "open" || a1 === "start") return hallOpen();

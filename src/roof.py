@@ -92,4 +92,33 @@ def apply(D, L, FL):
     D['roofModels'].append(['sp_roof_lights', 0, 0, 0])
     # ---- the Old Skipper stands beside the stage, facing the crowd
     if 'where' in D and 'skipper' in D['where']: D['where']['skipper'] = [-13.5, y, 4.5, 20]
+    artwall(D, L, FL)
     print('roof: stage, arch, %d planters, %d fires, %d light strands, %d pads' % (sum(1 for e in D['sdeco'] if e[0] == 'sp_m_planter'), len(fires), len(strands), len(pads)))
+
+# ---- THE MUDWATER ART WALL (owner: "a massive art piece" at the finale): a 38.4 x 8 m canvas standing in front of the steeple house,
+# behind the photo stage. 48 x 10 paint squares (0.8 m), paint stands with 14 colours, a signing lectern + name board.
+def artwall(D, L, FL):
+    y = FL['roof']; zb = -(L['Z1'] - 11.0)                     # the steeple house front wall
+    COLS, ROWS, C = 48, 10, 0.8
+    W, H = COLS * C, ROWS * C; z = zb + 0.9; y0 = y + 0.6
+    m = Mesh(); mats = dict(MATS)
+    mats['canvas'] = dict(color=(0.93, 0.89, 0.8, 1), emis=(0.16, 0.15, 0.13), rough=0.95)
+    from glb import quad
+    quad(m, 'canvas', W, H, T(0, y0 + H / 2, z))
+    for sx in (-1, 1):                                           # two great timber posts standing on the deck, a beam on top and under
+        bevel_box(m, 'dark', 0.5, H + 1.4, 0.5, 0.04, m=T(sx * (W / 2 + 0.25), y + (H + 1.4) / 2, z - 0.1), uvs=2.0)
+    for yy in (y0 - 0.2, y0 + H + 0.2):
+        bevel_box(m, 'dark', W + 1.0, 0.4, 0.45, 0.04, m=T(0, yy, z - 0.1), uvs=3.0)
+        bevel_box(m, 'gold', W + 0.4, 0.08, 0.5, 0.01, m=T(0, yy + (0.2 if yy > y0 else -0.2), z))
+    bevel_box(m, 'dark', W, 0.6, 0.3, 0.03, m=T(0, y + 0.3, z - 0.1), uvs=3.0)             # the plinth under it
+    write(OUTG + 'sp_artwall.glb', m, mats)
+    D.setdefault('roofModels', []).append(['sp_artwall', 0, 0, 0])
+    D.setdefault('pads', []).append([0.0, y + 0.5 + H / 2, z - 0.15, W + 1.0, H + 1.0, 0.4, 0])
+    PAL = ['#f4efe2', '#1a1410', '#c8322a', '#f08a24', '#f6d23e', '#9ed03a', '#2e8a3c', '#1f9e8f', '#2d6fc4', '#7a46b8', '#e46aa8', '#7a4a26', '#d9a441', 'erase']
+    stands = [[sx * 7.0, y, z + 5.0] for sx in (-1, 1)]
+    for (sx_, sy_, sz_) in stands: D['pads'].append([sx_, sy_ + 0.5, sz_, 4.6, 1.0, 0.8, 0])
+    D['artwall'] = dict(cols=COLS, rows=ROWS, cell=C, x0=-W / 2 + C / 2, y0=y0 + C / 2, z=z + 0.04, palette=PAL, stands=stands,
+                        sign=[-13.0, y, z + 4.5], board=[-21.0, y, z + 1.5])
+    if 'lectern' in outside.META:
+        D['sdeco'].append(place('lectern', -13.0, y, z + 4.5, 0, 1.35, 'h'))
+        D['pads'].append([-13.0, y + 0.65, z + 4.5, 1.1, 1.3, 0.9, 0])

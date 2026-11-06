@@ -30,7 +30,20 @@ def pnote(m, t, g=0.5, dur=None):
         if k < len(x): x[k:] *= np.exp(-np.arange(len(x) - k) / (0.12 * SR))
     put(x, t, g)
 
-def bass(m, t, g=0.55, dur=None):
+def bass(m, t, g=0.5, dur=None):
+    """(v29, owner: the synth bass sounded robotic) the walking bass is the castle's RECORDED piano, played an octave
+    (or two) below its lowest sample by slowing it down: a warm, real left-hand stride bass"""
+    dur = dur or BEAT * 0.95
+    src = m; shift = 0
+    while src < 48: src += 12; shift += 1
+    x = PIANO[min(src, 83)]
+    for _ in range(shift):                                             # each octave down: play the sample at half speed
+        x = np.interp(np.arange(0, len(x), 0.5), np.arange(len(x)), x)
+    k = int(dur * SR); x = x[: int((dur + 0.5) * SR)].copy()
+    if k < len(x): x[k:] *= np.exp(-np.arange(len(x) - k) / (0.07 * SR))
+    put(x, t, g * 1.6)
+
+def bass_synth(m, t, g=0.55, dur=None):
     dur = dur or BEAT * 0.95; n = int((dur + 0.4) * SR); tt = np.arange(n) / SR; fr = f(m)
     x = sum((0.85 ** h) * np.sin(2 * np.pi * fr * (h + 1) * tt) / (h + 1) for h in range(6))
     env = np.minimum(1, tt / 0.006) * np.exp(-tt * 2.2) * np.where(tt < dur, 1, np.exp(-(tt - dur) * 25))
