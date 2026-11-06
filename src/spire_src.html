@@ -1164,6 +1164,15 @@
     // the next record is ever lost or late, the next record starts anyway - the music never stops while it is ON
     every(4000, () => { if (MUSIC.on && now() > MUSIC.next + 3000) { MUSIC.next = now(); try { musicNext(); } catch (e) {} } });
     function musicSkip() { if (!MUSIC.on) return musicSet(true); MUSIC.next = now(); musicNext(); }
+    // (v48, owner: "give me music volume control on the remote so i can lower the jazz music for everyone") 0-100 %, 50 = as built.
+    // Changes the volume of the record playing right now on every speaker (no restart) and of every record after it.
+    function musicVol(pct) {
+      pct = Math.max(0, Math.min(100, Math.round(pct))); MUSIC.pct = pct;
+      MUSIC.vol = Math.round((D.music.vol || 0.5) * pct / 50 * 1000) / 1000;
+      MUSIC.cur.forEach((a) => a.setAttribute("volume", String(MUSIC.vol)));
+      return pct;
+    }
+    MUSIC.pct = 50;
     if (D.music) musicNext();
     // ---------------------------------------------------- POOL (v31, owner: "pool tables that people can actually play"): two Meshy
     // tables. Click the glowing ring on your side of the white ball to aim (the cue swings round), nudge with < >, then SOFT / MEDIUM /
@@ -1979,7 +1988,9 @@
       const dg = el("m-group", { y: -0.95 }, g); let left = Math.round(LOCKOUT_MS / 1000);
       const tick = () => { Array.from(dg.children).forEach((c) => c.remove()); if (left <= 0) { g.remove(); return; } digits(left, 0.42, {}, dg, true); word("secs", 0.24, { y: -0.36 }, dg); left--; later(1000, tick); };
       tick();
-      sfx("wrong.mp3", at[0], at[1], at[2], 0.8);
+      // (v48, owner: "we're going to have a problem with sound in the hall of fakes if hundreds of people are clicking portraits and all
+      // getting it wrong") no sound for a wrong pick any more - the player still sees FORGERY + the countdown (only they see it).
+      // The "found it!" sound stays: it plays once per round.
     }
     const front = (s, list) => { const [x, y, z, ry] = list[s]; const a = ry * Math.PI / 180; return [x + Math.sin(a) * 0.25, y, z + Math.cos(a) * 0.25, ry]; };
     function hallPick(s, id) {
@@ -2133,7 +2144,7 @@
         return { esc: ES.on && ES.info ? ES.info() : null, ph: H.ph, left: finals ? VT.length - H.vremoved.size : HL.length - H.removed.size, fin: H.fin.length, finMax: FINALISTS,
                  finalists: H.fin.map((id) => nameOf(pl(id))), ready: H.ph === "allfound", round: H.round, rounds: FINALISTS, auto: H.auto, nextIn: H.ph === "between" && H.nextAt ? Math.max(0, Math.ceil((H.nextAt - tn) / 1000)) : -1, inVault: H.fin.filter((id) => { const p = pl(id); return p.pos && Math.abs(p.pos.x) < D.room[0] && Math.abs(p.pos.z) < D.room[1] && Math.abs(p.pos.y - D.yv) < 3; }).length, winner: H.winner !== null ? nameOf(pl(H.winner)) : "",
                  huntSecs: H.t0 ? Math.round((tn - H.t0) / 1000) : 0, inside: INSIDE.size, npcMode: NPC_MODE,
-                 talking: Object.values(NPCS).filter((n) => n.talking).map((n) => n.key), liftMusic: Object.values(LIFTS).some((s) => s.music.parentNode), instruments: BAND.on, music: MUSIC.on, song: MUSIC.title,
+                 talking: Object.values(NPCS).filter((n) => n.talking).map((n) => n.key), liftMusic: Object.values(LIFTS).some((s) => s.music.parentNode), instruments: BAND.on, music: MUSIC.on, song: MUSIC.title, musicVol: MUSIC.pct,
                  lifts: Object.fromEntries(Object.entries(LIFTS).map(([k, s]) => [k, s.status()])) };
       },
       players(tn) {
@@ -2171,6 +2182,10 @@
           return "ART WALL: " + (ART.dots ? ART.dots.size : 0) + " DOTS + " + ART.cells.size + " SQUARES PAINTED, " + ART.names.length + " NAMES" + (ART.locked ? " (LOCKED)" : "") + (ART.grid ? " [GRID MODE]" : "") + " | clicks with a spot " + ART.okClicks + ", without " + ART.noPos;
         }
         if (cmd === "pool") { POOL.forEach((T) => { T.busy = false; POOL.rack(T); }); return "BOTH POOL TABLES RACKED"; }
+        if (cmd === "music" && (a1 === "vol" || a1 === "volume" || a1 === "up" || a1 === "down" || a1 === "louder" || a1 === "softer")) {
+          const v = parseFloat(parts[2]); const p = a1 === "up" || a1 === "louder" ? MUSIC.pct + 10 : a1 === "down" || a1 === "softer" ? MUSIC.pct - 10 : isNaN(v) ? MUSIC.pct : v;
+          return "MUSIC VOLUME " + musicVol(p) + "%";
+        }
         if (cmd === "music") {
           if (a1 === "next" || a1 === "skip") { musicSkip(); return "NOW PLAYING: " + MUSIC.title.toUpperCase(); }
           musicSet(a1 === "on" ? true : a1 === "off" ? false : !MUSIC.on); return MUSIC.on ? "MUSIC ON - " + MUSIC.title.toUpperCase() : "MUSIC OFF";

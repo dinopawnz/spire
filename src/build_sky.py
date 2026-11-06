@@ -107,15 +107,17 @@ img.save(TEX + 'sky_pano.jpg', quality=90)
 img.resize((1024, 512)).save('/tmp/sky_pano_small.jpg', quality=85)
 
 # ---- the dome: an inside-out sphere, unlit (glows with its own picture), radius 480
-R = 480.0; nu, nv = 96, 48
+# (v48, owner: "you made this dome too big") radius 260 m (was 480) - still round the floating cards (outer ring 158 m) - and only down
+# to 8 degrees under the horizon (was a full sphere, whose lower half lay as a dark bowl out over the world's swamp)
+R = 260.0; nu, nv = 96, 28; E_LOW = -8.0
 P, N_, U, I = [], [], [], []
 for j in range(nv + 1):
-    e = 90.0 - 180.0 * j / nv
+    e = 90.0 - (90.0 - E_LOW) * j / nv
     for i in range(nu + 1):
         a = 360.0 * i / nu
         # azimuth 0 = -z, clockwise from above: x = sin(a), z = -cos(a)
         x_ = R * math.cos(math.radians(e)) * math.sin(math.radians(a)); y_ = R * math.sin(math.radians(e)); z_ = -R * math.cos(math.radians(e)) * math.cos(math.radians(a))
-        P.append([x_, y_, z_]); N_.append([-x_ / R, -y_ / R, -z_ / R]); U.append([i / nu, j / nv])
+        P.append([x_, y_, z_]); N_.append([-x_ / R, -y_ / R, -z_ / R]); U.append([i / nu, (90.0 - e) / 180.0])
 for j in range(nv):
     for i in range(nu):
         a = j * (nu + 1) + i; b = a + nu + 1

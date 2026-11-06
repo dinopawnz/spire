@@ -44,7 +44,12 @@ import random as _r
 rg = _r.Random(5413); DECO = []; SDECO = []
 def sd(f, x, y, z, ry=0, s=1.0): SDECO.append([f, r(x), r(y), r(z), round(ry, 1), round(s, 3)])
 def dz(f, x, y, z, ry=0, s=1.0): DECO.append([f, r(x), r(y), r(z), round(ry, 1), round(s, 3)])
-dz('water', 0, 0.0, 25, 0, 2.3); dz('mwm_lake', 0, 0.0, 25, 0, 2.3)
+# (v48, owner: "this dome is massive when it probably doesn't need to be that big") the swamp water + lake shrunk to sit inside the
+# smaller sky dome (water 178 m each way from the middle, was 196; the lake 182 m, was 874 m out over the world's own swamp)
+dz('water', 0, 0.0, 25, 0, 2.1); dz('mwm_lake', 0, 0.0, 25, 0, 0.48)
+# (v48, owner: "make all this surrounding water solid so people don't fall through") one big invisible floor just under the water
+# surface (you wade ankle-deep), covering the whole water; the building, boardwalk and islands stand on it as before
+D.setdefault('pads', []).append([0.0, -0.75, 25.0, 356.0, 1.0, 356.0, 0])
 for f, x, z, ry in [('bog_mangrove_tree_a_lite', -78, -40, 30), ('bog_mangrove_tree_b_lite', 82, -30, 200), ('bog_mangrove_tree_a_lite', -86, 58, 120), ('bog_mangrove_tree_b_lite', 90, 64, 300),
                     ('bog_acorn_house_lite', -46, 88, 140), ('bog_giant_acorn_lite', 52, 95, 220), ('bog_giant_tree_trunk_lite', -32, -80, 0), ('bog_giant_trunk_lite', 42, -82, 90),
                     ('bog_tree_trunk_a_lite', -22, 98, 45), ('bog_tree_trunk_b_lite', 24, 124, 160), ('bog_root_pathway_lite', -72, 128, 30), ('bog_tree_trunk_b_lite', -100, 10, 250),

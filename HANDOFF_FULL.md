@@ -34,7 +34,7 @@
 | Where | Version | What |
 |---|---|---|
 | branch `main` | v13 | the old LIVE build. Untouched. Push to main ONLY when the owner says. |
-| branch **`handoff-v14`** | **v47** | everything from sessions 6–11. This is what the owner tests. |
+| branch **`handoff-v14`** | **v48** | everything from sessions 6–11. This is what the owner tests. |
 
 The owner's files load assets from `https://raw.githubusercontent.com/dinopawnz/spire/handoff-v14/` (baked into spire.html by `build_html.py`), so **assets must be pushed to `handoff-v14` before the owner's HTML works.** Remote PIN: **7747**, then press LIVE BUILD.
 
@@ -243,6 +243,11 @@ Raised dark-timber photo stage with steps, Meshy photo arch (8 m) with the Mudwa
 - PLACE: Level I face up on an empty square. UPGRADE: a card EXACTLY one level higher on top of a square YOUR TEAM controls (captured squares and rocks count; rock = level I). Never on an enemy square. ROCK: click a hand card twice (it turns face down, "ROCK") then an empty square: captures nothing, can never be captured, counts as level I, one uncovered rock per player at a time. Captures: higher touching number wins, ties hold, no chains (as before). The v45 "same level + higher total on a full board" rule is gone. The game still runs the full 3 minutes (team version, 196 squares, refills).
 - New words r_enemy, r_rock1, r_rockon, r_tip (hint under every hand board), r_lvup/r_lvlow reworded; rules sign updated. Test `viewer/royalelevel.py` (place / upgrade +1 own / refused enemy / refused jump / rocks never captured / one rock at a time).
 - NOTE: sprites.py SIGNS strings are single-quoted - escape apostrophes (a syntax error silently skipped all sprites once).
+### v48 (session 11)
+- **Sky dome smaller** (owner: "this dome is massive"): `build_sky.py` radius 260 m (was 480; the floating cards' outer ring is 158 m) and only down to 8 degrees below the horizon (the old full sphere's lower half lay like a dark bowl over the world's own swamp). The swamp water GLB scaled 2.1 (was 2.3) and the lake 0.48 (was 2.3 = 874 m!) so both sit inside the dome.
+- **Solid water** (owner: people fall through): one invisible pad 356 x 356 m, top at y -0.25 (ankle-deep wading), centred on the water (0, 25).
+- **Music volume on the remote**: MUSIC QUIETER / LOUDER (10 % steps) / 50 % NORMAL; commands `music down|up|vol <0-100>`; changes the record that's playing (no restart) and the next ones; the remote's "Now playing" line shows the %.
+- **Hall of Fakes: no sound on a wrong pick** (owner worried about hundreds of wrong clicks); players still see FORGERY + countdown (private). The found sound stays (once per round).
 - Possible next looks items: the team pens read a bit like boxing rings (owner asked what the "gator ring" was) - offer a restyle (timber platform / moss-and-lantern clearing).
 - (old note) NEXT for floor 3: decoration pass to lounge standard (owner: "every floor must keep the same standard as the first floor") - it's dark and bare apart from the arena: lantern rings + warm light pools, Mudwater banners, framed cards on the walls, spectator benches/bleachers, plants, moss on beams.
 
