@@ -476,6 +476,25 @@
         tween(s, "sx", 0.9, 0.25, 600, "easeOutQuad"); tween(s, "sz", 0.9, 0.25, 600, "easeOutQuad"); later(700, () => s.remove());
       });
     });
+    if (D.bandGuitar) { const [x, y, z, ry, rz, s] = D.bandGuitar; const g = el("m-group", { x, y, z, ry }); model("sp_m_guitarsolo.glb", { rz, sx: s, sy: s, sz: s, collide: "false" }, g); }
+    // ---------------------------------------------------- THE MUDWATER SWAMP BLUES: background music on speakers all over the Spire,
+    // two halves played back to back, every speaker given the same start-time so they stay in sync (the castle's method)
+    const MUSIC = { on: true, parts: D.music.parts, vol: 0.42, part: 0, next: now(), cur: [], h: null };
+    function musicNext() {
+      if (!MUSIC.on) return;
+      const start = Math.round(MUSIC.next), old = MUSIC.cur;
+      MUSIC.cur = D.music.speakers.map(([x, y, z]) => el("m-audio", { src: BASE + "swamp_jazz_" + String(MUSIC.part).padStart(2, "0") + ".mp3" + VER, x, y, z, volume: MUSIC.vol, loop: "false", "start-time": start }));
+      old.forEach((n) => n.remove());
+      MUSIC.next = start + MUSIC.parts[MUSIC.part]; MUSIC.part = (MUSIC.part + 1) % MUSIC.parts.length;
+      MUSIC.h = later(Math.max(500, MUSIC.next - now()), musicNext);
+    }
+    function musicSet(on) {
+      if (on === MUSIC.on) return;
+      MUSIC.on = on;
+      if (on) { MUSIC.part = 0; MUSIC.next = now(); musicNext(); }
+      else { if (MUSIC.h) cancel(MUSIC.h); MUSIC.cur.forEach((n) => n.remove()); MUSIC.cur = []; }
+    }
+    if (D.music) musicNext();
     (D.bandHits || []).forEach(([x, y, z, w, h, d, ry, inst, k]) => {
       const hb = hitBox({ x, y, z, width: w, height: h, depth: d, ry });
       hb.addEventListener("click", (e) => bandPlay(inst, k, e.detail && e.detail.connectionId, x, y, z));
@@ -1114,7 +1133,7 @@
         return { ph: H.ph, left: finals ? VT.length - H.vremoved.size : HL.length - H.removed.size, fin: H.fin.length, finMax: FINALISTS,
                  finalists: H.fin.map((id) => nameOf(pl(id))), ready: H.ph === "allfound", round: H.round, rounds: FINALISTS, auto: H.auto, nextIn: H.ph === "between" && H.nextAt ? Math.max(0, Math.ceil((H.nextAt - tn) / 1000)) : -1, inVault: H.fin.filter((id) => { const p = pl(id); return p.pos && Math.abs(p.pos.x) < D.room[0] && Math.abs(p.pos.z) < D.room[1] && Math.abs(p.pos.y - D.yv) < 3; }).length, winner: H.winner !== null ? nameOf(pl(H.winner)) : "",
                  huntSecs: H.t0 ? Math.round((tn - H.t0) / 1000) : 0, inside: INSIDE.size, npcMode: NPC_MODE,
-                 talking: Object.values(NPCS).filter((n) => n.talking).map((n) => n.key), liftMusic: Object.values(LIFTS).some((s) => s.music.parentNode), instruments: BAND.on,
+                 talking: Object.values(NPCS).filter((n) => n.talking).map((n) => n.key), liftMusic: Object.values(LIFTS).some((s) => s.music.parentNode), instruments: BAND.on, music: MUSIC.on,
                  lifts: Object.fromEntries(Object.entries(LIFTS).map(([k, s]) => [k, s.status()])) };
       },
       players(tn) {
@@ -1123,6 +1142,7 @@
       command(cmd, rest, parts) {
         const a1 = (parts[1] || "").toLowerCase();
         if (cmd === "celebrate") return celebrate();
+        if (cmd === "music") { musicSet(a1 === "on" ? true : a1 === "off" ? false : !MUSIC.on); return MUSIC.on ? "MUSIC ON - THE MUDWATER SWAMP BLUES" : "MUSIC OFF"; }
         if (cmd === "instruments") { BAND.on = a1 === "on" ? true : a1 === "off" ? false : !BAND.on; return BAND.on ? "INSTRUMENTS ON - ANYONE ON THE STAGE CAN PLAY" : "INSTRUMENTS OFF - NOBODY CAN PLAY THEM"; }
         if (cmd === "hall") {
           if (a1 === "open" || a1 === "start") return hallOpen();

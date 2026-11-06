@@ -544,6 +544,10 @@ details.cheat dl { margin: 8px 0 0; } details.cheat dt { color: var(--sky); font
         p.append(d);
       });
 
+      p = R.panel(R.left, "Music", "the Mudwater Swamp Blues, all over the Spire");
+      g = R.grid(p);
+      ui.musicAllB = R.btn(g, "MUSIC: ON", "background jazz on every floor", () => R.say("music " + (ui.bgm ? "off" : "on")), { cls: "b-sky big1" });
+
       p = R.panel(R.left, "The stage band", "drums, piano, harp and guitar on the lounge stage");
       g = R.grid(p);
       ui.bandB = R.btn(g, "INSTRUMENTS: ON", "press to stop anyone playing them (trolls)", () => R.say("instruments " + (ui.band ? "off" : "on")), { cls: "b-warn big1" });
@@ -578,6 +582,7 @@ details.cheat dl { margin: 8px 0 0; } details.cheat dt { color: var(--sky); font
       setText(ui.buildNote, G.built ? "The Spire is up." : "Only the placer cube is in the world. Press LIVE BUILD when it's placed.");
       setText(ui.liteB.lab, G.lite ? "LITE MODE: ON" : "LITE MODE: OFF"); R.lit(ui.liteB, !!G.lite);
       ui.npcMode.set(G.npcMode);
+      ui.bgm = G.music !== false; setText(ui.musicAllB.lab, ui.bgm ? "MUSIC: ON" : "MUSIC: OFF"); R.lit(ui.musicAllB, ui.bgm);
       ui.band = G.instruments !== false; setText(ui.bandB.lab, ui.band ? "INSTRUMENTS: ON" : "INSTRUMENTS: OFF"); setText(ui.bandB.sub, ui.band ? "press to stop anyone playing them (trolls)" : "press to let players play again"); R.lit(ui.bandB, !ui.band);
       ui.music = !!G.liftMusic; setText(ui.musicB.lab, G.liftMusic ? "ELEVATOR MUSIC: ON" : "ELEVATOR MUSIC: OFF"); R.lit(ui.musicB, !!G.liftMusic);
       setText(ui.talkNow, (G.talking || []).length ? "Talking now: " + G.talking.map((k) => (NPCLINES.find((x) => x[0] === k) || [0, k])[1]).join(", ") : "");

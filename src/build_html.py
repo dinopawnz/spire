@@ -192,7 +192,13 @@ fx['motes'] = [['mw_motes', -70.0, 0.0, -58.0], ['mw_motes', 70.0, 0.0, -58.0], 
 D['fx'] = fx
 import outside; outside.apply(D, L, FL, rg)
 import roof; roof.apply(D, L, FL)
-import band; band.apply(D, F1)                    # the lounge stage band (drums, harp, guitar, piano, microphone)                 # the roof: the grand finale photo terrace          # the outside, to the owner's concept
+import band; band.apply(D, F1)
+# the Mudwater Swamp Blues (swamp_jazz.py): speakers round every floor, the roof and out on the water
+X1_, Z1_ = L['X1'], L['Z1']
+spk = [[sx * X1_ * 0.5, FL['lounge'] + 5.5, sz * Z1_ * 0.5] for sx in (-1, 1) for sz in (-1, 1)] + [[0.0, FL['lounge'] + 5.5, 0.0]]
+spk += [[sx * X1_ * 0.55, FL['hall'] + 9.0, 0.0] for sx in (-1, 1)] + [[0.0, FL['cards'] + 3.0, 0.0], [0.0, FL['rooms'] + 3.0, 0.0]]
+spk += [[sx * 20.0, FL['roof'] + 3.0, 0.0] for sx in (-1, 1)] + [[0.0, 2.5, L['walk']['z1'] - 10.0], [0.0, 2.5, Z1_ + 25.0]]
+D['music'] = dict(parts=[46957, 46957], speakers=[[round(v, 2) for v in p] for p in spk])                    # the lounge stage band (drums, harp, guitar, piano, microphone)                 # the roof: the grand finale photo terrace          # the outside, to the owner's concept
 print('deco pieces', len(D['deco']))
 
 src = open('/home/claude/spire/spire_src.html').read()

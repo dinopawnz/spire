@@ -39,7 +39,7 @@ def apply(D, F1):
     def xf(lx, lz, P, a, S):
         c, s_ = math.cos(math.radians(a)), math.sin(math.radians(a))
         return P[0] + S * (lx * c + lz * s_), P[2] + S * (-lx * s_ + lz * c)
-    PS, PA = 1.3, -65.0; PP = (-4.3, y, sz_ - 0.6)                 # piano: keyboard toward the crowd, angled to the middle
+    PS, PA = 1.3, 115.0; PP = (-4.3, y, sz_ - 0.4)                 # piano: the player stands behind the keyboard facing the crowd (no stool - stand and play)
     add(['sp_band_piano', PP[0], y, PP[2], PA, PS])
     keys = []
     for (lx, ly, lz, w, d, midi, black) in CI['piano']['keys']:
@@ -53,8 +53,12 @@ def apply(D, F1):
         wx, wz = xf(lx, lz, HP, HA, HS); strs.append([round(wx, 3), round(y + ly * HS, 3), round(wz, 3), round(ln * HS, 3), midi])
     D['bandHarp'] = dict(ry=CI['harp']['ry'] + HA, strings=strs)
     pads.append([HP[0], y + 0.12, HP[2], 0.9 * HS, 0.24, 0.5 * HS, HA])                              # the base only - every string stays clickable
-    g = put('guitar', 2.6, zf - 2.0, -20, 1.6, 'h')
-    if g: zones(2.6, zf - 2.0, -20, g[0], g[1], g[2], 'guitar', [0], 'x')
+    # the guitar (no stand) hangs at hip height, tilted like it's being played: stand behind it and you're the guitarist.
+    # (owner) [x, y centre, z, ry, rz tilt, scale] - the model's neck runs up +y; rz -55 swings the neck to the player's left.
+    if 'guitarsolo' in outside.META:
+        mn, mx = outside.META['guitarsolo']; gs = 1.05 / (mx[1] - mn[1]); GX, GZ = 2.4, zf - 2.2
+        D['bandGuitar'] = [GX, round(y + 1.12, 3), round(GZ, 3), -10.0, -55.0, round(gs, 4)]
+        hits.append([GX, round(y + 1.12, 3), round(GZ, 3), 1.0, 0.75, 0.35, -10.0, 'guitar', 0])
     m = put('microphone', 0.0, zf - 1.4, 0, 1.75, 'h')
     if m: pads.append([0.0, y + 0.85, zf - 1.4, 0.35, 1.7, 0.35, 0])
     print('band: %d clickable zones' % len(hits))
