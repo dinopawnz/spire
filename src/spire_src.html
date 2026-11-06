@@ -490,8 +490,16 @@
       // sign the wall: the lectern opens a box to type your name; the newest names fill the board along the top
       const [lx, ly, lz, lry] = AW.sign, [bx, by, bz, bw, bry] = AW.board;
       const bo = polar(0.02, bry || 0, 0);                        // a hair in front of the timber board
-      const board = el("m-label", { x: bx + bo[0], y: by, z: bz + bo[2], ry: bry || 0, width: bw, height: 1.3, content: "SIGN THE ART WALL AT THE LECTERN", "font-size": 34, alignment: "center", color: "#20140a", "font-color": "#ffe6a8", emissive: 0.35, collide: "false" });
-      board._global = true;
+      // (v38, fps) the board is a PICTURE ("sign the art wall at the lectern") until the first name arrives; only then one text label
+      const boardArgs = { x: bx + bo[0], y: by, z: bz + bo[2], ry: bry || 0, width: bw, height: 1.3, "font-size": 34, alignment: "center", color: "#20140a", "font-color": "#ffe6a8", emissive: 0.35, collide: "false" };
+      let board = null;
+      const boardPic = el("m-group", { x: bx + bo[0], y: by, z: bz + bo[2], ry: bry || 0 }); boardPic._global = true;
+      word("aw_sign", 0.9, {}, boardPic);
+      const setBoard = (txt) => {
+        if (!txt) { if (board) { board.remove(); board = null; } boardPic.setAttribute("visible", "true"); return; }
+        if (!board) { board = el("m-label", Object.assign({ content: txt }, boardArgs)); board._global = true; boardPic.setAttribute("visible", "false"); }
+        else board.setAttribute("content", txt);
+      };
       const pr = el("m-prompt", { x: lx, y: ly, z: lz, ry: lry || 0, message: "Sign the Mudwater Art Wall - your name goes on the board above the canvas", placeholder: "Your name (up to 18 letters)" });
       hitBox({ y: 0.8, width: 1.4, height: 1.7, depth: 1.2 }, pr);
       pr._global = true;
@@ -500,10 +508,10 @@
         const raw = String(e.detail.value || "").replace(/[<>\u0000-\u001f]/g, "").replace(/\s+/g, " ").trim().slice(0, 18);
         if (!raw || ART.names.includes(raw)) return;
         ART.names.push(raw); if (ART.names.length > 45) ART.names.shift();
-        board.setAttribute("content", ART.names.join("  ·  "));
+        setBoard(ART.names.join("  ·  "));
         sfx("lift_chime.mp3", lx, ly + 1, lz, 0.5);
       });
-      ART.clear = () => { ART.cells.forEach((c) => c.remove()); ART.cells.clear(); ART.names = []; board.setAttribute("content", "SIGN THE ART WALL AT THE LECTERN"); };
+      ART.clear = () => { ART.cells.forEach((c) => c.remove()); ART.cells.clear(); ART.names = []; setBoard(null); };
     }
     // ---------------------------------------------------- MUD ROYALE (v34, game 2, floor 3). The owner's rules: WALK ONTO a team pad to
     // join (switch freely until the host presses START); at the start every player on a team gets 5 Mudwater cards (shown only to them on
@@ -666,7 +674,7 @@
         if (best === 0) rBig([["r_time", 0.9, 0, 1.2]]);
         else if (top.length === 1) rBig([[TM[top[0]][1], 0.85, 0, 1.45], ["r_wins", 0.6, 0, 0.7]]);
         else rBig([["r_tie", 0.8, 0, 1.2]]);
-        if (mvp !== null) faces.forEach((F) => { word("r_mvp", 0.32, { x: -3.0, y: 0.32 }, F.big); el("m-label", { x: 0.55, y: 0.32, width: 5.4, height: 0.5, content: nameOf(pl(mvp)) + "  (" + mv + ")", "font-size": 30, alignment: "left", color: "#0d0907", "font-color": "#ffe6a8", emissive: 0.35, collide: "false" }, F.big); });
+        if (mvp !== null) faces.forEach((F) => { word("r_mvp", 0.32, { x: -3.0, y: 0.32 }, F.big); const lab = el("m-label", { x: 0.55, y: 0.32, width: 5.4, height: 0.5, content: nameOf(pl(mvp)) + "  (" + mv + ")", "font-size": 30, alignment: "left", color: "#0d0907", "font-color": "#ffe6a8", emissive: 0.35, collide: "false" }, F.big); later(30000, () => lab.remove()); });
         RY.hands.forEach((H, id) => { H.els.forEach((e) => e.remove()); H.els = []; handMsg(id, ["r_time"], 3000); });
         sfx("winner.mp3", 0, R.y + 4, 0, 0.9);
         hostMsg("MUD ROYALE OVER: " + TM.map((t, k) => t[0].toUpperCase() + " " + per[k]).join(", ") + (mvp !== null ? " - MVP " + nameOf(pl(mvp)) + " (" + mv + ")" : ""));
@@ -1012,6 +1020,38 @@
       const c = el("m-group", { x, y, z, ry: (i * 97) % 360 }), turn = el("m-group", {}, c);
       anim(turn, "ry", 0, lap > 0 ? 360 : -360, Math.abs(lap), { delay: i * 4100 });
       model(f + ".glb", a, el("m-group", { x: r, ry: lap > 0 ? 180 : 0 }, turn));
+    });
+
+    // (v38) Kodas that stroll a loop of waypoints: turn to face the next corner, walk to it at a steady pace, repeat
+    (D.kodaPaths || []).forEach(([f, pts, y, s, speed], i) => {
+      const g = el("m-group", { x: pts[0][0], y, z: pts[0][1] }); g._global = true;
+      model(f + ".glb", { sx: s, sy: s, sz: s, anim: BASE + f + ".glb" + VER, "anim-loop": "true", "anim-start-time": -Math.round(2300 * i + 400), collide: "false" }, g);
+      let k = 0, ry = 0;
+      const leg = () => {
+        const [x0, z0] = pts[k % pts.length], [x1, z1] = pts[(k + 1) % pts.length]; k++;
+        let to = Math.atan2(x1 - x0, z1 - z0) * 180 / Math.PI; while (to - ry > 180) to -= 360; while (to - ry < -180) to += 360;
+        tween(g, "ry", ry, to, 600, "easeInOutQuad"); ry = to;
+        const ms = Math.round(Math.hypot(x1 - x0, z1 - z0) / speed * 1000);
+        later(450, () => { tween(g, "x", x0, x1, ms, "linear"); tween(g, "z", z0, z1, ms, "linear"); later(ms + 50, leg); });
+      };
+      later(1500 + i * 900, leg);
+    });
+    // (v38) the guest ape with his cigar: seated, animated (clip time = document time, so the smoke can follow it), a puff of smoke
+    // drifting up from his mouth every time he leans back to blow it out
+    (D.loungers || []).forEach(([f, x, y, z, ry, s, mouth, period, blowAt]) => {
+      const g = el("m-group", { x, y, z, ry }); g._global = true;
+      model(f + ".glb", { sx: s, sy: s, sz: s, anim: BASE + f + ".glb" + VER, "anim-loop": "true", "anim-start-time": 0, collide: "false" }, g);
+      const puff = () => {
+        for (let p = 0; p < 4; p++) later(p * 160, () => {
+          const b = el("m-sphere", { x: mouth[0], y: mouth[1], z: mouth[2], radius: 0.05, color: "#cfcac2", opacity: 0.55, collide: "false", "cast-shadows": "false" });
+          const dx = (Math.random() - 0.5) * 0.25, dz = (Math.random() - 0.5) * 0.25 + 0.15 * Math.cos(ry * Math.PI / 180), d = 2600 + p * 200;
+          tween(b, "y", mouth[1], mouth[1] + 0.7 + p * 0.1, d, "easeOutQuad"); tween(b, "x", mouth[0], mouth[0] + dx, d, "easeOutQuad"); tween(b, "z", mouth[2], mouth[2] + dz, d, "easeOutQuad");
+          ["sx", "sy", "sz"].forEach((a) => tween(b, a, 1, 4.5, d, "easeOutQuad")); tween(b, "opacity", 0.55, 0, d, "easeInQuad");
+          later(d + 80, () => b.remove());
+        });
+      };
+      const first = period - (((now() - blowAt) % period) + period) % period;          // next time the clip reaches the blow
+      later(first, () => { puff(); every(period, puff); });
     });
 
     (D.bandHits || []).forEach(([x, y, z, w, h, d, ry, inst, k]) => {

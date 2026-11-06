@@ -232,11 +232,59 @@ def clip_walk(rig, period=1.1):
     n = 12
     rig.add_clip('walk', [k(period * i / n, 2 * math.pi * i / n) for i in range(n)], period)
 
+def clip_idle(rig):
+    """(v38) standing around: arms loose, breathing, weight shifting from foot to foot, looking round the room now and then"""
+    base = [('upperarm_l', Z, -76), ('upperarm_r', Z, 76), ('lowerarm_l', Y_, -14), ('lowerarm_r', Y_, 14), ('head', X, -2)]
+    def k(t, sway=0.0, look=0, breathe=0, tilt=0):
+        return (t, base + [('pelvis', Z, 2.5 * sway), ('spine_01', Z, -2.0 * sway), ('thigh_l', Z, -2 * sway), ('thigh_r', Z, -2 * sway),
+                           ('calf_l', X, 5 * max(0, -sway)), ('calf_r', X, 5 * max(0, sway)),
+                           ('spine_03', X, breathe), ('neck_01', Y_, look * 0.6), ('head', Y_, look * 0.5), ('head', Z, tilt)],
+                (0.025 * sway, 0.0, 0.0))
+    keys = [k(0.0, sway=1), k(1.8, sway=1, breathe=-2), k(3.0, sway=1, look=30), k(4.6, sway=0.2, look=32, breathe=-2), k(6.0, sway=-1),
+            k(7.6, sway=-1, breathe=-2), k(8.8, sway=-1, look=-28, tilt=4), k(10.4, sway=-0.4, look=-26, breathe=-2), k(12.0, sway=1)]
+    rig.add_clip('idle', keys, 12.0)
+
+def cigar_arm(up):     # the cigar hand: resting out on the armrest -> up at the mouth (angles from cigar_reach() below)
+    a0 = [('upperarm_r', Z, 58), ('lowerarm_r', Y_, 62)]
+    if up <= 0: return a0
+    return [('upperarm_r', Z, 58 * (1 - up)), ('lowerarm_r', Y_, 62 * (1 - up))] + [(b, ax, ang * up) for (b, ax, ang) in CIGAR_UP]
+CIGAR_UP = [('upperarm_r', X, -58), ('upperarm_r', Y_, 106), ('upperarm_r', Z, 16), ('lowerarm_r', Y_, 123), ('lowerarm_r', X, 14)]   # found by a reach search on ape 6136
+PINCH = [('index_01_r', Z, 25), ('middle_01_r', Z, 25), ('ring_01_r', Z, 70), ('pinky_01_r', Z, 80), ('ring_02_r', Z, 70), ('pinky_02_r', Z, 70)]
+def clip_cigar(rig):
+    """(v38, owner) a cigar-smoking ape lounging in a fireside armchair: the left arm on the armrest, the cigar hand on the other armrest,
+    every 12 s the cigar goes up to the mouth, he draws, lowers it and leans back to blow the smoke (the MML puffs the smoke)"""
+    base = sit_base(knee=80, hip=-86) + [('foot_l', X, 6), ('foot_r', X, 6), ('upperarm_l', Z, -58), ('lowerarm_l', Y_, -62), ('spine_01', X, -10)] + PINCH   # a tall ape: knees bent so the feet reach the floor
+    def k(t, up=0.0, look=0, breathe=0, lean=0):
+        return (t, base + cigar_arm(up) + [('spine_03', X, breathe), ('neck_01', Y_, look * 0.6 * (1 - up)), ('head', X, -4 + lean)], (0, 0, 0))
+    keys = [k(0.0), k(1.6, breathe=-2.5), k(3.2, look=24), k(4.4, look=24, breathe=-2.5), k(5.2),
+            k(6.2, up=1.0), k(7.6, up=1.0, breathe=3), k(8.4, breathe=-1), k(9.0, lean=-10), k(10.4, lean=-10, breathe=-3), k(11.2)]
+    rig.add_clip('cigar', keys, 12.0)
+    return base + cigar_arm(0), base + cigar_arm(1.0)
+
+def cigar_glb(path):
+    from glb import Mesh, write, cyl, T, M, Rx
+    m = Mesh()
+    mats = {'leaf': dict(color=(0.30, 0.17, 0.08, 1), rough=0.85), 'band': dict(color=(0.85, 0.65, 0.2, 1), metal=0.6, rough=0.4),
+            'ash': dict(color=(0.55, 0.53, 0.5, 1), rough=1.0), 'ember': dict(color=(1.0, 0.45, 0.1, 1), emis=(1.0, 0.35, 0.05), emis_strength=4.0)}
+    cyl(m, 'leaf', 0.011, 0.13, 10, m=M(Rx(90)))                          # along z
+    cyl(m, 'band', 0.0118, 0.012, 10, m=M(T(0, 0, -0.035), Rx(90)))
+    cyl(m, 'ash', 0.0105, 0.012, 10, m=M(T(0, 0, 0.071), Rx(90)))
+    cyl(m, 'ember', 0.0095, 0.004, 10, m=M(T(0, 0, 0.079), Rx(90)))
+    write(path, m, mats)
+
 if __name__ == '__main__':
     src, dst, kind = sys.argv[1], sys.argv[2], sys.argv[3]
     rig = Rig(src)
     if kind == 'sit': clip_sit(rig)
     elif kind == 'walk': clip_walk(rig)
+    elif kind == 'idle': clip_idle(rig)
+    elif kind == 'cigar':
+        rest, up = clip_cigar(rig)
+        cigar_glb('/home/claude/spire/out/glb/sp_cigar.glb')
+        Hm = rig.world_m(rest, 'hand_r')                             # the cigar lies forward out of the fingers in the resting pose
+        Wm = np.eye(4); Wm[:3, 3] = Hm[:3, 3] + np.array([-0.02, -0.025, 0.1]) * float(sys.argv[4] if len(sys.argv) > 4 else 1.0)
+        rig.attach('/home/claude/spire/out/glb/sp_cigar.glb', 'hand_r', np.linalg.inv(Hm) @ Wm)
+        Hu = rig.world_m(up, 'head'); print('head (smoke) at', [round(v, 3) for v in Hu[:3, 3]], '| hand up at', [round(v, 3) for v in rig.world_m(up, 'hand_r')[:3, 3]])
     elif kind == 'bar':
         rest = clip_bar(rig)
         Hm = rig.world_m(rest, 'hand_r')                             # the stein, upright in the world in the resting pose, in the palm

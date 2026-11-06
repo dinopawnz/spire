@@ -224,6 +224,20 @@ for name, k in (('sp_koda_119', 0), ('sp_koda_9929', 2)):
 for name, r, lap in (('sp_koda_9372', 9.5, 133000), ('sp_koda_9923', 12.5, -175000)):
     kodas.append([name, bx, round(FL['lounge'] + 0.005, 3), bz, 0, KS, r, lap])
 D['kodas'] = kodas
+# (v38) more of the owner's Kodas: 6833 strolls a loop through the open floor between the island bar and the front seating,
+# 2168 stands between the pool tables watching the games. [file, [[x, z], ...] waypoints, y, scale, walking speed m/s]
+FLY = round(FL['lounge'] + 0.005, 3)
+D['kodaPaths'] = [['sp_koda_6833', [[-7.0, 17.0], [14.0, 17.0], [14.0, 27.0], [-7.0, 27.0]], FLY, KS, 0.45]]
+D['kodas'].append(['sp_koda_2168', 45.2, FLY, 7.75, 90.0, KS, 0, 0])
+# (v38, owner) a guest ape (#6136, not one of the hosts' apes) lounging in the free fireside armchair with a cigar; the MML puffs smoke
+# from his mouth when he leans back to blow it out (clip 'cigar', 12 s: draws at 6.2-7.6 s, blows at ~9 s)
+AS = 0.9
+_e = _chairs.get((26.2, 37.5))
+if _e:
+    ax, _ay, az, ary = _seat(_e, 0.6, 0.0, 0.18)
+    ay = round(_e[2] - 0.9517 * _e[5] + 0.6 - (1.015 - 0.11) * AS - 0.06, 3)
+    c_, s_ = math.cos(math.radians(ary)), math.sin(math.radians(ary)); mx, my, mz = 0.0, 1.70 * AS, 0.06 * AS   # his mouth, in his own frame
+    D['loungers'] = [['sp_ape_6136', ax, ay, az, ary, AS, [round(ax + mx * c_ + mz * s_, 3), round(ay + my, 3), round(az - mx * s_ + mz * c_, 3)], 12000, 9000]]
 # (v30, owner) real MUDWATER cards dealt on every card table (card_spread.py), never ordinary playing cards
 for i, e in enumerate([e for e in F1.get('mprops', []) if e[0] == 'sp_m_cardtable']):
     D['sdeco'].append(['sp_mw_deal_%d' % (i % 4), e[1], round(e[2] + 0.684 * e[5] + 0.004, 3), e[3], (i * 90) % 360, 1.0])
