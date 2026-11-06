@@ -245,3 +245,19 @@
   sp_neon.glb = warm string lights under every eave and down the steeple + glowing mud channel round the porch and boardwalk.
   User rejected neon/cosmic looks for the swamp theme (no neon streaks, no disco beams, no cosmic sky).
 - Game 3 (Heist): keep lights-out + clues, NO guard, NO stealing. Living swamp only if photoreal. No speakeasy below the floor.
+
+## Session 5c (v13): the whole-building Hall of Fakes
+- KEYS (full floors) = lounge 3 | hall 10.5 | cards 32 | rooms 40 | roof 51. 'gallery' 24.9 = top of the Hall of Fakes stair + a small slab in the
+  east core (x 34.4..42.1, z 9.5..29.6); only lift A stops there.
+- Lifts moved to the ends: A (38.25, 14) [gallery stop], B (38.25, -20), C (-38.25, 14), D (-38.25, -20); doors still face +z.
+  build_lift writes sp_lift_shaft.glb (5 stops) + sp_lift_shaft_g.glb (A, 6 stops), placed at each lift's x, z (D.lifts[i].shaft_model).
+  Roof: four small lift-head houses; the old back-centre lift house is now just the steeple's base.
+- build_fakes.py replaces build_hall.py: a 4 m stair-ramp band (x 30.4..34.4 / z 25.6..29.6) climbing 2 laps round all four walls from 13.7
+  (grand steps up from the floor at the east-front, under the east run) to 24.9 (top landing at the front-east corner -> door into the east core).
+  End "gallery walls" at x = +-34.4 close the band (doorways for lift lobbies + stair door). 200 portraits (1.3 m) on the walls beside the runs.
+  Open hall inside (60.8 x 51.2, 21 m tall). Finals hall: glass box x +-13, z +-10, 9.5 m, invisible lid + frosted lid, 10 screens in 2 rows of 5,
+  on an island in a glowing moat (3.2 m) with a bridge to the door (front, z = +10). Big chandeliers from the ceiling.
+- Lounge: round centre bar (taps [x, y, z, ry]; mug slides out to the nearest edge), stage + dance floor at the back centre, fireplace on
+  the front wall (front-east), bayou garden (west), moss beards on every beam, vines up the columns, string lights.
+- Swamp dressing via D.deco (mudwater repo GLBs): jar lanterns under the stair runs (F2 'lanterns'), root stumps, glow plants, reeds,
+  lily pads round the moat, motes, low mist.
