@@ -32,6 +32,8 @@ M_['pond'] = dict(color=(0.03, 0.045, 0.035, 1), emis=(0.01, 0.03, 0.02), rough=
 M_['shroom'] = dict(color=(0.5, 0.22, 0.06, 1), emis=(1.0, 0.36, 0.05), emis_strength=0.5, rough=0.6)     # warm amber, like the concept
 M_['lglass'] = dict(color=(0.6, 0.26, 0.05, 1), emis=(1.0, 0.4, 0.06), emis_strength=0.62, rough=0.3)     # iron-lantern glass
 M_['gills'] = dict(color=(0.7, 0.3, 0.06, 1), emis=(1.0, 0.42, 0.06), emis_strength=0.7, rough=0.7, double=True)   # glowing mushroom undersides
+for _n, _r in (('dec_puddle1', 0.24), ('dec_puddle2', 0.26), ('dec_mud1', 0.32), ('dec_mud2', 0.4)):     # puddle / mud decals: never pitch black
+    M_[_n] = dict(tex=TEX + _n + '.png', emis_tex=TEX + _n + '.png', emis=(0.2, 0.15, 0.1), alpha='BLEND', rough=_r, metal=0.0)
 M_['pool'] = dict(tex=TEX + 'pool.png', emis_tex=TEX + 'pool.png', emis=(1.0, 0.62, 0.26), alpha='BLEND', rough=0.2)      # lantern light on the wet floor
 M_['dance'] = dict(tex=TEX + 'wood_planks.jpg', emis_tex=TEX + 'wood_planks.jpg', emis=(0.6, 0.33, 0.1), rough=0.25)
 M_['puddle'] = dict(color=(0.035, 0.026, 0.016, 0.9), metal=0.6, rough=0.02, alpha='BLEND')
@@ -642,18 +644,19 @@ def light_pools(lanterns):
     for x in (-30.0, -21.0, 21.0, 30.0): pool(x, -22.2, 2.8, 0.5, x)    # the shop booths
 
 def wet_floor():
-    """puddles that mirror the lanterns, and grass tufts poking up through the boards"""
-    for k in range(48):
-        for _ in range(20):
+    """photo-detailed muddy puddles and boot-printed mud splats (Meshy-made decals) scattered over the wet planks,
+    and grass tufts poking up through the boards"""
+    kinds = ['dec_puddle1', 'dec_puddle2', 'dec_mud1', 'dec_mud2']
+    placed = []
+    for k in range(62):
+        for _ in range(40):
             x, z = rng.uniform(-33, 33), rng.uniform(-27, 27)
-            if math.hypot(x - BAR_C[0], z - BAR_C[1]) > 8.5 and abs(x + 25) + abs(z - 4) > 12 and not (abs(x) < 8 and z < -8): break
-        rx, rz = rng.uniform(0.8, 2.6), rng.uniform(0.6, 1.8)
-        pts = [(x + rx * (1 + 0.25 * math.sin(3 * t + k)) * math.cos(t), z + rz * (1 + 0.2 * math.cos(2 * t + k)) * math.sin(t)) for t in np.linspace(0, 2 * math.pi, 18, endpoint=False)]
-        P = np.array([[px, Y + 0.02, pz] for px, pz in pts] + [[x, Y + 0.02, z]]); n = len(pts)
-        I = []
-        for i in range(n): I += [n, (i + 1) % n, i]
-        if np.cross(P[I[1]] - P[I[0]], P[I[2]] - P[I[0]])[1] < 0: I = list(np.array(I).reshape(-1, 3)[:, ::-1].reshape(-1))
-        L1.add('puddle', P, [[0, 1, 0]] * len(P), [[p[0] / 3, p[2] / 3] for p in P], I)
+            if math.hypot(x - BAR_C[0], z - BAR_C[1]) < 7.5 or abs(x + 25) + abs(z - 4) < 13 or (abs(x) < 8 and z < -8): continue
+            if abs(x) < 6 and abs(z - 19.5) < 2.2: continue                      # keep the MUDWATER plaque clear
+            if all(math.hypot(x - px, z - pz) > 2.6 for px, pz in placed): break
+        placed.append((x, z))
+        kd = kinds[k % 4]; sz = rng.uniform(1.8, 3.4) if 'puddle' in kd else rng.uniform(1.4, 2.6)
+        quad(L1, kd, sz, sz * rng.uniform(0.75, 1.0), M(T(x, Y + 0.02 + 0.0015 * (k % 7), z), Ry(rng.uniform(0, 360)), Rx(-90)))
     for (tx, tz) in TREES + [(rng.uniform(-33, 33), rng.uniform(-27, 27)) for _ in range(30)]:
         for k in range(rng.randint(6, 14)):
             a = rng.uniform(0, 2 * math.pi); rr = rng.uniform(2.6, 4.5) if (tx, tz) in TREES else rng.uniform(0, 1.2)

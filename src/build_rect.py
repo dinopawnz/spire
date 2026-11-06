@@ -3,7 +3,7 @@ Building space: centre (0, 0, 0), water at y 0.1, the front (+z) faces the board
   F1 lounge 3.0 | F2 Mud Match gallery 10.5 | F3 card floor 19.0 | F4 Group Mud rooms 26.5 | roof deck 34.0
 Two stair towers at the short ends (x = +-34.4 .. 42.1, z = -9.5 .. 9.5), a bank of four lifts against the back wall.
 Writes sp_shell.glb, sp_shell_col.glb, sp_boardwalk.glb, out/layout.json."""
-import math, json, random
+import math, json, random, os
 import numpy as np
 from glb import *
 from kit import *
@@ -76,6 +76,7 @@ def porch():
         prof = [(1.6 - 0.4 * t + 0.3 * math.exp(-t * 6), -1.5 + t * (FL['lounge'] + 1.4)) for t in np.linspace(0, 1, 10)]
         lathe(shell, 'bark', prof, 16, m=T(x, 0, z), uv_v=4.0, uvs_u=2)
 
+MESHY_WALK = os.path.exists('/home/claude/spire/out/glb/sp_m_railing.glb')     # carved Meshy railings + lantern posts (placed by build_html)
 def boardwalk():
     """the approach: 8 m wide, from the end of the pier (y 0.6) gently up to the porch front (y 3.0)"""
     w = WALK['w']; z0, z1 = WALK['z0'], WALK['z1']; ya, yb = FL['lounge'], WALK['y1']
@@ -85,7 +86,7 @@ def boardwalk():
         y0 = ya + (yb - ya) * i / n; y1 = ya + (yb - ya) * (i + 1) / n
         P = np.array([[-w / 2, y0, za], [w / 2, y0, za], [w / 2, y1, zb], [-w / 2, y1, zb]])
         U = np.c_[P[:, 0] / 3, P[:, 2] / 3]
-        walkm.add('plank', P, [[0, 1, 0]] * 4, U, [0, 2, 1, 0, 3, 2], tint(rng, 0.06))
+        walkm.add('wetfloor', P, [[0, 1, 0]] * 4, np.c_[P[:, 2] / 3.2, P[:, 0] / 3.2], [0, 2, 1, 0, 3, 2])      # wet dark planks, boards across the walk
         walkm.add('dark', P - np.array([0, 0.12, 0]), [[0, -1, 0]] * 4, U, [0, 1, 2, 0, 2, 3])
         for s in (-1, 1):
             bevel_box(walkm, 'dark', 0.14, 0.4, zb - za, 0.02, m=M(T(s * (w / 2 + 0.07), (y0 + y1) / 2 - 0.2, (za + zb) / 2), Rx(-math.degrees(math.atan2(y1 - y0, zb - za)))), uvs=3.0)
@@ -96,13 +97,13 @@ def boardwalk():
         collider_box(col, 0.3, 1.4, ln, M(T(s * (w / 2 + 0.15), (ya + yb) / 2 + 0.6, (z0 + z1) / 2), Rx(ang)))
     # posts + rope rails + pilings
     k = 0
-    for z in np.arange(z0 + 1.5, z1, 3.0):
+    for z in (np.arange(z0 + 1.5, z1, 3.0) if not MESHY_WALK else []):
         t = (z - z0) / (z1 - z0); y = ya + (yb - ya) * t
         for s in (-1, 1):
             x = s * (w / 2 + 0.07)
             lathe(walkm, 'bark', [(0.16, -1.8), (0.15, 1.2), (0.0, 1.3)], 8, m=T(x, y, z), uv_v=2.0)
         k += 1
-    for s in (-1, 1):
+    for s in ((-1, 1) if not MESHY_WALK else ()):
         pts = []
         for z in np.arange(z0 + 1.5, z1, 3.0):
             t = (z - z0) / (z1 - z0); y = ya + (yb - ya) * t
@@ -226,27 +227,57 @@ def walls():
             prof = [(0.36 + 0.05 * math.sin(t * 11 + x * 0.7) + 0.08 * math.exp(-t * 8), t * H) for t in np.linspace(0, 1, 9)]
             lathe(shell, 'bark', prof, 8, m=M(T(x + out[0], FL['lounge'], z + out[1]), Rx(rng.uniform(-0.6, 0.6)), Rz(rng.uniform(-0.6, 0.6))), uv_v=9.0)
 
+BAL_D = 2.4      # balcony depth
 def belts():
-    """a rough belt beam + a shingle pent roof round the building at every floor line (and half way up the tall hall), moss beards under"""
-    lines = [(YS[k], 2.8) for k in range(1, NS)] + [(FL['gallery'] - 7.2, 2.2), (FL['gallery'], 2.2)]
-    for (y, depth) in lines:
+    """wraparound balconies on every floor line (the owner's outside concept): a plank deck on angled brackets, a carved
+    railing with balusters, a fascia beam, moss and vines trailing off the edge. The balcony above is each one's roof."""
+    lines = [YS[k] for k in range(1, NS)] + [FL['gallery'] - 7.2, FL['gallery']]
+    D = BAL_D
+    for li, y in enumerate(sorted(lines)):
         o = 0.3
         R0 = [(-X1 - o, -Z1 - o), (X1 + o, -Z1 - o), (X1 + o, Z1 + o), (-X1 - o, Z1 + o)]
-        for i in range(4): box_between(shell, 'dark', R0[i], R0[(i + 1) % 4], 0.5, 0.55, y - 0.1)
-        pent(y + 1.0, y - 0.35, depth)
+        for i in range(4): box_between(shell, 'dark', R0[i], R0[(i + 1) % 4], 0.5, 0.55, y - 0.1)        # belt beam on the wall
+        Ri = [(-X1, -Z1), (X1, -Z1), (X1, Z1), (-X1, Z1)]
+        Ro = [(-X1 - D, -Z1 - D), (X1 + D, -Z1 - D), (X1 + D, Z1 + D), (-X1 - D, Z1 + D)]
+        skip_front = (y < 12.0)            # the portico roof covers the middle of the front at the first floor line
         for i in range(4):
-            a, b = R0[i], R0[(i + 1) % 4]
-            d = np.array(b) - np.array(a); ln = np.linalg.norm(d); d /= ln; nrm = np.array([d[1], -d[0]])
-            for t in np.arange(0.6, ln, 1.4):
-                if rng.random() < 0.35: continue
-                p = np.array(a) + d * t + nrm * rng.uniform(depth - 1.0, depth - 0.1)
-                hh = rng.uniform(0.7, 2.6)
-                tube(shell, 'moss', [(p[0], y - 0.45, p[1]), (p[0] + rng.uniform(-0.15, 0.15), y - 0.45 - hh / 2, p[1] + rng.uniform(-0.15, 0.15)), (p[0], y - 0.45 - hh, p[1])], 0.07, 4, radii=[0.16, 0.09, 0.02])
-            # a few coils of rope and old nets hanging from the eaves
-            for t in np.arange(3.0, ln, 9.0):
-                p = np.array(a) + d * t + nrm * (depth - 0.4)
-                pts = [(p[0] + d[0] * 1.6 * math.cos(u), y - 0.5 - 0.8 * math.sin(u), p[1] + d[1] * 1.6 * math.cos(u)) for u in np.linspace(0, math.pi, 8)]
-                tube(shell, 'rope', pts, 0.04, 5, twist=2)
+            a0, a1, b0, b1 = Ri[i], Ri[(i + 1) % 4], Ro[i], Ro[(i + 1) % 4]
+            front = (i == 2)
+            spans = [(0.0, 1.0)]
+            if front and skip_front:
+                cut = (X1 - 11.0) / (2 * X1); spans = [(0.0, cut), (1.0 - cut, 1.0)]
+            for (t0, t1) in spans:
+                lerp = lambda p, q, t: (p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t)
+                # outer corners of a side reach the corner of the outer ring, so the four decks meet
+                A0, A1 = lerp(a0, a1, t0), lerp(a0, a1, t1); B0, B1 = lerp(b0, b1, t0), lerp(b0, b1, t1)
+                if t0 > 0: B0 = (A0[0] + (b0[0] - a0[0]), A0[1] + (b0[1] - a0[1])) if False else lerp(b0, b1, t0)
+                P = np.array([[A0[0], y, A0[1]], [A1[0], y, A1[1]], [B1[0], y, B1[1]], [B0[0], y, B0[1]]])
+                U = np.c_[P[:, 0] / 3.2, P[:, 2] / 3.2] if i % 2 == 0 else np.c_[P[:, 2] / 3.2, P[:, 0] / 3.2]
+                idx = [0, 1, 2, 0, 2, 3]
+                if np.cross(P[1] - P[0], P[3] - P[0])[1] < 0: idx = [0, 2, 1, 0, 3, 2]
+                shell.add('plank', P + np.array([0, 0.02, 0]), [[0, 1, 0]] * 4, U, idx, col=tint(rng, 0.08, 0.85))
+                shell.add('dark', P - np.array([0, 0.16, 0]), [[0, -1, 0]] * 4, U, idx[::-1])
+                box_between(shell, 'dark', B0, B1, 0.22, 0.42, y - 0.08)                            # fascia
+                # angled brackets under the deck
+                d = np.array(B1) - np.array(B0); ln = np.linalg.norm(d)
+                for t in np.arange(1.5, ln, 3.2):
+                    q = np.array(B0) + d / ln * t; w_ = np.array(lerp(A0, A1, t / ln))
+                    pa = np.array([w_[0], y - 1.6, w_[1]]); pb = np.array([q[0] - (q[0] - w_[0]) * 0.08, y - 0.15, q[1] - (q[1] - w_[1]) * 0.08])
+                    dv = pb - pa; box(shell, 'dark', 0.16, 0.18, np.linalg.norm(dv), m=M(T(*((pa + pb) / 2)), look_basis(dv)), uvs=2.0)
+                # carved railing on the outer edge (inset a touch), with an open end where a front span stops
+                inset = 0.12
+                r0 = (B0[0] + (A0[0] - B0[0]) / D * inset, B0[1] + (A0[1] - B0[1]) / D * inset)
+                r1 = (B1[0] + (A1[0] - B1[0]) / D * inset, B1[1] + (A1[1] - B1[1]) / D * inset)
+                pts = [r0, r1]
+                if t0 > 0: pts = [lerp(a0, a1, t0), r0, r1]
+                if t1 < 1: pts = [r0, r1, lerp(a0, a1, t1)]
+                railing(shell, pts, y, rng, closed=False, h=1.05, post_every=2.6, balusters=True)
+                # moss and vines trailing off the deck edge
+                for t in np.arange(0.5, ln, 1.1):
+                    if rng.random() < 0.45: continue
+                    q = np.array(B0) + d / ln * t; hh = rng.uniform(0.6, 2.8)
+                    tube(shell, 'moss', [(q[0], y - 0.25, q[1]), (q[0] + rng.uniform(-0.12, 0.12), y - 0.25 - hh / 2, q[1] + rng.uniform(-0.12, 0.12)), (q[0], y - 0.25 - hh, q[1])], 0.07, 4, radii=[0.12, 0.07, 0.015])
+    L['balconies'] = dict(lines=sorted(lines), depth=D)
 
 def pent(y_in, y_out, depth):
     for i in range(4):
@@ -566,7 +597,7 @@ def neon():
             tube(neonm, mat, [(a[0], y, a[1]), (b[0], y, b[1])], r, 6)
         return R0
     # warm string lights sagging under every eave (the swamp's own festival lights - no neon)
-    lines = [(YS[k], 2.8) for k in range(1, NS)] + [(FL['gallery'] - 7.2, 2.2), (FL['gallery'], 2.2), (YS[NS] - 1.85, 3.4)]
+    lines = [(YS[k], 2.4) for k in range(1, NS)] + [(FL['gallery'] - 7.2, 2.4), (FL['gallery'], 2.4), (YS[NS] - 1.85, 3.4)]
     for (y, depth) in lines:
         R0 = [(-X1 - depth + 0.3, -Z1 - depth + 0.3), (X1 + depth - 0.3, -Z1 - depth + 0.3), (X1 + depth - 0.3, Z1 + depth - 0.3), (-X1 - depth + 0.3, Z1 + depth - 0.3)]
         for i in range(4):
@@ -595,11 +626,11 @@ def neon():
     for (a, b) in (((-P['x'] + o, P['zb'] + o), (P['x'] - o, P['zb'] + o)), ((P['x'] - o, P['zb'] + o), (P['x'] - o, P['zf'] - o)), ((-P['x'] + o, P['zb'] + o), (-P['x'] + o, P['zf'] - o)),
                    ((-P['x'] + o, P['zf'] - o), (-WALK['w'] / 2 - 0.5, P['zf'] - o)), ((WALK['w'] / 2 + 0.5, P['zf'] - o), (P['x'] - o, P['zf'] - o))):
         mm, ln = place(a, b, FL['lounge'] + 0.015)
-        quad(neonm, 'mudglow', ln, 0.35, M(mm, T(ln / 2, 0, 0), Rx(-90)))
+        pass      # (glowing mud strip removed - the concept has a plain wet boardwalk)
     for sx in (-1, 1):
         x = sx * (WALK['w'] / 2 - 0.35)
         P2 = np.array([[x - 0.15, FL['lounge'] + 0.02, WALK['z0']], [x + 0.15, FL['lounge'] + 0.02, WALK['z0']], [x + 0.15, WALK['y1'] + 0.02, WALK['z1']], [x - 0.15, WALK['y1'] + 0.02, WALK['z1']]])
-        neonm.add('mudglow', P2, [[0, 1, 0]] * 4, [[0, 0], [1, 0], [1, 20], [0, 20]], [0, 2, 1, 0, 3, 2])
+        pass
 
 if __name__ == '__main__':
     porch(); boardwalk(); walls(); belts(); balconies(); shacks(); slabs(); stairs(); roof(); portico()
