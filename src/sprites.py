@@ -154,7 +154,7 @@ SPRITES.update({
     'r_mvp': (['MVP'], 'gold'), 'r_colon': ([':'], 'gold'), 'r_go': (['GO!', 'PLACE YOUR CARDS'], 'gold'), 'r_out': (['NEW CARD COMING', 'ONE EVERY 10 SECONDS'], 'cream'), 'r_30': (['30 SECONDS LEFT!'], 'red'),
     'r_noteam': (['STAND ON A TEAM PAD', 'BEFORE THE START'], 'cream'), 'r_taken': (['THAT SQUARE', 'IS TAKEN'], 'red'),
     'r_youre': (["YOU'RE ON"], 'cream'), 'r_wait': (['WAIT FOR THE', 'HOST TO START'], 'cream'), 'r_time': (['TIME!'], 'red'),
-    'r_pick': (['PICK A TEAM'], 'gold'), 'r_full': (['BOARD FULL!', 'UPGRADE CARDS'], 'gold'), 'r_weak': (['NEED A STRONGER', 'CARD TO UPGRADE'], 'red'), 'r_capture': (['CAPTURED!'], 'gold'), 'r_ready': (['GET READY'], 'teal'),
+    'r_pick': (['PICK A TEAM'], 'gold'), 'aw_sign': (['SIGN THE ART WALL', 'AT THE LECTERN'], 'gold'), 'r_full': (['BOARD FULL!', 'UPGRADE CARDS'], 'gold'), 'r_weak': (['NEED A STRONGER', 'CARD TO UPGRADE'], 'red'), 'r_capture': (['CAPTURED!'], 'gold'), 'r_ready': (['GET READY'], 'teal'),
 })
 for k in range(10): SPRITES['d%d' % k] = ([str(k)], 'gold')
 for k in range(10): SPRITES['r%d' % k] = ([str(k)], 'red')
