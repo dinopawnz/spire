@@ -508,10 +508,10 @@ details.cheat dl { margin: 8px 0 0; } details.cheat dt { color: var(--sky); font
       g = R.grid(p);
       R.btn(g, "OPEN THE HALL", "shuffle + start the hunt for the real Founder", () => R.say("hall open"), { cls: "b-go big1", confirm: "Open the Hall of Fakes? The portraits are shuffled and any finalists are cleared." });
       R.btn(g, "THIN THE FAKES", "take half the forgeries down (never below 10)", () => R.say("hall thin"), { cls: "b-warn big1" });
-      R.btn(g, "START THE FINALS", "seal the vault - find the real Black Flag", () => R.say("hall finals"), { cls: "b-sky big1", confirm: "Start the finals now with whoever is in already?" });
+      ui.finB = R.btn(g, "START THE FINALS", "unfrost the vault - find the real Black Flag", () => R.say("hall finals"), { cls: "b-sky big1", confirm: () => (ui.inV < ui.nFin ? "Only " + ui.inV + " of the " + ui.nFin + " finalists are inside the vault. Start anyway?" : "Unfrost the vault and start the finals?") });
       R.btn(g, "Reset the Hall", "back to closed", () => R.say("hall reset"), { cls: "b-stop", confirm: "Reset the Hall of Fakes? Finalists and the champion are cleared." });
       R.note(p, ["A wrong pick costs that player ", { b: "20 seconds" }, ". The first ", { b: "10" }, " to find the real #62 Founder become finalists - the vault's glass door opens for them only. ",
-        "The finals start by themselves when the 10th finalist is found. ", { b: "THIN" }, " works on whichever round is running (hall, or vault)."]);
+        "The vault glass stays ", { b: "frosted" }, " until you press START THE FINALS - wait until the finalists are all inside (the count shows below). ", { b: "THIN" }, " works on whichever round is running (hall, or vault)."]);
       ui.finList = R.note(p, "");
 
       p = R.panel(R.left, "The lifts", "call either cage to any of its floors");
@@ -574,7 +574,9 @@ details.cheat dl { margin: 8px 0 0; } details.cheat dt { color: var(--sky); font
       setText(ui.what, G.ph === "hunt" ? "hunting" : G.built ? "in the Spire" : "in the world");
       const st = { inside: G.inside || 0, left: G.left !== undefined ? G.left : "-", fin: (G.fin || 0) + " / " + (G.finMax || 10), winner: G.winner || "-" };
       for (const k in ui.st) setText(ui.st[k], st[k]);
-      setText(ui.finList, (G.finalists || []).length ? "Finalists: " + G.finalists.map((n, i) => (i + 1) + ". " + n).join("   ") : "No finalists yet.");
+      ui.inV = G.inVault || 0; ui.nFin = G.fin || 0;
+      setText(ui.finList, ((G.finalists || []).length ? "Finalists: " + G.finalists.map((n, i) => (i + 1) + ". " + n).join("   ") + "   -   inside the vault: " + ui.inV + " / " + ui.nFin : "No finalists yet.") + (G.ready ? "   -   ALL FOUND: PRESS START THE FINALS" : ""));
+      R.lit(ui.finB, !!G.ready);
       const Ls = G.lifts || {};
       for (const id in ui.liftCards) { const s = Ls[id]; setText(ui.liftCards[id], s ? (s.busy && !s.open ? "moving" : "at the " + (FLOOR[s.at] || s.at) + (s.open ? ", doors open" : "")) + (s.req.length ? " - called to " + s.req.map((k) => FLOOR[k]).join(", ") : "") : "-"); }
       const P = R.data.players || [];
