@@ -28,13 +28,13 @@
 | Gallery | 24.9 | ramp/balcony over the hall | done |
 | Cards (3) | 32.0 | **Mud Royale** (game 2) | **NOT BUILT** |
 | Rooms (4+) | 40.0 | **Mudroom Escape** (game 3) | **NOT BUILT** |
-| Roof | 51.0 | grand finale photo terrace + fireworks + art wall | built; **art wall painting NOT wired yet** |
+| Roof | 51.0 | grand finale photo terrace + light-curtain backdrop + fireworks + paintable art wall | done (v33) |
 
 **Versions:**
 | Where | Version | What |
 |---|---|---|
 | branch `main` | v13 | the old LIVE build. Untouched. Push to main ONLY when the owner says. |
-| branch **`handoff-v14`** | **v32** | everything from sessions 6–10. This is what the owner tests. |
+| branch **`handoff-v14`** | **v33** | everything from sessions 6–11. This is what the owner tests. |
 
 The owner's files load assets from `https://raw.githubusercontent.com/dinopawnz/spire/handoff-v14/` (baked into spire.html by `build_html.py`), so **assets must be pushed to `handoff-v14` before the owner's HTML works.** Remote PIN: **7747**, then press LIVE BUILD.
 
@@ -166,6 +166,14 @@ Raised dark-timber photo stage with steps, Meshy photo arch (8 m) with the Mudwa
 ### Roof art wall (started, NOT finished)
 `roof.py artwall()` builds the 38.4 × 8 m canvas with timber frame (`sp_artwall.glb`) in front of the steeple house, 2 paint stands, a signing lectern, and writes `D.artwall` = `{cols 48, rows 10, cell 0.8, x0, y0, z, palette (13 colours + 'erase'), stands, sign, board}`. **The JS is not written yet**: the canvas is visible but blank and not paintable.
 
+
+### v33 (session 11): lifts self-heal, roof backdrop, working art wall
+- **Lifts** (owner: "worked earlier today, now clicking the button outside the lift does nothing at all"). Bots could not reproduce it (40 bots, 15 min: no problems), so a lift was most likely left stuck "busy" after a lost/failed timer step. Now: `later()`/`every()` catch errors (last one shown in `liftstat`); every busy spell has a **deadline**; `heal()` snaps a stuck lift to a clean state (cab at its target floor, all doors shut) - checked every 3 s and on every button press; a step from before a heal is ignored (`st.tok`); operator chatter can't break a ride. A press at the floor where the doors are already open re-sends the doors (re-inserts the leaves) + chimes, for clients that missed the opening. Host test commands: `liftjam B` (pretend B is stuck) and `liftstat` (JSON status incl. `heals`, `err`). Test: `/tmp/healtest.py` pattern (jam -> heals in <4 s; jam + call -> rides). **Ask the owner if the lifts still ever stop.**
+- **Roof photo backdrop** (`roof.py backdrop()`, `sp_roof_backdrop.glb`): right behind the stage (z -9.2), a curtain of ~900 warm bulbs on 53 strands in front of a deep-green velvet drape, carved timber posts + gilt beam, Spanish-moss swags (Meshy `vines`), a Mudwater banner at each end. The steeple + floating pack still crown it. Solid pad behind it.
+- **Art wall moved and made paintable** (owner: "wrong place... our art is probably going to suck, we need a beautiful backdrop and the art somewhere else on the side"): `roof.py artwall()` now builds it in a local frame and stands it on the WEST side towards the front (centre x -45.6, z 19, facing +x), out of every stage photo. 30 x 10 squares of 0.8 m (24 x 8 m). JS block "THE ART WALL" in `spire_src.html`: one big click target reads `e.detail.position` (element-local); if a client ever sends no position it switches to a grid of 300 small targets (`[GRID MODE]`). Paint stands (13 colours + pink eraser) on two tables, 70 ms per-player cooldown, painted squares are the only cubes created. Lectern prompt -> names on ONE m-label board along the top (newest 45). Remote panel "The art wall": CLEAR / LOCK / UNLOCK (`art clear|lock|unlock`, `art` = status).
+- `meshy_meta.json` was missing the session-10 models (frogs, turtle, dragonfly, pool table/cue/rack); bounds added from the processed GLBs (`src/meshy_meta.json` updated). Without them the frogs and pool tables silently vanish from a rebuild.
+- Tests on v33: simtest, roundtest, biotest, drinktest, musictest, pooltest, bandtest all pass; lifttest 40 bots / 15 min: NO PROBLEMS FOUND; art wall test (paint, erase, grid mode, sign, clear) passes.
+
 ### Tests that pass on v32
 `chrometest.py simtest.js` → ERRORS none · `bandtest.js` (instruments off blocks sounds) · `musictest.js` (13 speakers in sync, next/off/on, 6 Kodas animated, frogs croak on click) · `pooltest.js` (break shot works).
 
@@ -176,7 +184,7 @@ Raised dark-timber photo stage with steps, Meshy photo arch (8 m) with the Mudwa
 2. **Confirm in Otherside**: beer steins visible (v31 skinned props), pack-opening Kodas show the pack and cards, music never stops (v32 watchdog), music no longer ducks when instruments play (v32 quieter instruments), drums sound different per piece, pool tables playable. Ask the owner to check each.
 3. **Drum/guitar credit**: add "Drum samples by Clngre (CC BY-SA 3.0, Wikimedia Commons)" and "Music by Kevin MacLeod (incompetech.com), CC BY 3.0" to a small credits plaque (image, not text) or the README.
 
-### 5.2 Finish the roof ART WALL (owner: "a wall where players can draw, sign their names and create a massive art piece")
+### 5.2 (DONE in v33) the roof ART WALL — kept below for reference
 Data is ready in `D.artwall` (§4). Write the JS:
 - 480 cells (48 × 10, 0.8 m) as thin `m-cube`s on the canvas, opacity 0 until painted; clicking one sets that player's chosen colour (opacity 1, slight emissive). Per-player colour map; 70 ms cooldown per player. Consider 2 × 2 "brush" cells if too fiddly.
 - Palette swatches (13 colours + eraser) on the two stands at `D.artwall.stands` (small Meshy-looking paint pots or image swatches).

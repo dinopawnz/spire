@@ -67,9 +67,11 @@
   const now = () => { try { if (document.timeline && typeof document.timeline.currentTime === "number") return document.timeline.currentTime; } catch (e) {} return Date.now() - T0; };
   const _setT = setTimeout, _clrT = clearTimeout, _setI = setInterval, _clrI = clearInterval;
   const TIMERS = new Set(), INTERVALS = new Set(), LISTENERS = [];
-  function later(ms, f) { const h = _setT(() => { TIMERS.delete(h); f(); }, ms); TIMERS.add(h); return h; }
+  // (v33) a timer step that throws no longer strands a lift / game halfway: the error is kept (remote status shows the last one)
+  let LAST_ERR = "";
+  function later(ms, f) { const h = _setT(() => { TIMERS.delete(h); try { f(); } catch (e) { LAST_ERR = String((e && e.message) || e).slice(0, 120); try { console.error(e); } catch (_) {} } }, ms); TIMERS.add(h); return h; }
   function cancel(h) { _clrT(h); TIMERS.delete(h); }
-  function every(ms, f) { const h = _setI(f, ms); INTERVALS.add(h); return h; }
+  function every(ms, f) { const h = _setI(() => { try { f(); } catch (e) { LAST_ERR = String((e && e.message) || e).slice(0, 120); } }, ms); INTERVALS.add(h); return h; }
   function onWin(ev, f) { window.addEventListener(ev, f); LISTENERS.push([ev, f]); }
   const _setWin = (ev, f) => window.addEventListener(ev, f);
   function tween(target, attr, from, to, ms, easing) {
@@ -439,6 +441,70 @@
         const dur = 1700 + (k * 211) % 1200; anim(e, "y", 0.3, 3.0, dur, { delay: k * 260 }); anim(e, "opacity", 1, 0, dur, { delay: k * 260 });
       }
     });
+    // ---------------------------------------------------- THE ART WALL (v33): the roof's big canvas off to the side (back-left corner).
+    // Pick a colour from a paint stand, then click the canvas to paint 0.8 m squares; the eraser takes paint off. Sign your name at the
+    // lectern and it goes on the ONE name board along the top (one label, not hundreds). Host: art clear / art lock / art unlock.
+    const ART = { on: !!D.artwall, locked: false, brush: new Map(), last: new Map(), cells: new Map(), names: [], grid: false };
+    if (D.artwall) {
+      const AW = D.artwall, C = AW.cell, W = AW.cols * C, H = AW.rows * C, PAL = AW.palette;
+      const AG = el("m-group", { x: AW.cx, y: AW.y0, z: AW.z, ry: AW.ry || 0 }); AG._global = true;
+      const paintAt = (c, r, id) => {
+        if (ART.locked || id === undefined || c < 0 || r < 0 || c >= AW.cols || r >= AW.rows) return;
+        const t = now(); if (t - (ART.last.get(id) || 0) < 70) return; ART.last.set(id, t);
+        const col = PAL[ART.brush.has(id) ? ART.brush.get(id) : 2], k = r * AW.cols + c, have = ART.cells.get(k);
+        if (col === "erase") { if (have) { have.remove(); ART.cells.delete(k); } return; }
+        if (have) { if (have.getAttribute("color") !== col) have.setAttribute("color", col); return; }
+        ART.cells.set(k, el("m-cube", { x: -W / 2 + C * (c + 0.5), y: C * (r + 0.5), z: 0.02, width: C, height: C, depth: 0.02, color: col, collide: "false", "cast-shadows": "false" }, AG));
+      };
+      // one big click target over the canvas: Otherside sends where on it you clicked. If a client ever sends no position, the wall
+      // switches itself to a grid of 300 small click targets (one per square) so painting still works.
+      let big = hitBox({ y: H / 2, z: 0.06, width: W, height: H, depth: 0.06 }, AG);
+      const toGrid = () => {
+        if (ART.grid) return; ART.grid = true; big.remove();
+        for (let r = 0; r < AW.rows; r++) for (let c = 0; c < AW.cols; c++) {
+          const hb = hitBox({ x: -W / 2 + C * (c + 0.5), y: C * (r + 0.5), z: 0.06, width: C - 0.02, height: C - 0.02, depth: 0.05 }, AG);
+          hb.addEventListener("click", (e) => paintAt(c, r, e.detail && e.detail.connectionId));
+        }
+      };
+      big.addEventListener("click", (e) => {
+        const p = e.detail && e.detail.position, id = e.detail && e.detail.connectionId;
+        if (!p || (Math.abs(p.x) < 1e-6 && Math.abs(p.y) < 1e-6)) { toGrid(); return; }
+        paintAt(Math.floor((p.x + W / 2) / C), Math.floor((p.y + H / 2) / C), id);
+      });
+      // the paint stands: a row of paint pots (13 colours + the eraser) on each table; click one to load your brush
+      AW.stands.forEach(([sx, sy, sz, sry]) => {
+        const g = el("m-group", { x: sx, y: sy, z: sz, ry: sry || 0 }); g._global = true;
+        PAL.forEach((col, i) => {
+          const px = -1.3 + 2.6 * i / (PAL.length - 1);
+          if (col === "erase") {
+            el("m-cube", { x: px, y: 0.06, width: 0.16, height: 0.1, depth: 0.24, color: "#f2d7c9", collide: "false", "cast-shadows": "false" }, g);     // a pink eraser block
+            el("m-cube", { x: px, y: 0.06, z: 0.09, width: 0.165, height: 0.105, depth: 0.06, color: "#3a64b8", collide: "false", "cast-shadows": "false" }, g);
+          } else {
+            el("m-cylinder", { x: px, y: 0.08, radius: 0.075, height: 0.16, color: "#8a8f94", collide: "false", "cast-shadows": "false" }, g);            // tin pot
+            el("m-cylinder", { x: px, y: 0.165, radius: 0.068, height: 0.012, color: col, collide: "false", "cast-shadows": "false" }, g);             // the paint
+          }
+          const hb = hitBox({ x: px, y: 0.12, width: 0.18, height: 0.3, depth: 0.5 }, g);
+          hb.addEventListener("click", (e) => { const id = e.detail && e.detail.connectionId; if (id === undefined) return; ART.brush.set(id, i); sfx("pool_clack_0.mp3", sx + px, sy + 0.2, sz, 0.25); });
+        });
+      });
+      // sign the wall: the lectern opens a box to type your name; the newest names fill the board along the top
+      const [lx, ly, lz, lry] = AW.sign, [bx, by, bz, bw, bry] = AW.board;
+      const bo = polar(0.02, bry || 0, 0);                        // a hair in front of the timber board
+      const board = el("m-label", { x: bx + bo[0], y: by, z: bz + bo[2], ry: bry || 0, width: bw, height: 1.3, content: "SIGN THE ART WALL AT THE LECTERN", "font-size": 34, alignment: "center", color: "#20140a", "font-color": "#ffe6a8", emissive: 0.35, collide: "false" });
+      board._global = true;
+      const pr = el("m-prompt", { x: lx, y: ly, z: lz, ry: lry || 0, message: "Sign the Mudwater Art Wall - your name goes on the board above the canvas", placeholder: "Your name (up to 18 letters)" });
+      hitBox({ y: 0.8, width: 1.4, height: 1.7, depth: 1.2 }, pr);
+      pr._global = true;
+      pr.addEventListener("prompt", (e) => {
+        const id = e.detail && e.detail.connectionId; if (id === undefined || ART.locked) return;
+        const raw = String(e.detail.value || "").replace(/[<>\u0000-\u001f]/g, "").replace(/\s+/g, " ").trim().slice(0, 18);
+        if (!raw || ART.names.includes(raw)) return;
+        ART.names.push(raw); if (ART.names.length > 45) ART.names.shift();
+        board.setAttribute("content", ART.names.join("  ·  "));
+        sfx("lift_chime.mp3", lx, ly + 1, lz, 0.5);
+      });
+      ART.clear = () => { ART.cells.forEach((c) => c.remove()); ART.cells.clear(); ART.names = []; board.setAttribute("content", "SIGN THE ART WALL AT THE LECTERN"); };
+    }
     // ---------------------------------------------------- THE STAGE BAND: click the drums, piano keys, harp strings or the guitar to play.
     // Each player can play one sound every 0.18 s, at most 10 sounds ring at once, and the host can switch the instruments off (trolls).
     const BAND = { on: true, last: new Map(), live: 0, gk: 0 };
@@ -1093,39 +1159,68 @@
         const spins = [anim(sheave, "rx", 0, 360 * sg, revSheave), anim(pinion, "rx", 0, -360 * sg, Math.round(revSheave * 0.33)), anim(gov, "ry", 0, 360, 900)]
           .concat(gears.map((g) => anim(g, "rx", 0, 360 * sg, 1400)));
         const hum = el("m-audio", { src: BASE + "lift_hum.mp3" + VER, y: 1.5, loop: "true", volume: 0.55, "start-time": Math.round(now()) }, CG);
-        if (id === OP_LIFT && NPCS.operator) npcTalk(NPCS.operator, up ? "up" : "down", undefined, true);
+        if (id === OP_LIFT && NPCS.operator) { try { npcTalk(NPCS.operator, up ? "up" : "down", undefined, true); } catch (e) {} }
         later(ms, () => { spins.forEach((s) => s.remove()); hum.remove(); done(); });
       }
       function arrive(k) {
         const l = LANDS[k]; if (l.glow.parentNode) l.glow.remove();
         sfx("lift_chime.mp3", l.po.call[0], l.po.call[1] + 1.5, l.po.call[2], 0.9);
         gates(true, k);
-        if (id === OP_LIFT && NPCS.operator) later(600, () => npcTalk(NPCS.operator, "s_" + Lf.keys[k], undefined, true));
+        if (id === OP_LIFT && NPCS.operator) later(600, () => { try { npcTalk(NPCS.operator, "s_" + Lf.keys[k], undefined, true); } catch (e) {} });
       }
       function pump() {
         if (st.busy) return;
         st.req.delete(st.at);
-        if (!st.req.size) { if (!st.open) { st.busy = true; arrive(st.at); later(1200, () => { st.busy = false; }); } return; }
+        if (!st.req.size) { if (!st.open) { st.busy = true; st.target = st.at; st.deadline = now() + 6000; arrive(st.at); later(1200, () => { st.busy = false; st.target = undefined; }); } return; }
         const ks = Array.from(st.req);
         let ahead = ks.filter((k) => (k - st.at) * st.dir > 0);
         if (!ahead.length) { st.dir = -st.dir; ahead = ks.filter((k) => (k - st.at) * st.dir > 0); }
         if (!ahead.length) return;
         const next = ahead.sort((a, b) => Math.abs(a - st.at) - Math.abs(b - st.at))[0];
-        st.busy = true; st.lastUse = now();
-        const go = () => move(st.at, next, () => {
+        const tok = st.tok = (st.tok || 0) + 1;                   // (v33) steps from before a heal are ignored
+        st.busy = true; st.lastUse = now(); st.target = next;
+        st.deadline = now() + (st.open ? 1400 : 0) + moveMs(st.at, next) + LIFT_DWELL + 5000;
+        const go = () => { if (st.tok !== tok) return; move(st.at, next, () => {
+          if (st.tok !== tok) return;
           st.at = next; st.req.delete(next); arrive(next); st.lastUse = now();
-          later(LIFT_DWELL, () => { st.busy = false; pump(); });
-        });
-        if (st.open) { if (id === OP_LIFT && NPCS.operator) npcTalk(NPCS.operator, "close", undefined, true); gates(false, st.at); later(1400, go); } else go();
+          later(LIFT_DWELL, () => { if (st.tok !== tok) return; st.busy = false; st.target = undefined; pump(); });
+        }); };
+        if (st.open) { if (id === OP_LIFT && NPCS.operator) { try { npcTalk(NPCS.operator, "close", undefined, true); } catch (e) {} } gates(false, st.at); later(1400, go); } else go();
       }
+      // (v33, owner: "worked earlier today, now clicking the button outside the lift does nothing at all") SELF-HEALING: every busy
+      // spell has a deadline. If a step was ever lost (a timer dropped or a hiccup), the lift snaps to a clean state at its floor
+      // with every door shut and carries on - checked every 3 s and on every button press.
+      const moveMs = (k0, k1) => Math.round(Math.max(4000, Math.abs(Lf.stops[k1] - Lf.stops[k0]) / LIFT_SPEED * 1000 + 1600));
+      function heal(why) {
+        if (!st.busy || now() < st.deadline) return false;
+        const k = st.target !== undefined ? st.target : st.at;
+        const fin = (n, attr, v) => { if (n._tw && n._tw[attr]) { cancel(n._tw[attr].h); n._tw[attr].a.remove(); delete n._tw[attr]; } Array.from(n.children).forEach((c) => { if (c.tagName && c.tagName.toLowerCase() === "m-attr-anim" && c.getAttribute("attr") === attr) c.remove(); }); n.setAttribute(attr, String(r3(v))); };
+        const b = Lf.stops[k];
+        fin(CG, "y", b); fin(cabRope, "sy", SY - (b + HITCH)); fin(cwRope, "sy", SY - cwTop(b)); fin(CW, "y", cwTop(b));
+        fin(needleIn, "rz", Lf.dial_rz[k]); fin(needleOut, "rz", Lf.dial_rz[k]); fin(lever, "rx", 0);
+        LANDS.forEach((l) => { fin(l.nd, "rz", Lf.dial_rz[k]); fin(l.gR, "sx", 1); fin(l.gL, "sx", 1); l.gp.setAttribute("y", l.gpY); });
+        fin(cgR, "sx", 1); fin(cgL, "sx", 1); cgatePad.setAttribute("y", D.cabGateH / 2);
+        st.tok = (st.tok || 0) + 1; st.at = k; st.target = undefined; st.open = false; st.busy = false; st.heals = (st.heals || 0) + 1; st.lastHeal = why;
+        return true;
+      }
+      st.heal = heal;
+      every(3000, () => { if (heal("watchdog")) pump(); });
       function request(s, k, who) {
-        if (k === s.at && s.open && !s.busy) return;
+        if (heal("button")) { s.req.add(k); pump(); return; }
+        if (k === s.at && s.open && !s.busy) {
+          // (v33) the doors are open here already - but if this player's screen missed it they see shut doors and a dead button.
+          // Re-send the open doors (re-inserting the leaves makes every client take their current state) and chime, and keep them open longer.
+          const l = LANDS[k];
+          [cgR, cgL, l.gR, l.gL].forEach((g) => { const par = g.parentNode, nx = g.nextSibling; g.remove(); if (nx && nx.parentNode === par) par.insertBefore(g, nx); else par.appendChild(g); });
+          sfx("lift_chime.mp3", l.po.call[0], l.po.call[1] + 1.5, l.po.call[2], 0.9);
+          return;
+        }
         if (!s.req.has(k) && k !== s.at) { const l = LANDS[k]; if (!l.glow.parentNode) l.cb.appendChild(l.glow); }
         s.req.add(k); pump();
       }
       st.request = (k) => request(st, k);
       st.home = () => { if (!st.busy && st.at !== 0 && now() - st.lastUse > LIFT_HOME_MS) request(st, 0); };
-      st.status = () => ({ at: Lf.keys[st.at], busy: st.busy, open: st.open, req: Array.from(st.req).map((k) => Lf.keys[k]) });
+      st.status = () => ({ at: Lf.keys[st.at], busy: st.busy, open: st.open, req: Array.from(st.req).map((k) => Lf.keys[k]), heals: st.heals || 0, err: LAST_ERR });
       LIFTS[id] = st;
       // start: cab at the lounge with its gates open
       later(1500, () => arrive(0));
@@ -1364,6 +1459,13 @@
       command(cmd, rest, parts) {
         const a1 = (parts[1] || "").toLowerCase();
         if (cmd === "celebrate") return celebrate();
+        if (cmd === "art") {                                          // art clear | art lock | art unlock
+          if (!ART.on) return "NO ART WALL IN THIS BUILD";
+          if (a1 === "clear") { ART.clear(); return "ART WALL WIPED CLEAN"; }
+          if (a1 === "lock") { ART.locked = true; return "ART WALL LOCKED - NOBODY CAN PAINT OR SIGN"; }
+          if (a1 === "unlock") { ART.locked = false; return "ART WALL OPEN FOR PAINTING"; }
+          return "ART WALL: " + ART.cells.size + " SQUARES PAINTED, " + ART.names.length + " NAMES" + (ART.locked ? " (LOCKED)" : "") + (ART.grid ? " [GRID MODE]" : "");
+        }
         if (cmd === "pool") { POOL.forEach((T) => { T.busy = false; POOL.rack(T); }); return "BOTH POOL TABLES RACKED"; }
         if (cmd === "music") {
           if (a1 === "next" || a1 === "skip") { musicSkip(); return "NOW PLAYING: " + MUSIC.title.toUpperCase(); }
@@ -1387,6 +1489,10 @@
           if (k < 0 && /^\d$/.test(want)) k = +want; if (k < 0 || k >= s.Lf.keys.length) return "LIFT " + s.id + " STOPS: " + s.Lf.keys.join(" / ");
           s.request(k); return "LIFT " + s.id + " CALLED TO " + s.Lf.keys[k].toUpperCase();
         }
+        if (cmd === "liftjam") {                                      // (v33, tests) pretend a lift lost a step: it must heal itself
+          const s = LIFTS[(parts[1] || "").toUpperCase()]; if (!s) return "LIFTJAM A or B"; s.busy = true; s.deadline = now() - 1; return "LIFT " + s.id + " JAMMED (TEST)";
+        }
+        if (cmd === "liftstat") return "LIFTS " + JSON.stringify(Object.fromEntries(Object.values(LIFTS).map((s) => [s.id, s.status()])));
         if (cmd === "liftmusic") {                                    // liftmusic on|off
           const on = a1 === "on" ? true : a1 === "off" ? false : !Object.values(LIFTS).some((s) => s.music.parentNode);
           Object.values(LIFTS).forEach((s) => { if (on && !s.music.parentNode) s.musicHome.appendChild(s.music); if (!on && s.music.parentNode) s.music.remove(); });

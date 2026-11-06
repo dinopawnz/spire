@@ -559,6 +559,12 @@ details.cheat dl { margin: 8px 0 0; } details.cheat dt { color: var(--sky); font
       g = R.grid(p);
       R.btn(g, "CELEBRATE", "fireworks over the roof for the finale photo", () => R.say("celebrate"), { cls: "b-go big1" });
       R.note(p, "Gather everyone on the roof terrace in front of the photo stage, then press CELEBRATE: warm fireworks burst over the tower for about 10 seconds. Press again for more.");
+      p = R.panel(R.left, "The art wall", "the big canvas in the roof's back-left corner");
+      g = R.grid(p);
+      R.btn(g, "CLEAR WALL", "wipe all the paint and names", () => R.say("art clear"), { cls: "b-warn", confirm: "Wipe the whole art wall?" });
+      R.btn(g, "LOCK WALL", "nobody can paint or sign", () => R.say("art lock"), { cls: "b-sky" });
+      R.btn(g, "UNLOCK WALL", "painting allowed again", () => R.say("art unlock"), { cls: "b-go" });
+      R.note(p, "Players pick a paint pot on one of the two tables, then click the canvas to paint squares (the pink block is the eraser). Names typed at the lectern go on the board along the top.");
 
       p = R.panel(R.left, "If people lag", "nobody loses progress");
       g = R.grid(p);
