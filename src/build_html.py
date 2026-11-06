@@ -223,6 +223,12 @@ for name, k in (('sp_koda_119', 0), ('sp_koda_9929', 2)):
 for name, r, lap in (('sp_koda_9372', 9.5, 133000), ('sp_koda_9923', 12.5, -175000)):
     kodas.append([name, bx, round(FL['lounge'] + 0.005, 3), bz, 0, KS, r, lap])
 D['kodas'] = kodas
+# (v30, owner) real MUDWATER cards dealt on every card table (card_spread.py), never ordinary playing cards
+for i, e in enumerate([e for e in F1.get('mprops', []) if e[0] == 'sp_m_cardtable']):
+    D['sdeco'].append(['sp_mw_deal_%d' % (i % 4), e[1], round(e[2] + 0.684 * e[5] + 0.004, 3), e[3], (i * 90) % 360, 1.0])
+for i, e in enumerate([e for e in F1.get('mprops', []) if e[0] == 'sp_m_coffeetable']):     # and a Mudwater hand on each coffee table
+    c, s_ = math.cos(math.radians(e[4])), math.sin(math.radians(e[4])); lx, lz = -0.03 * e[5], 0.08 * e[5]
+    D['sdeco'].append(['sp_mw_fan_%d' % (i % 2), round(e[1] + lx * c + lz * s_, 3), round(e[2] + 0.134 * e[5] + 0.03, 3), round(e[3] - lx * s_ + lz * c, 3), e[4], 1.0])
 # THE BAYOU GARDEN POND comes alive (owner: "ribbitting frogs... fill it with something appropriate"): Meshy lily pads with
 # bullfrogs and green treefrogs sitting on them (they croak - a real Everglades pig frog recording, public domain, NPS - and hop
 # round when you click them), a red-eared slider basking on a log at the edge, dragonflies darting over the water.

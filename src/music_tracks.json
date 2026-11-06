@@ -1,90 +1,90 @@
 [
  [
-  "radio_00",
-  154175,
+  "jazz_00",
+  239804,
   "Panama",
-  "New Orleans Rhythm Kings",
-  1922,
-  "https://commons.wikimedia.org/wiki/File:Panama_(1922_sound_recording).mp3"
+  "USAF Heritage of America Dixie Players",
+  2002,
+  "https://commons.wikimedia.org/wiki/File:Panama_-_Dixie_Players_-_United_States_Air_Force_Heritage_of_America_Band.mp3"
  ],
  [
-  "radio_01",
-  180637,
-  "Tin Roof Blues",
-  "The Original Memphis Five",
-  1923,
-  "https://commons.wikimedia.org/wiki/File:Tin_Roof_Blues_-_Victor_19170_-_The_Original_Memphis_Five.mp3"
+  "jazz_01",
+  194299,
+  "That Da-Da Strain",
+  "USAF Heritage of America Dixie Players",
+  2002,
+  "https://commons.wikimedia.org/wiki/File:That_Da-Da_Strain_-_Dixie_Players_-_United_States_Air_Force_Heritage_of_America_Band.mp3"
  ],
  [
-  "radio_02",
-  168882,
-  "Krooked Blues",
-  "King Oliver's Creole Jazz Band",
-  1923,
-  "https://commons.wikimedia.org/wiki/File:King_Oliver's_Creole_Jazz_Band--_\"Krooked_Blues\"_(1923).ogg"
- ],
- [
-  "radio_03",
-  140539,
-  "Dippermouth Blues",
-  "King Oliver's Creole Jazz Band",
-  1923,
-  "https://commons.wikimedia.org/wiki/File:Dippermouth_Blues_-_KING_OLIVER'S_JAZZ_BAND.flac"
- ],
- [
-  "radio_04",
-  187429,
-  "Farewell Blues",
-  "The Virginians",
-  1923,
-  "https://commons.wikimedia.org/wiki/File:Farewell_Blues_(1923_sound_recording).mp3"
- ],
- [
-  "radio_05",
-  191007,
-  "31st Street Blues",
-  "Henderson's Club Alabam' Orchestra",
-  1923,
-  "https://commons.wikimedia.org/wiki/File:31st_Street_Blues_-_Henderson's_Club_Alabam'_Orchestra_(1923).mp3"
- ],
- [
-  "radio_06",
-  151745,
-  "Riverboat Shuffle",
-  "Bix Beiderbecke & the Wolverines",
-  1924,
-  "https://commons.wikimedia.org/wiki/File:Riverboat_Shuffle_-_Bix_Beiderbecke_&_Wolverine_Orchestra_(1924).ogg"
- ],
- [
-  "radio_07",
-  159922,
-  "At the Jazz Band Ball",
-  "Original Dixieland Jass Band",
-  1918,
-  "https://commons.wikimedia.org/wiki/File:At_the_jazz_band_ball_(1918_sound_recording).mp3"
- ],
- [
-  "radio_08",
-  184921,
+  "jazz_02",
+  127634,
   "Tiger Rag",
-  "Original Dixieland Jass Band",
-  1918,
-  "https://commons.wikimedia.org/wiki/File:Tiger_Rag_ODJB.ogg"
+  "USAF Heritage of America Dixie Players",
+  2002,
+  "https://commons.wikimedia.org/wiki/File:Tiger_Rag_-_Dixie_Players_-_United_States_Air_Force_Heritage_of_America_Band.mp3"
  ],
  [
-  "radio_09",
-  198243,
-  "Ory's Creole Trombone",
-  "Kid Ory's Sunshine Orchestra",
-  1922,
-  "https://commons.wikimedia.org/wiki/File:Kid_Ory's_Sunshine_Orchestra_-_Ory's_Creole_Trombone.flac"
+  "jazz_03",
+  195082,
+  "After You've Gone",
+  "U.S. Coast Guard Band",
+  0,
+  "https://commons.wikimedia.org/wiki/File:After_You've_Gone_-_U.S._Coast_Guard_Band.ogg"
  ],
  [
-  "radio_10",
-  175334,
-  "Memphis Blues",
-  "Ted Lewis Jazz Band",
-  1923,
-  "https://commons.wikimedia.org/wiki/File:Memphis_Blues-Columbia_A3813-Ted_Lewis_Jazz_Band.mp3"
+  "jazz_04",
+  193567,
+  "Way Down Yonder in New Orleans",
+  "U.S. Coast Guard Band",
+  0,
+  "https://commons.wikimedia.org/wiki/File:Way_Down_Yonder_In_New_Orleans_-_U.S._Coast_Guard_Band.ogg"
+ ],
+ [
+  "jazz_05",
+  595618,
+  "Sweet Georgia Brown",
+  "U.S. Army Jazz Ambassadors",
+  2017,
+  "https://commons.wikimedia.org/wiki/File:US_Army_Jazz_Ambassadors_Sweet_Georgia_Brown.opus"
+ ],
+ [
+  "jazz_06",
+  273972,
+  "Blues for Mundy",
+  "USAF Airmen of Note",
+  2011,
+  "https://commons.wikimedia.org/wiki/File:Blues_for_Mundy_-_Airmen_of_Note_-_United_States_Air_Force_Band.mp3"
+ ],
+ [
+  "jazz_07",
+  192862,
+  "Whiskey on the Mississippi",
+  "Kevin MacLeod (incompetech.com, CC BY 3.0)",
+  2010,
+  "https://commons.wikimedia.org/wiki/File:Whiskey_on_the_Mississippi_(ISRC_USUAN1100709).mp3"
+ ],
+ [
+  "jazz_08",
+  110263,
+  "Porch Blues",
+  "Kevin MacLeod (incompetech.com, CC BY 3.0)",
+  2006,
+  "https://commons.wikimedia.org/wiki/File:Porch_Blues_(ISRC_USUAN1100108).mp3"
+ ],
+ [
+  "jazz_09",
+  169927,
+  "Night on the Docks (Sax)",
+  "Kevin MacLeod (incompetech.com, CC BY 3.0)",
+  2005,
+  "https://commons.wikimedia.org/wiki/File:Kevin_MacLeod_-_Night_on_the_Docks_-_Sax.ogg"
+ ],
+ [
+  "jazz_10",
+  224758,
+  "Slow Burn",
+  "Kevin MacLeod (incompetech.com, CC BY 3.0)",
+  2009,
+  "https://commons.wikimedia.org/wiki/File:Slow_Burn_(ISRC_USUAN1100609).mp3"
  ]
 ]
