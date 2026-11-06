@@ -121,7 +121,7 @@ def apply(D, L, FL, rg):
     # ---- the front: tall banners, gold frame round the MUDWATER sign
     bh = front_banner()
     top = max(L['balconies']['lines']) - 0.6; zf = Z1 + L['balconies']['depth'] + 0.35
-    D['frontBanners'] = [[sx * 14.0, r3(top), r3(zf)] for sx in (-1, 1)]
+    D['frontBanners'] = [[sx * 20.0, r3(top), r3(zf)] for sx in (-1, 1)]
     pc = L['portico']
     for sx in (-1, 1):                                     # the great double doors, swung wide open against the front wall
         add(place('doorleaf', sx * (4.5 + 1.45), FL['lounge'], Z1 + 0.42, 0, 5.4, 'h'))
@@ -137,7 +137,7 @@ def apply(D, L, FL, rg):
                 if side == 0 and y < 12 and abs(x) < 11: continue                  # the portico roof
                 add(['sp_lantern_a', r3(x), r3(y - 0.2), r3(z), round(R.uniform(0, 60), 1), 1.6])
         if li < 3:
-            for t in np.arange(5.0, 2 * X1 - 3, 9.5):
+            for t in np.arange(5.0, 2 * X1 - 3, 15.0):
                 x = -X1 + t
                 if y < 12 and abs(x) < 11: continue
                 add(place('mossclump', x, y - 1.5, Z1 + Dd - 0.1, R.choice([0, 180]), 1.8, 'w'))
@@ -149,7 +149,7 @@ def apply(D, L, FL, rg):
     cmn, cmx = META['crag']; c_s = (HC + 1.5) / (cmx[1] - cmn[1]); c_w = (cmx[0] - cmn[0]) * c_s; c_d = (cmx[2] - cmn[2]) * c_s
     big = []
     for sx in (-1, 1):
-        fx, fz, ry = sx * 33.0, 72.0, -sx * 45.0
+        fx, fz, ry = sx * 33.0, L['walk_z0'] + 30.0, -sx * 45.0
         c, sn = math.cos(math.radians(ry)), math.sin(math.radians(ry))
         fwd = lambda dz, dx=0.0: (fx + sn * dz + c * dx, fz + c * dz - sn * dx)   # dz in front of the crag's centre, dx to its right
         add(place('crag', fx, -1.5, fz, ry, HC + 1.5, 'h'))
@@ -179,19 +179,40 @@ def apply(D, L, FL, rg):
     keep = lambda e: all(math.hypot(e[1] - bx, e[3] - bz) > br for (bx, bz, br) in big)
     D['sdeco'][:] = [e for e in D['sdeco'] if e[0] in ('sp_m_crag',) or keep(e)]
     D['deco'][:] = [e for e in D['deco'] if e[0] == 'mist' or keep(e)]
+    # (v24, owner) keep the entrance bridge and the porch clear of fog: the mist GLB is a huge sheet (about 82 x 59 m at scale 1),
+    # so test each piece's rotated footprint against the walkway and slide it sideways off the bridge, or drop it
+    MB = (-40.8, -46.0, 41.2, 13.1)
+    clear = (-(L['walk_w'] / 2 + 6.0), L['walk_w'] / 2 + 6.0, Z1 - 1.0, L['walk_z0'] + L['walk_len'] + 10.0)
+    def mist_hits(e):
+        x, z, ry, sc = e[1], e[3], math.radians(e[4]), e[5]
+        c, sn = math.cos(ry), math.sin(ry)
+        pts = [(x + (u * c + v * sn) * sc, z + (-u * sn + v * c) * sc) for u in (MB[0], MB[2]) for v in (MB[1], MB[3])]
+        xs, zs = [p_[0] for p_ in pts], [p_[1] for p_ in pts]
+        return max(xs) > clear[0] and min(xs) < clear[1] and max(zs) > clear[2] and min(zs) < clear[3]
+    kept = []
+    for e in D['deco']:
+        if e[0] != 'mist' or not mist_hits(e): kept.append(e); continue
+        e = list(e); e[5] = round(min(e[5], 0.35), 2)              # thinner wisps near the entrance
+        sx_ = 1 if e[1] >= 0 else -1
+        for _ in range(60):
+            if not mist_hits(e): break
+            e[1] = r3(e[1] + sx_ * 1.5)
+        if not mist_hits(e): kept.append(e)
+    print('mist: kept', sum(1 for e in kept if e[0] == 'mist'), 'of', sum(1 for e in D['deco'] if e[0] == 'mist'), '(bridge kept clear)')
+    D['deco'][:] = kept
     # ---- (v23, owner's concept) swampy vines everywhere: curtains of hanging vines + Spanish moss off the balcony edges, ivy climbing the walls
     vm, vx = META['vines']; v_asp = (vx[1] - vm[1]) / (vx[0] - vm[0])
     Dd = L['balconies']['depth']; lines = sorted(L['balconies']['lines']); ban_low = max(lines) - 13.0
     def clear_front(x, ytop, ybot):
         if abs(x) < 11.5 and ybot < 21.0: return False                             # the portico, the MUDWATER sign, the door
-        if abs(abs(x) - 14.0) < 3.4 and ytop > ban_low: return False               # the two big front banners
+        if abs(abs(x) - 20.0) < 3.4 and ytop > ban_low: return False               # the two big front banners
         return True
     nv = 0
     for y in lines:
         for side in ('front', 'east', 'west'):
             ln = 2 * X1 if side == 'front' else 2 * Z1
             for t in np.arange(2.0, ln - 2.0, 3.4):
-                if R.random() > (0.5 if side == 'front' else 0.22): continue
+                if R.random() > (0.34 if side == 'front' else 0.12): continue      # (v24) fewer, fuller curtains: frame rate
                 w_ = R.uniform(4.0, 5.6); h_ = w_ * v_asp * R.uniform(1.0, 1.35)
                 u = -ln / 2 + t + R.uniform(-0.6, 0.6)
                 if side == 'front':
@@ -206,9 +227,9 @@ def apply(D, L, FL, rg):
         x = R.uniform(-X1 + 2, X1 - 2); y = R.uniform(5.0, max(lines) - 2.0); w_ = R.uniform(3.0, 5.2)
         if not clear_front(x, y + w_, y): continue
         add(place('ivy', x, y, Z1 + 0.16, 0, w_, 'w')); ni += 1
-        if ni >= 16: break
+        if ni >= 5: break
     for sx in (-1, 1):                                                             # thick ivy up both front corners
-        for y in np.arange(4.0, max(lines) - 3.0, 5.5):
+        for y in np.arange(6.0, max(lines) - 3.0, 14.0):
             add(place('ivy', sx * (X1 - 1.2), y, Z1 + 0.16, 0, R.uniform(3.4, 4.4), 'w')); ni += 1
     print('outside: vines', nv, 'ivy', ni)
     # ---- (v23, owner) the windows: Meshy rustic lodge windows (weathered timber frame, mullions, warm glowing panes, mossy sill, shutters)

@@ -9,7 +9,7 @@ const mugs = () => Array.from(d.querySelectorAll("m-model")).filter((m) => /sp_m
   say("remote"); say("build");
   const tap = Array.from(d.querySelectorAll("m-model")).find((m) => /sp_tap\.glb/.test(m.getAttribute("src"))).parentNode.querySelector("m-cube");
   fire(tap, "click", { connectionId: 1 }); await new Promise((r) => setTimeout(r, 2800));
-  const mug = mugs()[0].parentNode, hit = mug.querySelector("m-cube");
+  let mug = mugs()[0].parentNode; while (mug && !mug.querySelector("m-cube")) mug = mug.parentNode; const hit = mug.querySelector("m-cube");
   console.log("mugs on bar", mugs().length);
   fire(hit, "click", { connectionId: 2 }); await new Promise((r) => setTimeout(r, 200)); console.log("someone else clicks -> still there:", mugs().length);
   fire(hit, "click", { connectionId: 1 }); await new Promise((r) => setTimeout(r, 2600)); console.log("owner drinks -> mugs left:", mugs().length);

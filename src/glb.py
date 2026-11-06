@@ -266,10 +266,11 @@ def write(path, mesh, mats, name='spire', quantize=False):
         v = {'buffer': 0, 'byteOffset': off, 'byteLength': len(data)}
         if target: v['target'] = target
         views.append(v); return len(views) - 1
-    def add_acc(arr, ctype, typ, target, minmax=False):
+    def add_acc(arr, ctype, typ, target, minmax=False, normalized=False):
         arr = np.ascontiguousarray(arr)
         vi = add_view(arr.tobytes(), target)
         a = {'bufferView': vi, 'componentType': ctype, 'count': int(arr.shape[0]), 'type': typ}
+        if normalized: a['normalized'] = True
         if minmax: a['min'] = arr.min(0).tolist(); a['max'] = arr.max(0).tolist()
         accs.append(a); return len(accs) - 1
     images = []; textures = []; materials = []; img_cache = {}
@@ -288,7 +289,7 @@ def write(path, mesh, mats, name='spire', quantize=False):
         P = np.vstack(bk[0]).astype(np.float32); N = np.vstack(bk[1]).astype(np.float32); U = np.vstack(bk[2]).astype(np.float32)
         C = np.vstack(bk[3]).astype(np.float32); I = np.concatenate(bk[4])
         attrs = {'POSITION': add_acc(P, 5126, 'VEC3', 34962, True), 'NORMAL': add_acc(N, 5126, 'VEC3', 34962), 'TEXCOORD_0': add_acc(U, 5126, 'VEC2', 34962)}
-        if not np.allclose(C, 1.0): attrs['COLOR_0'] = add_acc(C, 5126, 'VEC4', 34962)
+        if not np.allclose(C, 1.0): attrs['COLOR_0'] = add_acc(np.round(np.clip(C, 0, 1) * 255).astype(np.uint8), 5121, 'VEC4', 34962, normalized=True)   # (v24) 4 bytes a vertex, not 16 (core glTF, no extension)
         if P.shape[0] < 65536: ia = add_acc(I.astype(np.uint16), 5123, 'SCALAR', 34963)
         else: ia = add_acc(I.astype(np.uint32), 5125, 'SCALAR', 34963)
         pbr = {'baseColorFactor': list(md.get('color', (1, 1, 1, 1))), 'metallicFactor': md.get('metal', 0.0), 'roughnessFactor': md.get('rough', 0.85)}

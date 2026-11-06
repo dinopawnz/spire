@@ -72,12 +72,12 @@ def main():
                 const CG = cabs.find((g) => Math.abs(parseFloat(g.getAttribute('x')) - Lf.x) < 0.1 && Math.abs(parseFloat(g.getAttribute('z')) - Lf.z) < 0.1);
                 const kids = Array.from(CG.children);
                 const leaves = kids.filter((c) => (c.getAttribute('src')||'').includes('sp_lift_cgate.glb'));
-                const cgPad = kids.filter((c) => c.tagName.toLowerCase() === 'm-cube' && c.getAttribute('collide') === 'true' && parseFloat(c.getAttribute('width')) === 1.8 && parseFloat(c.getAttribute('height')) === 2.5)[0];
-                const floors = kids.filter((c) => c.tagName.toLowerCase() === 'm-cube' && c.getAttribute('collide') === 'true' && parseFloat(c.getAttribute('width')) === 4.05);
+                const cgPad = kids.filter((c) => c.tagName.toLowerCase() === 'm-cube' && c.getAttribute('collide') === 'true' && Math.abs(parseFloat(c.getAttribute('width')) - 2.6) < 0.01 && Math.abs(parseFloat(c.getAttribute('height')) - 3.35) < 0.01)[0];
+                const floors = kids.filter((c) => c.tagName.toLowerCase() === 'm-cube' && c.getAttribute('collide') === 'true' && Math.abs(parseFloat(c.getAttribute('width')) - 5.75) < 0.01);
                 const btns = Array.from(CG.querySelectorAll('m-cube')).filter((c) => c.getAttribute('collide') === 'false' && Math.abs(parseFloat(c.getAttribute('width')) - 0.98) < 0.01);
                 const L = { CG, leaves, cgPad, floors, btns, lands: [] };
                 const all = Array.from(document.querySelectorAll('m-cube, m-model, m-group'));
-                const gps = all.filter((e) => e.tagName.toLowerCase() === 'm-cube' && e.getAttribute('collide') === 'true' && near(e, Lf.portals[0].gate_col, 0.02) && Math.abs(parseFloat(e.getAttribute('width')) - 1.85) < 0.01);   // one per floor, in floor order
+                const gps = all.filter((e) => e.tagName.toLowerCase() === 'm-cube' && e.getAttribute('collide') === 'true' && near(e, Lf.portals[0].gate_col, 0.02) && Math.abs(parseFloat(e.getAttribute('width')) - 2.65) < 0.01);   // one per floor, in floor order
                 Lf.portals.forEach((po, k) => {
                   const gp = gps[k];
                   const lv = all.filter((e) => (e.getAttribute('src')||'').includes('sp_lift_lgate.glb') && (near(e, po.gate_r, 0.02) || near(e, po.gate_l, 0.02)) && Math.abs(parseFloat(e.getAttribute('y')) - po.gate_r[1]) < 0.05);

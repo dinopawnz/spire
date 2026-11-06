@@ -10,26 +10,26 @@ from kit import *
 
 OUT = '/home/claude/spire/out/glb/'
 rng = random.Random(85)
-X1, Z1 = 42.5, 30.0                         # outer wall lines (half sizes)
+X1, Z1 = 60.0, 42.5                         # outer wall lines (half sizes). v24: twice the floor space (was 42.5 x 30)
 FL = dict(lounge=3.0, hall=10.5, gallery=24.9, cards=32.0, rooms=40.0, roof=51.0)
 KEYS = ['lounge', 'hall', 'cards', 'rooms', 'roof']        # full floors. 'gallery' is only the top of the Hall of Fakes stair + the east core
 NS = len(KEYS) - 1                          # storeys between the levels
-BAND = dict(xo=34.4, xi=30.4, zo=29.6, zi=25.6)   # the Hall of Fakes: a square winding stair hugging the walls, open hall inside it
+BAND = dict(xo=X1 - 8.1, xi=X1 - 12.1, zo=Z1 - 0.4, zi=Z1 - 4.4)   # the Hall of Fakes: a square winding stair hugging the walls, open hall inside it
 YS = [FL[k] for k in KEYS]
-PORCH = dict(x=50.0, zb=-37.0, zf=42.0)    # porch deck round the building (front plaza is deeper)
-WALK = dict(w=8.0, z0=42.0, z1=108.0, y1=0.6)
+PORCH = dict(x=X1 + 7.5, zb=-Z1 - 7.0, zf=Z1 + 12.0)    # porch deck round the building (front plaza is deeper)
+WALK = dict(w=8.0, z0=Z1 + 12.0, z1=Z1 + 78.0, y1=0.6)
 # stair wells (east one; the west one is the mirror):  landing strip z -9.5..-6 is floor, the rest of the well is open
-SW = dict(xi=34.4, xd=38.4, xo=42.1, zl=-9.5, z0=-6.0, z1=6.0, zm=9.5)
-LIFTS = [('B', 'The Grand Cage', 38.25, -20.0, False), ('D', 'The Lucky Cage', -38.25, -20.0, False)]     # owner: 2 lifts, the back corners (the front ones blocked the ramp)
+SW = dict(xi=X1 - 8.1, xd=X1 - 4.1, xo=X1 - 0.4, zl=-9.5, z0=-6.0, z1=6.0, zm=9.5)
+LIFTS = [('B', 'The Grand Cage', X1 - 4.25, -(Z1 - 11.0), False), ('D', 'The Lucky Cage', -(X1 - 4.25), -(Z1 - 11.0), False)]     # owner: 2 lifts, the back corners (the front ones blocked the ramp)
 L = dict(FL=FL, keys=KEYS, X1=X1, Z1=Z1, porch_box=PORCH, walk=WALK, sw=SW,
          porch=FL['lounge'], f2=FL['hall'], gallery=FL['gallery'], f3=FL['cards'], f4=FL['rooms'], roof=FL['roof'], band=BAND,
          walk_y=WALK['y1'], walk_len=WALK['z1'] - WALK['z0'], walk_w=WALK['w'], walk_z0=WALK['z0'],
          stop_names=dict({'%.1f' % FL[k]: k for k in KEYS}, **{'%.1f' % FL['gallery']: 'gallery'}),
          lifts=[dict(id=i, name=n, x=x, z=z, stops=sorted(YS + ([FL['gallery']] if gal else []))) for (i, n, x, z, gal) in LIFTS],
-         shaft_apo=2.3, cab_apo=2.05, shaft_base=FL['lounge'], shaft_top=FL['roof'] + 5.6, door_w=1.6, door_h=2.9,
+         shaft_apo=3.2, cab_apo=2.9, shaft_base=FL['lounge'], shaft_top=FL['roof'] + 6.5, door_w=2.4, door_h=3.7,      # v24: cabs twice the floor area, wider doors
          floors_through=YS[1:] + [FL['gallery']])
 _c = octa(L['shaft_apo'])
-L['shaft_fp'] = [[round(x, 4), round(z if z > -2.0 or abs(x) > 1.5 else -2.95, 4)] for (x, z) in _c]
+L['shaft_fp'] = [[round(x, 4), round(-(L['shaft_apo'] + 0.95) if (z < -L['shaft_apo'] * 0.9 and abs(x) < L['shaft_apo'] * 0.5) else z, 4)] for (x, z) in _c]   # the counterweight bay at the back
 SHAFTS = [hole_poly(lf['x'], lf['z'], L['shaft_fp'], 1.04) for lf in L['lifts']]
 def well_holes():
     out = []
@@ -132,7 +132,7 @@ def boardwalk():
     # wide steps down from the porch front edge onto the boardwalk are not needed (it meets the porch level)
 
 # ------------------------------------------------------------------ the walls: timber bays with windows / doors
-BAYX = 16; BAYZ = 12        # bays along the long (x) and short (z) sides
+BAYX = 22; BAYZ = 16        # bays along the long (x) and short (z) sides
 def side_bays(side):
     """returns list of (p0, p1, local_center_coord) per bay for a side: 'front' (+z), 'back', 'east' (+x), 'west'"""
     if side == 'front': pts = [(-X1 + 2 * X1 * i / BAYX, Z1) for i in range(BAYX + 1)]
@@ -152,7 +152,7 @@ def bay_spec(side, k, p0, p1, bi):
     if kind == 'crooked': kind = 'win'
     if k == 0:
         if side == 'front' and abs(cx) < 6: return ('door', 4.6, 4.6)
-        if side in ('east', 'west') and abs(cz + 15) < 2.6: return ('door', 3.0, 3.6)
+        if side in ('east', 'west') and abs(cz + Z1 * 0.5) < 2.6: return ('door', 3.0, 3.6)
         return ('win', 3.1, 5.6, 0.9, 'win') if bi % 2 == 1 else None          # tall glowing lounge windows
     if k == 1:
         if side in ('front', 'back') and bi % 3 == 1: return ('win', 3.0, 2.2, 19.0, kind)   # high, ABOVE the highest portraits
@@ -302,7 +302,7 @@ def belts():
                 pts = [r0, r1]
                 if t0 > 0: pts = [lerp(a0, a1, t0), r0, r1]
                 if t1 < 1: pts = [r0, r1, lerp(a0, a1, t1)]
-                railing(shell, pts, y, rng, closed=False, h=1.05, post_every=2.6, balusters=True)
+                railing(shell, pts, y, rng, closed=False, h=1.05, post_every=2.6, balusters=True, bal_gap=0.36, cheap=True)
                 # moss and vines trailing off the deck edge
                 for t in np.arange(0.5, ln, 1.1):
                     if rng.random() < 0.45: continue
@@ -354,7 +354,7 @@ def balconies():
 
 def shacks():
     """two crooked lean-to shacks on the side porches: a bait shop and a boat shed"""
-    for s, z0, z1 in ((1, -30.0, -21.0), (-1, -31.0, -23.5)):
+    for s, z0, z1 in ((1, -Z1 + 1.0, -Z1 + 10.0), (-1, -Z1, -Z1 + 7.5)):
         x0, x1 = sorted((s * (X1 + 0.3), s * (X1 + 6.2)))
         y0 = FL['lounge']; hb, hf = 4.6, 3.4                # high side on the wall, low side out
         xin = s * (X1 + 0.3); xout = s * (X1 + 6.2)
@@ -455,6 +455,11 @@ def stairs():
                 in_hall = FL['hall'] - 0.5 < y1 < FL['cards']
                 rustic_wall(*(((xw, SW['zl']), (xw, SW['z0'])) if s > 0 else ((xw, SW['z0']), (xw, SW['zl']))), y1, 3.6, [], battens=not in_hall, plates=not in_hall)
                 collider_box(col, 0.45, 3.6, SW['z0'] - SW['zl'], T(xw, y1 + 1.8, (SW['zl'] + SW['z0']) / 2))
+                # (v24, owner) and a wall on the lift side of the landing too (it was an open drop towards the lift lobby)
+                zw = SW['zl'] - 0.12
+                pa, pb = ((s * SW['xi'], zw), (s * SW['xo'], zw)) if s > 0 else ((s * SW['xo'], zw), (s * SW['xi'], zw))
+                rustic_wall(pa, pb, y1 - 0.3, 3.9, [], battens=not in_hall, plates=not in_hall)
+                collider_box(col, abs(SW['xo'] - SW['xi']), 3.9, 0.45, T(s * (SW['xo'] + SW['xi']) / 2, y1 - 0.3 + 1.95, zw))
             xd = s * SW['xd']
             pts = [(xd, y0 + (ym - y0) * t + 1.0, SW['z0'] + (SW['z1'] - SW['z0']) * t) for t in np.linspace(0, 1, 7)]
             tube(shell, 'pale', pts, 0.05, 8)
@@ -512,7 +517,7 @@ def roof():
     pent(y + 1.4, y - 2.2, 3.4)                     # the big mansard skirt
     # dormers sitting on the skirt along the front and back
     for side, zs in (('front', 1), ('back', -1)):
-        for x in ((-33.0, 33.0) if zs > 0 else (-33.0, -22.0, 22.0, 33.0)):     # (v23) the front's middle dormers make way for the gables
+        for x in ((-46.0, 46.0) if zs > 0 else (-46.0, -31.0, 31.0, 46.0)):     # (v23) the front's middle dormers make way for the gables
             zc = zs * (Z1 + 1.4); yb = y - 0.9
             mm = M(T(x, yb, zc), Ry(0 if zs > 0 else 180))
             rustic_wall_local(mm, 2.8, 2.6)
@@ -530,13 +535,13 @@ def roof():
     railing(shell, R0, y, rng, closed=True, rope_mat='rope', balusters=False, post_every=2.6)
     for i in range(4): col_between(R0[i], R0[(i + 1) % 4], y, 1.3, 0.3)
     # mud-stone chimneys and a water tower
-    for (x, z) in ((-28.0, 22.0), (28.0, -12.0)):
+    for (x, z) in ((-40.0, 31.0), (40.0, -17.0)):
         for kk in range(6):
             w_ = 1.9 - 0.06 * kk
             bevel_box(shell, 'mud', w_, 0.9, w_, 0.06, m=T(x + rng.uniform(-0.05, 0.05), y + 0.45 + kk * 0.9, z), uvs=1.5)
         bevel_box(shell, 'dark', 2.2, 0.3, 2.2, 0.04, m=T(x, y + 5.5, z))
         collider_box(col, 1.9, 5.6, 1.9, T(x, y + 2.8, z))
-    wx, wz = 30.0, 18.0
+    wx, wz = 42.0, 25.0
     for (dx, dz) in ((-1.4, -1.4), (1.4, -1.4), (1.4, 1.4), (-1.4, 1.4)):
         cyl(shell, 'bark', 0.18, 6.0, 8, m=M(T(wx + dx, y, wz + dz), Rz(dx * 1.5), Rx(-dz * 1.5)))
         collider_box(col, 0.4, 6.0, 0.4, T(wx + dx, y + 3.0, wz + dz))
@@ -545,21 +550,32 @@ def roof():
     for yy in (6.5, 8.2, 9.5): lathe(shell, 'iron', [(1.87, y + yy), (1.87, y + yy + 0.08)], 20, m=T(wx, 0, wz))
     lathe(shell, 'shingle', [(2.2, y + 9.8), (0.0, y + 11.4)], 16, m=T(wx, 0, wz))
     # the lift-head houses at the ends, over each cage's machinery
+    SAp, DWp, DHp = L['shaft_apo'], L['door_w'], L['door_h']; HH = 11.0          # (v24) sized for the bigger lifts, tall enough for the machinery
     for (_, _, lx, lz, _) in LIFTS:
-        xa_, xb_, za_, zb_ = lx - 3.0, lx + 3.0, lz - 3.6, lz + 2.8
-        for (p0, p1) in (((xa_, za_), (xb_, za_)), ((xb_, za_), (xb_, zb_)), ((xb_, zb_), (xa_, zb_)), ((xa_, zb_), (xa_, za_))):
+        xa_, xb_, za_, zb_ = lx - SAp - 0.8, lx + SAp + 0.8, lz - SAp - 1.7, lz + SAp + 2.2
+        xa_, xb_ = max(xa_, -X1 + 0.3), min(xb_, X1 - 0.3)
+        for wi, (p0, p1) in enumerate((((xa_, za_), (xb_, za_)), ((xb_, za_), (xb_, zb_)), ((xb_, zb_), (xa_, zb_)), ((xa_, zb_), (xa_, za_)))):
             mm, ln = place(p0, p1, y)
-            rustic_wall(p0, p1, y, 8.6, [(ln / 2, 5.5, 1.6, 2.0)])
-            window(shell, 1.6, 2.0, M(mm, T(ln / 2, 5.5, 0)), rng, shutters=False, mull=(2, 2))
-            collider_box(col, ln, 8.6, 0.45, M(mm, T(ln / 2, 4.3, 0)))
-        P = np.array([[xa_ - 0.5, y + 8.6, za_ - 0.5], [xb_ + 0.5, y + 8.6, za_ - 0.5], [xb_ + 0.5, y + 8.6, zb_ + 0.5], [xa_ - 0.5, y + 8.6, zb_ + 0.5]])
+            front = (wi == 2)                      # (owner) the front faces the lift doors: a doorway out onto the roof deck
+            dx = abs(p0[0] - lx)                   # where the lift's centre falls along this wall (it runs from p0)
+            holes = [(dx, (DHp + 0.4) / 2, DWp + 1.0, DHp + 0.4)] if front else [(ln / 2, 6.5, 1.6, 2.0)]
+            rustic_wall(p0, p1, y, HH, holes)
+            if front:
+                for (c0, c1) in ((0.0, dx - (DWp + 1.0) / 2), (dx + (DWp + 1.0) / 2, ln)):
+                    if c1 - c0 > 0.05: collider_box(col, c1 - c0, HH, 0.45, M(mm, T((c0 + c1) / 2, HH / 2, 0)))
+                collider_box(col, DWp + 1.0, HH - DHp - 0.4, 0.45, M(mm, T(dx, DHp + 0.4 + (HH - DHp - 0.4) / 2, 0)))
+                bevel_box(shell, 'dark', DWp + 1.4, 0.35, 0.35, 0.03, m=M(mm, T(dx, DHp + 0.55, 0.12)), uvs=2.0)      # a lintel over the doorway
+            else:
+                window(shell, 1.6, 2.0, M(mm, T(ln / 2, 6.5, 0)), rng, shutters=False, mull=(2, 2))
+                collider_box(col, ln, HH, 0.45, M(mm, T(ln / 2, HH / 2, 0)))
+        P = np.array([[xa_ - 0.5, y + HH, za_ - 0.5], [xb_ + 0.5, y + HH, za_ - 0.5], [xb_ + 0.5, y + HH, zb_ + 0.5], [xa_ - 0.5, y + HH, zb_ + 0.5]])
         for i in range(4):
-            tri = np.array([P[i], P[(i + 1) % 4], [lx, y + 11.0, (za_ + zb_) / 2]])
+            tri = np.array([P[i], P[(i + 1) % 4], [lx, y + HH + 2.4, (za_ + zb_) / 2]])
             nrm = np.cross(tri[1] - tri[0], tri[2] - tri[0]); nrm /= np.linalg.norm(nrm)
             idx = [0, 1, 2] if nrm[1] > 0 else [0, 2, 1]
             shell.add('shingle', tri, [nrm if nrm[1] > 0 else -nrm] * 3, [[0, 0], [2, 0], [1, 1]], idx)
     # the steeple house (it used to hold the lift machinery)
-    xa, xb, za, zb = -21.0, 21.0, -29.6, -19.0
+    xa, xb, za, zb = -21.0, 21.0, -(Z1 - 0.4), -(Z1 - 11.0)
     hh = 9.5
     for (p0, p1) in (((xa, zb), (xb, zb)), ((xb, za), (xb, zb)), ((xa, za), (xa, zb))):
         mm, ln = place(p0, p1, y)
@@ -605,10 +621,29 @@ def gable_spots():
     """(v23) three swamp-timber gables along the front roof edge (Meshy models placed by outside.py); here only where they stand + colliders.
     The owner turned down the castle look (turrets, iron spires) - these are rustic bayou-lodge gables."""
     y = YS[NS]; L['gables'] = []
-    for (gx, gw) in ((0.0, 16.0), (-22.0, 11.0), (22.0, 11.0)):
+    for (gx, gw) in ((0.0, 18.0), (-31.0, 12.0), (31.0, 12.0)):
         gd = gw * 0.75
         L['gables'].append([gx, y, Z1 - 0.3, gw])
         collider_box(col, gw * 0.9, gw * 0.45, gd * 0.8, T(gx, y + gw * 0.225, Z1 - 0.3 - gd * 0.45))
+        # (v24, owner: "floating structures") the Meshy gable is only a roof - its eaves hang ~3 m over the deck with moss underneath.
+        # Timber knee walls fill the space under the eaves so each gable is a little attic lodge standing ON the roof.
+        try:
+            gm, gM = json.load(open('out/glb/meshy_meta.json'))['gable']
+        except Exception:
+            continue
+        s_ = gw / (gM[0] - gm[0]); d_ = (gM[2] - gm[2]) * s_
+        cx_, cz_ = gx, (Z1 - 0.3) - d_ / 2 + 0.6                       # where outside.py centres the model's footprint
+        hw_, hz_ = 0.70 * s_, 0.80 * s_                                 # tucked inside the eaves (model eave reach ~0.78 x, ~0.85 z)
+        wh_ = (-0.24 - gm[1]) * s_ - 0.3                                # from the deck up into the underside of the roof (model base sits 0.3 below)
+        xa_, xb_, za_, zb_ = cx_ - hw_, cx_ + hw_, cz_ - hz_, cz_ + hz_
+        for wi, (p0, p1) in enumerate((((xa_, za_), (xb_, za_)), ((xb_, za_), (xb_, zb_)), ((xb_, zb_), (xa_, zb_)), ((xa_, zb_), (xa_, za_)))):
+            mm, ln = place(p0, p1, y)
+            ww_, wwh = min(2.2, ln * 0.22), min(1.6, wh_ * 0.45)
+            rustic_wall(p0, p1, y, wh_, [(ln / 2, wh_ * 0.55, ww_, wwh)])
+            window(shell, ww_, wwh, M(mm, T(ln / 2, wh_ * 0.55, 0)), rng, shutters=False, mull=(2, 1))
+            bevel_box(shell, 'dark', ln + 0.3, 0.32, 0.32, 0.03, m=M(mm, T(ln / 2, wh_ - 0.2, 0.1)), uvs=2.0)     # a top plate where wall meets roof
+            for u in (0.0, ln):
+                bevel_box(shell, 'dark', 0.36, wh_, 0.36, 0.03, m=M(mm, T(u, wh_ / 2, 0.0)), uvs=2.0)             # corner posts
 
 def gothic_front_unused():
     """(v23, owner's concept) a gothic roofline on the front: three steep gables with tall pointed glowing windows, carved bargeboards and
@@ -735,7 +770,7 @@ def neon():
                 tube(neonm, 'dark', pts, 0.012, 3)
                 for p in pts[1:-1]: sphere(neonm, 'bulb', 0.1, 5, 3, m=T(p[0], p[1] - 0.1, p[2]))
     # bulbs down the steeple's tier edges
-    y = YS[NS]; hh = 9.5; cx, cz = 0.0, (-29.6 + -19.0) / 2
+    y = YS[NS]; hh = 9.5; cx, cz = 0.0, (-(Z1 - 0.4) - (Z1 - 11.0)) / 2
     tiers = [(20.0, 9.0, y + hh, 7.0), (14.0, 7.0, y + hh + 7.0, 7.5), (9.0, 5.0, y + hh + 14.5, 8.5), (5.0, 3.4, y + hh + 23.0, 9.0)]
     for (w0, w1, ty, th_) in tiers:
         d0 = w0 * 0.55; d1 = w1 * 0.55

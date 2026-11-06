@@ -22,7 +22,7 @@ PWH, PHH = 1.3, 1.3 * 533 / 384                # Founder portraits (on the walls
 ROW_Y = (1.45, 3.4)              # portrait centre heights above the ramp: a lower row at eye level and an upper row
 N_HALL = None                    # = the number of wall slots (two rows round both laps)
 IMGS = None
-RX, RZ = 13.0, 10.0                            # the finals hall: x -13..13, z -10..10
+RX, RZ = 15.5, 12.0                            # the finals hall: x -15.5..15.5, z -12..12 (v24: roomier in the bigger building)
 MOAT = 3.2                                     # the glowing moat round it
 hall = Mesh(); col = Mesh(); vm = Mesh(); vc = Mesh()
 xc, zc = (B['xo'] + B['xi']) / 2, (B['zo'] + B['zi']) / 2     # band centre lines (32.4, 27.6)
@@ -101,7 +101,11 @@ def corner(name, y):
 def band():
     slots = []; rs = runs()
     seen_corner = set()
-    for (lap, name, a, b, y0, y1, ax, wc) in rs:
+    # (v24, bigger building) exactly 200 portraits per row, shared out over the runs by length (largest remainder), so it stays 400
+    lens = [math.hypot(r[3][0] - r[2][0], r[3][1] - r[2][1]) for r in rs]; tot = sum(lens)
+    raw = [200 * l / tot for l in lens]; NPR = [int(v) for v in raw]
+    for k in sorted(range(len(raw)), key=lambda k: raw[k] - NPR[k], reverse=True)[:200 - sum(NPR)]: NPR[k] += 1
+    for ri, (lap, name, a, b, y0, y1, ax, wc) in enumerate(rs):
         corner(name, y0)
         e0, e1, nin = straight(a, b, y0, y1)
         # posts from below: from the floor to lap 1, from lap 1 to lap 2 (at the inner edge)
@@ -115,7 +119,7 @@ def band():
             tube(hall, 'moss', vine, 0.05, 4)
             collider_box(col, 0.45, yy - ybot, 0.45, T(p[0] - nin[0] * 0.2, (yy + ybot) / 2, p[1] - nin[1] * 0.2))
         # portraits on the wall beside the run
-        n = int(round(ln / 2.24))
+        n = NPR[ri]
         for k in range(n):
             t = (k + 0.5) / n
             px = a[0] + (b[0] - a[0]) * t; pz = a[1] + (b[1] - a[1]) * t
@@ -165,7 +169,8 @@ def end_walls():
     for s in (1, -1):
         x = s * B['xo']
         # spans of the wall along z with openings: (z0, z1, y0, y1) holes
-        holes = [(10.8, 20.0, Y0, Y0 + 3.6), (-22.0, -12.5, Y0, Y0 + 3.6), (SW['zl'], SW['z0'], Y0, Y0 + 3.6)]
+        lz = LY['lifts'][0]['z']                                   # the lift lobby door is just in front of the cage (doors face +z)
+        holes = [(SW['zm'] + 1.3, SW['zm'] + 10.5, Y0, Y0 + 3.6), (lz + 3.6, lz + 10.6, Y0, Y0 + 3.6), (SW['zl'], SW['z0'], Y0, Y0 + 3.6)]
         if s > 0: holes.append((B['zi'] + 0.1, B['zo'] - 0.1, YTOP, YTOP + 3.2))
         segs = [(-B['zo'], SW['z0']), (SW['zm'], B['zo'])]          # the stair-well wall (shell) covers z -6..9.5
         for (za, zb) in segs:
@@ -258,8 +263,8 @@ def finals_hall():
     lathe(vm, 'mudglow', [(1.4, Y0 + 0.04), (1.8, Y0 + 0.04)], 48)
     # ten screens in two rows of five, wide aisles between them
     slots = []
-    for zr in (-5.0, 5.0):
-        for xr in (-10.4, -5.2, 0.0, 5.2, 10.4):
+    for zr in (-6.0, 6.0):
+        for xr in (-12.4, -6.2, 0.0, 6.2, 12.4):
             z0, z1 = zr - 2.8, zr + 2.8
             bevel_box(vm, 'velvet', 0.3, 4.4, z1 - z0, 0.03, m=T(xr, Y0 + 2.2, zr), uvs=2.0)
             bevel_box(vm, 'dark', 0.5, 0.35, z1 - z0 + 0.2, 0.03, m=T(xr, Y0 + 0.17, zr))
@@ -308,7 +313,7 @@ def finals_hall():
 
 def chandeliers():
     """great wagon-wheel chandeliers on long chains, hung from the ceiling over the open hall"""
-    for (x, z) in ((-18.0, -12.0), (18.0, -12.0), (-18.0, 12.0), (18.0, 12.0), (0.0, 0.0)):
+    for (x, z) in ((-26.0, -17.0), (26.0, -17.0), (-26.0, 17.0), (26.0, 17.0), (0.0, 0.0)):
         big = (x == 0)
         CY = YCEIL - (3.6 if big else 4.0)
         tube(hall, 'iron', [(x, YCEIL, z), (x, CY + 0.3, z)], 0.06, 6)

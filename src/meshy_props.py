@@ -9,7 +9,7 @@ from shrink_glb import shrink
 from glow_mask import glow
 
 SRC = '/home/claude/meshy/models/'; OUT = '/home/claude/spire/out/glb/'
-BIG = {'grotto': 2048, 'pond': 2048, 'booth': 2048, 'fireplace': 2048, 'tome': 2048, 'island': 2048, 'cliff': 2048, 'bonsai': 2048, 'crag': 2048, 'vines': 1024, 'ivy': 1024, 'gable': 2048}
+BIG = {'grotto': 2048, 'pond': 2048, 'booth': 2048, 'fireplace': 2048, 'tome': 2048, 'island': 2048, 'cliff': 2048, 'bonsai': 2048, 'crag': 2048, 'vines': 1024, 'ivy': 1024, 'gable': 2048, 'bottles': 1024, 'glassrack': 1024, 'beermug': 512}
 GLOW = {'pond': 0.9, 'fireplace': 1.2, 'lanternpost': 1.4, 'crystals': ('teal', 2.2), 'tome': ('gold', 1.6), 'signframe': ('gold', 0.5), 'window': ('pane', 2.2), 'gable': ('pane', 1.6)}
 
 def bounds(path):

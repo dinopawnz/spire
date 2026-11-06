@@ -151,7 +151,10 @@
       const busy = all.some((n) => /^M-(LABEL|AUDIO|ATTR-ANIM|ATTR-LERP)$/.test(tg(n)));
       const fixed = all.some((n) => n.getAttribute("collide") === "true" || /^M-(POSITION-PROBE|PROMPT|AUDIO)$/.test(tg(n)) || VIS.some((k) => n.hasAttribute(k)) || n._global);
       const keys = new Set(all.filter((n) => LEAF.test(tg(n))).map((n) => { const p = pos(n, world); return zKey(p.x, p.y, p.z); }));
-      if (busy && !fixed && keys.size === 1) { const g = zoneGroup([...keys][0], world); zs.add(g); g.appendChild(c); moved++; }
+      const key1 = keys.size === 1 ? [...keys][0] : null;
+      // (v24) animated things zone by floor as before, and now every STILL indoor model too (furniture, trees, lanterns...): players only
+      // download and draw the floor they're on. Outdoor still models stay for everyone.
+      if (key1 && !fixed) { const g = zoneGroup(key1, world); zs.add(g); g.appendChild(c); moved++; }          // outdoor dressing too: players deep inside don't draw it
       else if (plain(c) && (busy || keys.size > 1)) visit(c);
     });
     visit(world);
@@ -160,6 +163,8 @@
   const SEEN = new Set();
   function zoneSee(id, p) { if (!WORLD) return; SEEN.add(id); zoneMark(id, new Set(zKeysFor(p))); }
   function zoneAll(id) { if (WORLD && id !== undefined && !REMOTES.has(id)) { SEEN.delete(id); zoneMark(id, new Set(Object.keys(ZONES))); } }
+  // (v24) someone whose position isn't known yet sees the outside only; their floor appears the moment the position probe reports them
+  function zoneOut(id) { if (WORLD && id !== undefined && !REMOTES.has(id)) { SEEN.delete(id); zoneMark(id, new Set(["out"])); } }
   function zoneMark(id, want) {
     for (const k in ZONES) {
       const S = ZSET[k], on = !!(want && want.has(k));
@@ -192,7 +197,7 @@
     const groups = Object.values(ZONES);
     groups.forEach((g) => { const parent = g.parentNode, next = g.nextSibling; g.remove(); if (next && next.parentNode === parent) parent.insertBefore(g, next); else parent.appendChild(g); });
     let seen = 0;
-    ONLINE.forEach((id) => { const p = GAME && GAME._P.get(id); if (p && p.pos) { zoneSee(id, p.pos); seen++; } else zoneAll(id); });
+    ONLINE.forEach((id) => { const p = GAME && GAME._P.get(id); if (p && p.pos) { zoneSee(id, p.pos); seen++; } else zoneOut(id); });
     try { GAME && GAME.refresh(); } catch (e) {}
     return "REFRESHED - " + groups.length + " AREAS RE-SENT (" + seen + " PLAYERS PLACED BY POSITION). PROGRESS KEPT.";
   }
@@ -204,7 +209,7 @@
     try { GAME = buildWorld(); }
     catch (e) { hostMsg("BUILD ERROR: " + (e && e.message)); }
     try { zoneUp(WORLD); } catch (e) { hostMsg("ZONE ERROR: " + (e && e.message)); }
-    ONLINE.forEach(zoneAll);
+    ONLINE.forEach((id) => { const p = GAME && GAME._P && GAME._P.get(id); if (p && p.pos) zoneSee(id, p.pos); else zoneOut(id); });
     builtAt = now();
     return "LIVE BUILD ON - THE SPIRE IS UP";
   }
@@ -240,7 +245,7 @@
     try { reply = GAME.command(cmd, rest, parts); } catch (err) { reply = "ERROR: " + (err && err.message); }
     hostMsg(reply || "UNKNOWN: " + cmd);
   });
-  window.addEventListener("connected", (e) => { if (e.detail && !REMOTES.has(e.detail.connectionId)) { ONLINE.add(e.detail.connectionId); zoneAll(e.detail.connectionId); } });
+  window.addEventListener("connected", (e) => { if (e.detail && !REMOTES.has(e.detail.connectionId)) { ONLINE.add(e.detail.connectionId); zoneOut(e.detail.connectionId); } });
   window.addEventListener("disconnected", (e) => {
     const c = e.detail.connectionId;
     ONLINE.delete(c);
@@ -263,12 +268,17 @@
     priv._global = true;
 
     // ---------------------------------------------------- the tower, floors and lift shafts (static)
-    const STATIC = [["sp_shell", 1], ["sp_boardwalk", 0], ["sp_neon", 0], ["sp_f1_lounge", 1], ["sp_f2_hall", 1], ["sp_f2_vault", 1]];
-    STATIC.forEach(([f, sh]) => model(f + ".glb", { collide: "false", "cast-shadows": sh ? "true" : "false" }));
-    D.lifts.forEach((Lf) => model(Lf.shaft_model + ".glb", { x: Lf.x, z: Lf.z, collide: "false" }));      // shared shaft models, four places
+    const STATIC = [["sp_shell", 1], ["sp_boardwalk", 0], ["sp_neon", 0], ["sp_f1_lounge", 1, "f1"], ["sp_f2_hall", 1, "f2"], ["sp_f2_vault", 1, "f2"]];
+    STATIC.forEach(([f, sh, zn]) => { const m = model(f + ".glb", Object.assign({ collide: "false", "cast-shadows": sh ? "true" : "false" }, zn ? { "data-zone": zn } : {})); if (!zn) m._global = true; });      // the building itself: always seen by everyone      // (v24) lounge / hall only for players on that floor
+    D.lifts.forEach((Lf) => { model(Lf.shaft_model + ".glb", { x: Lf.x, z: Lf.z, collide: "false" })._global = true; });      // shared shaft models, four places
     // the swamp round the hall: the Mudwater Coliseum's own decorations (water, giant mangroves, acorn houses, cypress, reeds, lanterns...)
     const MW = "https://raw.githubusercontent.com/dinopawnz/mudwater/main/";
-    D.deco.forEach(([f, x, y, z, ry, s]) => el("m-model", { src: MW + f + ".glb", x, y, z, ry, sx: s, sy: s, sz: s, collide: "false", "cast-shadows": "false" }));
+    // (v24) staged: the swamp dressing and the furniture arrive 2.5 s after the building, then get sorted onto their floors
+    later(2500, () => {
+      D.deco.forEach(([f, x, y, z, ry, s]) => el("m-model", { src: MW + f + ".glb", x, y, z, ry, sx: s, sy: s, sz: s, collide: "false", "cast-shadows": "false" }));
+        try { zoneUp(WORLD); } catch (e) {}
+      if (LITE) { const keep = LITE; LITE = null; liteOn(); LITE.removed = keep.removed.concat(LITE.removed); }
+    });
     // the invisible floors, walls, stair ramp and rails. They must NOT carry visible="false" (Otherside then never loads them and nothing
     // is solid) - their material is already fully see-through, so they're loaded normally and stay invisible.
     ["sp_shell_col", "sp_f1_col", "sp_f2_col", "sp_f2_vaultcol", "sp_lift_col"].forEach((f) => model(f + ".glb", { collide: "true" }));
@@ -313,7 +323,7 @@
     D.stairs.forEach(([x, y, z, ry]) => { word("stairs", 0.55, { x, y, z, ry }); word("stairs", 0.55, { x, y, z, ry: ry + 180 }); });
 
     // ---------------------------------------------------- THE GALAXY: all 120 Mudwater cards, giant glowing cards circling the hall
-    {
+    later(5500, () => {      // (v24) staged: the floating cards + the sky show arrive a few seconds after the building (no load spike at placement)
       D.galaxy.forEach((ring, ri) => {
         const tilt = el("m-group", { x: 0, y: ring.y, z: ring.z, rx: ring.rx, rz: ring.rz });
         const spin = el("m-group", {}, tilt);
@@ -328,11 +338,9 @@
         });
         if (ring.strand) model(ring.strand + ".glb", { collide: "false" }, spin);            // gold light strings between the cards
       });
-    }
 
     // ---------------------------------------------------- THE SHOW (swamp magic): the swamp night sky, the giant floating Mudwater pack,
     // moonlight, will-o'-wisps, sky lanterns rising off the water, fireflies and a glowing rune circle round the island. All decoration.
-    {
       const MWX = "https://raw.githubusercontent.com/dinopawnz/mudwater/main/";
       const mw = (f, attrs, parent) => el("m-model", Object.assign({ src: MWX + f + ".glb", collide: "false", "cast-shadows": "false" }, attrs), parent);
       const F = D.fx;
@@ -379,7 +387,7 @@
         mw(f, { sx: sc, sy: sc, sz: sc }, sp);
       });
       F.motes.forEach(([f, x, y, z]) => mw(f, { x, y, z }));
-    }
+    });
 
     // ---------------------------------------------------- THE LOUNGE: two indoor waterfalls (sheets of water sliding down over dark rock,
     // into lit pools) and the shop booth signs
@@ -610,7 +618,8 @@
         const pour = model("sp_pour.glb", { x: sp[0], y: sp[1], z: sp[2], sy: 0.01, collide: "false" });
         tween(pour, "sy", 0.01, 0.62, 300, "linear");
         const mug = el("m-group", { x: sp[0], y: D.trayTop, z: sp[2] });
-        model("sp_mug.glb", { collide: "false" }, mug);
+        const tip = el("m-group", {}, mug);                        // (v24) the mug tips inside this, after turning to face the drinker
+        model("sp_mug.glb", { collide: "false" }, tip);
         sfx("pour.mp3", sp[0], sp[1], sp[2], 0.7);
         later(2500, () => { pour.remove(); busy = false;
           // round bar: the mug slides out across the counter to the edge nearest you (within reach of this tap)
@@ -627,8 +636,10 @@
             const who = ev.detail && ev.detail.connectionId;
             if (who !== id || mug._drunk) return; mug._drunk = true; drink.remove();
             const y0 = +mug.getAttribute("y") || D.barTop, mx = +mug.getAttribute("x"), mz = +mug.getAttribute("z");
+            // (v24, owner) the mug turns to face whoever clicked it, then tips back TOWARDS them - from any seat round the bar
+            const dp = pl(who); if (dp && dp.pos) mug.setAttribute("ry", String(Math.round(Math.atan2(-(dp.pos.x - mx), -(dp.pos.z - mz)) * 180 / Math.PI)));
             tween(mug, "y", y0, y0 + 0.45, 500, "easeOutQuad");
-            later(350, () => tween(mug, "rx", 0, -78, 600, "easeInOutQuad"));
+            later(350, () => tween(tip, "rx", 0, -78, 600, "easeInOutQuad"));
             sfx("gulp.mp3", mx, y0 + 0.5, mz, 0.85);
             later(1700, () => { ["sx", "sy", "sz"].forEach((k) => tween(mug, k, 1, 0.01, 300, "easeInBack")); later(380, () => { const k = MUGS.indexOf(mug); if (k >= 0) MUGS.splice(k, 1); mug.remove(); }); });
           });
@@ -642,7 +653,8 @@
     D.books.forEach(([x, y, z, ry]) => {
       // THE MUDWATER SIGN-UP BOOK: a carved lectern with the big open book, between two lantern posts holding a gold-framed sign
       const sg = el("m-group", { x, y, z: z - 1.0, ry });
-      [-1.75, 1.75].forEach((dx) => { model("sp_m_lanternpost.glb", { x: dx, y: 1.700, sx: 1.789, sy: 1.789, sz: 1.789, collide: "false" }, sg); });   // walk-through (owner, v22)
+      // (v24, owner: no lantern posts beside the book) the sign stands on two slim iron rods
+      [-1.2, 1.2].forEach((dx) => el("m-cylinder", { x: dx, y: 1.0, radius: 0.035, height: 2.0, color: "#1c1712", collide: "false", "cast-shadows": "false" }, sg));
       model("sp_m_signframe.glb", { y: 1.55 + 1.249, sx: 1.317, sy: 1.317, sz: 1.317, collide: "false" }, sg);
       word("signup", 0.95, { y: 3.0, z: 0.14 }, sg);
       word("signup_sub", 0.26, { y: 2.22, z: 0.14 }, sg);
@@ -685,10 +697,11 @@
       const needleOut = model("sp_lift_needle.glb", { x: ci.needle_out[0], y: ci.needle_out[1], z: ci.needle_out[2], rz: Lf.dial_rz[0], collide: "false" }, CG);
       const gCab = glider(CG, "y"), gNin = glider(needleIn, "rz"), gNout = glider(needleOut, "rz");
       // floor, walls (door side open), the cab gate's collider
-      [0, 45, 90, 135].forEach((a) => pad({ y: -0.6, width: 4.05, height: 1.2, depth: 1.66, ry: a }, CG));       // 1.2 m thick floor, top flush
-      for (let i = 0; i < 7; i++) { const a = 45 + 45 * i, c = polar(D.cabApo + 0.03, a, 1.3); pad({ x: c[0], y: c[1], z: c[2], ry: a, width: 1.8, height: 2.6, depth: 0.12 }, CG); }
-      pad({ y: -0.13, z: D.cabApo + 0.13, width: 1.7, height: 0.26, depth: 0.3 }, CG);               // the sill
-      const cgatePad = pad({ y: 1.25, z: D.cabApo - 0.02, width: 1.8, height: 2.5, depth: 0.12 }, CG);
+      const FACE = 2 * D.cabApo * Math.tan(Math.PI / 8);                                  // one side of the octagonal cab
+      [0, 45, 90, 135].forEach((a) => pad({ y: -0.6, width: 2 * D.cabApo - 0.05, height: 1.2, depth: FACE * 0.98, ry: a }, CG));       // 1.2 m thick floor, top flush
+      for (let i = 0; i < 7; i++) { const a = 45 + 45 * i, c = polar(D.cabApo + 0.03, a, D.cabWallH / 2); pad({ x: c[0], y: c[1], z: c[2], ry: a, width: FACE + 0.1, height: D.cabWallH, depth: 0.12 }, CG); }
+      pad({ y: -0.13, z: D.cabApo + 0.13, width: D.doorW + 0.1, height: 0.26, depth: 0.3 }, CG);               // the sill
+      const cgatePad = pad({ y: D.cabGateH / 2, z: D.cabApo - 0.02, width: D.doorW + 0.2, height: D.cabGateH, depth: 0.12 }, CG);
       // elevator music, playing softly inside the cab (riders hear it; it fades a few metres outside the glass)
       const music = el("m-audio", { src: BASE + "lift_music.mp3" + VER, y: 2.3, loop: "true", volume: 0.32, "start-time": -9000 * "ABCD".indexOf(id) }, CG);
       st.music = music; st.musicHome = CG;
@@ -711,7 +724,7 @@
       const LANDS = Lf.portals.map((po, k) => {
         const gR = model("sp_lift_lgate.glb", { x: po.gate_r[0], y: po.gate_r[1], z: po.gate_r[2], collide: "false" });
         const gL = model("sp_lift_lgate.glb", { x: po.gate_l[0], y: po.gate_l[1], z: po.gate_l[2], ry: 180, collide: "false" });
-        const gp = pad({ x: po.gate_col[0], y: po.gate_col[1] + 1.45, z: po.gate_col[2], width: 1.85, height: 2.9, depth: 0.15 });
+        const gp = pad({ x: po.gate_col[0], y: po.gate_col[1] + D.doorH / 2, z: po.gate_col[2], width: D.doorW + 0.25, height: D.doorH, depth: 0.15 });
         const nd = model("sp_lift_needle.glb", { x: po.needle[0], y: po.needle[1], z: po.needle[2], rz: Lf.dial_rz[0], sx: po.needle_scale, sy: po.needle_scale, sz: po.needle_scale, collide: "false" });
         nd._g = glider(nd, "rz");
         const cb = el("m-group", { x: po.call[0], y: po.call[1], z: po.call[2] });
@@ -719,7 +732,7 @@
         const glow = model("sp_lift_callglow.glb", { collide: "false" }, cb); glow.remove();
         const hb = hitBox({ y: 0.02, width: 0.3, height: 0.42, depth: 0.16 }, cb);
         hb.addEventListener("click", (e) => request(st, k, e.detail && e.detail.connectionId));
-        return { po, gR, gL, gp, nd, cb, glow, gpY: po.gate_col[1] + 1.45 };
+        return { po, gR, gL, gp, nd, cb, glow, gpY: po.gate_col[1] + D.doorH / 2 };
       });
       // --- the machine head, ropes and counterweight
       const sheave = model("sp_lift_sheave.glb", { x: Lf.sheave[0], y: Lf.sheave[1], z: Lf.sheave[2], collide: "false" });
@@ -738,7 +751,7 @@
         [cgR, cgL, l.gR, l.gL].forEach((g) => tween(g, "sx", s0, s1, 1100, "easeInOutQuad"));
         // the invisible gate walls follow the leaves: gone once the door is mostly open, back once it is mostly shut
         // (so a door that looks open is always walkable, and nobody gets stopped by glass while it still looks open)
-        later(open ? 850 : 750, () => { if (st.open !== open) return; cgatePad.setAttribute("y", open ? -60 : 1.25); l.gp.setAttribute("y", open ? -300 : l.gpY); });
+        later(open ? 850 : 750, () => { if (st.open !== open) return; cgatePad.setAttribute("y", open ? -60 : D.cabGateH / 2); l.gp.setAttribute("y", open ? -300 : l.gpY); });
         sfx("lift_gate.mp3", l.po.gate_col[0], l.po.gate_col[1] + 1.4, l.po.gate_col[2], 0.7);
         st.open = open;
       }
@@ -1000,7 +1013,7 @@
       bioStep(p);
     };
     probe.addEventListener("positionenter", onPos); probe.addEventListener("positionmove", onPos);
-    probe.addEventListener("positionleave", (e) => { INSIDE.delete(e.detail && e.detail.connectionId); zoneAll(e.detail && e.detail.connectionId); });
+    probe.addEventListener("positionleave", (e) => { INSIDE.delete(e.detail && e.detail.connectionId); zoneOut(e.detail && e.detail.connectionId); });
     onWin("disconnected", (e) => INSIDE.delete(e.detail && e.detail.connectionId));
     onWin("connected", () => doorFix());
 

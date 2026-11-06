@@ -40,8 +40,10 @@ FP = [tuple(p) for p in LY['shaft_fp']]
 FLOORS = LY['floors_through']                                     # floors the shafts pass through (F1 is the base)
 NAMES = {'lounge': 'THE LOUNGE', 'hall': 'HALL OF FAKES', 'gallery': 'THE GALLERY', 'cards': 'MUD ROYALE', 'rooms': 'GROUP MUD', 'roof': 'THE ROOF DECK'}
 DIAL = {'lounge': '1', 'hall': '2', 'gallery': 'G', 'cards': '3', 'rooms': '4', 'roof': 'R'}
-SHEAVE_R = 1.3; SHEAVE_Y = TOP + 1.6; SHEAVE_Z = -SHEAVE_R - 0.01     # cab ropes drop at z 0, counterweight ropes at z -2.61
-HITCH = 4.35                                                          # cab floor -> rope hitch on the crown
+SHEAVE_R = (SA + 0.5) / 2.0; SHEAVE_Y = TOP + 1.6; SHEAVE_Z = -SHEAVE_R - 0.01     # cab ropes drop at z 0, counterweight ropes at z -2.61
+CE = 0.85                                                             # (v24, owner) taller cabs: everything above the wainscot sits CE higher
+PE = DH - 2.9                                                          # ...and the landing portals grow with the taller doors
+HITCH = 4.35 + CE                                                     # cab floor -> rope hitch on the crown
 CW_Z = SHEAVE_Z - SHEAVE_R
 
 M_ = dict(MATS)
@@ -252,48 +254,64 @@ def shaft(lift, sm, col):
         pp, pasp = plaque_tex(NAMES[key], lift['name'].upper(), lift['id'] + '_' + key)
         M_['plq_%s_%s' % (lift['id'], key)] = dict(tex=pp, emis_tex=pp, emis=(0.4, 0.36, 0.3), rough=0.6)
         F, _ = face_frame(C, 7, s, B)
-        out.append(portal(sm, F, lift, key, dial_asp))
+        out.append(portal_tall(sm, F, lift, key, dial_asp))
     # machine head
     machine_head(sm, B)
     return out
 
+def stretch(mesh, a, b, E):
+    """lift everything above b by E, stretching the band a..b to match (posts, bars, pilasters grow; nothing tears)"""
+    k = (b - a + E) / (b - a)
+    f = lambda y: np.where(y < a, y, np.where(y < b, a + (y - a) * k, y + E))
+    for bk in mesh.b.values():
+        for P in bk[0]: P[:, 1] = f(P[:, 1])
+    return f
+
+def portal_tall(sm, F, lift, key, dial_asp):
+    tmp = Mesh(); info = portal(tmp, np.eye(4), lift, key, dial_asp)
+    f = stretch(tmp, 1.0, 2.4, PE); sm.merge(tmp, F)
+    W = lambda p: [round(float(v), 3) for v in (F @ np.array([p[0], float(f(np.array(p[1]))), p[2], 1]))[:3]]
+    for k_ in ('needle', 'gate_r', 'gate_l', 'gate_col', 'call'): info[k_] = W(info[k_])
+    info['y'] = float(F[1, 3]); return info
+
 def portal(sm, F, lift, key, dial_asp):
     """carved timber + brass door surround on the +z face, with sunburst fan, floor dial, name plaque, lanterns"""
+    PX = DW / 2 + 0.28; FR = 1.02 * DW / 1.6            # pilaster offset, fan radius (follow the door width)
     for sx in (-1, 1):
-        bevel_box(sm, 'dark', 0.26, 3.3, 0.24, 0.03, m=M(F, T(sx * 1.08, 1.65, 0.12)), uvs=2.0)
-        bevel_box(sm, 'plank', 0.14, 2.6, 0.04, 0.01, m=M(F, T(sx * 1.08, 1.6, 0.25)), uvs=2.0)
-        box(sm, 'brass', 0.36, 0.14, 0.32, m=M(F, T(sx * 1.08, 0.07, 0.12)))
-        lathe(sm, 'brass', [(0.0, 0), (0.17, 0.0), (0.2, 0.06), (0.14, 0.14), (0.18, 0.22), (0.0, 0.22)], 8, m=M(F, T(sx * 1.08, 3.3, 0.12)), a0=45, a1=405)
-        box(sm, 'dark', 0.3, 3.3, 0.2, m=M(F, T(sx * 1.18, 1.65, -0.02)))          # backing behind the pilaster
-        wall_lantern(sm, M(F, T(sx * 1.38, 2.25, 0.04), Ry(sx * 50)), 1.1)
-    bevel_box(sm, 'dark', 2.75, 0.32, 0.3, 0.04, m=M(F, T(0, 3.68, 0.13)), uvs=3.0)
-    box(sm, 'gold', 2.8, 0.05, 0.32, m=M(F, T(0, 3.53, 0.13)))
-    box(sm, 'gold', 2.8, 0.05, 0.32, m=M(F, T(0, 3.83, 0.13)))
+        bevel_box(sm, 'dark', 0.26, 3.3, 0.24, 0.03, m=M(F, T(sx * PX, 1.65, 0.12)), uvs=2.0)
+        bevel_box(sm, 'plank', 0.14, 2.6, 0.04, 0.01, m=M(F, T(sx * PX, 1.6, 0.25)), uvs=2.0)
+        box(sm, 'brass', 0.36, 0.14, 0.32, m=M(F, T(sx * PX, 0.07, 0.12)))
+        lathe(sm, 'brass', [(0.0, 0), (0.17, 0.0), (0.2, 0.06), (0.14, 0.14), (0.18, 0.22), (0.0, 0.22)], 8, m=M(F, T(sx * PX, 3.3, 0.12)), a0=45, a1=405)
+        box(sm, 'dark', 0.3, 3.3, 0.2, m=M(F, T(sx * (PX + 0.1), 1.65, -0.02)))          # backing behind the pilaster
+        wall_lantern(sm, M(F, T(sx * (PX + 0.3), 2.25, 0.04), Ry(sx * 50)), 1.1)
+    bevel_box(sm, 'dark', DW + 1.15, 0.32, 0.3, 0.04, m=M(F, T(0, 3.68, 0.13)), uvs=3.0)
+    box(sm, 'gold', DW + 1.2, 0.05, 0.32, m=M(F, T(0, 3.53, 0.13)))
+    box(sm, 'gold', DW + 1.2, 0.05, 0.32, m=M(F, T(0, 3.83, 0.13)))
     # sunburst fan (half disc) sitting on the entablature
     fc = M(F, T(0, 3.86, 0.08))
-    half = [(1.02 * math.cos(math.radians(a)), 1.02 * math.sin(math.radians(a))) for a in np.linspace(0, 180, 25)]
+    half = [(FR * math.cos(math.radians(a)), FR * math.sin(math.radians(a))) for a in np.linspace(0, 180, 25)]
     extrude(sm, 'dark', half, 0.08, m=fc)
     for a in np.linspace(9, 171, 13):
-        mm = M(fc, Rz(a - 90), T(0, 0.67, 0.1))
-        bevel_box(sm, 'brass', 0.035, 0.6, 0.025, 0.008, m=mm)
-    tube(sm, 'brass', [(1.04 * math.cos(math.radians(a)), 1.04 * math.sin(math.radians(a)), 0.1) for a in np.linspace(0, 180, 31)], 0.045, 8, m=fc)
+        mm = M(fc, Rz(a - 90), T(0, FR * 0.66, 0.1))
+        bevel_box(sm, 'brass', 0.035, FR * 0.59, 0.025, 0.008, m=mm)
+    tube(sm, 'brass', [(FR * 1.02 * math.cos(math.radians(a)), FR * 1.02 * math.sin(math.radians(a)), 0.1) for a in np.linspace(0, 180, 31)], 0.045, 8, m=fc)
     tube(sm, 'brass', [(0.37 * math.cos(math.radians(a)), 0.37 * math.sin(math.radians(a)), 0.11) for a in np.linspace(0, 180, 17)], 0.025, 6, m=fc)
-    lathe(sm, 'gold', [(0.0, 0.0), (0.09, 0.0), (0.06, 0.14), (0.0, 0.22)], 8, m=M(fc, T(0, 1.06, 0.1)))
+    lathe(sm, 'gold', [(0.0, 0.0), (0.09, 0.0), (0.06, 0.14), (0.0, 0.22)], 8, m=M(fc, T(0, FR * 1.04, 0.1)))
     # floor dial in the heart of the fan (needle is separate)
     dh = 0.36; quad(sm, 'dial_' + lift['id'], dh * dial_asp, dh, M(fc, T(0, dh / 2 - 0.03, 0.14)))
     # the name plaque on top
-    pw = 2.5; ph = pw / (1400 / 330)
-    pm = M(F, T(0, 5.2, 0.12))
+    pw = DW + 0.9; ph = pw / (1400 / 330)
+    pm = M(F, T(0, 3.86 + FR + 0.55 + ph / 2, 0.12))
     quad(sm, 'plq_%s_%s' % (lift['id'], key), pw, ph, M(pm, T(0, 0, 0.055)))
     bevel_box(sm, 'dark', pw + 0.16, ph + 0.16, 0.1, 0.02, m=pm)
     for sx in (-1, 1):
         for sy in (-1, 1): sphere(sm, 'brass', 0.05, 8, 5, m=M(pm, T(sx * (pw / 2 + 0.05), sy * (ph / 2 + 0.05), 0.06)))
     # brass threshold plate in front of the doors
-    box(sm, 'brass', 2.0, 0.025, 0.55, m=M(F, T(0, 0.012, 0.3)))
+    box(sm, 'brass', DW + 0.4, 0.025, 0.55, m=M(F, T(0, 0.012, 0.3)))
     # where the moving bits go (world)
     W = lambda p: [round(float(v), 3) for v in (F @ np.array([*p, 1]))[:3]]
     return dict(key=key, y=float(F[1, 3]), needle=W((0, 3.854, 0.24)), needle_scale=1.07, ry=0.0, gate_r=W((DW / 2, 0, 0.05)), gate_l=W((-DW / 2, 0, 0.05)),
-                gate_col=W((0, 0, 0.05)), call=W((1.08, 1.25, 0.25)))
+                gate_col=W((0, 0, 0.05)), call=W((PX, 1.25, 0.25)))
 
 def machine_head(sm, B):
     y = TOP
@@ -510,8 +528,8 @@ def cab(lift):
     for k in range(8):
         a = 22.5 + 45 * k; cyl(m, 'brass', 0.02, 0.3, 5, m=T(0.46 * math.sin(math.radians(a)), 3.72, 0.46 * math.cos(math.radians(a))))
     lathe(m, 'brass', [(0.55, 4.0), (0.3, 4.12), (0.12, 4.22), (0.1, 4.3), (0.0, 4.3)], 8, a0=22.5, a1=382.5)
-    lathe(m, 'gold', [(0.0, 4.28), (0.08, 4.3), (0.08, HITCH - 0.02), (0.0, HITCH)], 8)
-    tube(m, 'steel', [(0.1 * math.cos(t), HITCH + 0.06 + 0.06 * math.sin(t), 0) for t in np.linspace(0, math.pi, 9)], 0.02, 6)
+    lathe(m, 'gold', [(0.0, 4.28), (0.08, 4.3), (0.08, (HITCH - CE) - 0.02), (0.0, (HITCH - CE))], 8)
+    tube(m, 'steel', [(0.1 * math.cos(t), (HITCH - CE) + 0.06 + 0.06 * math.sin(t), 0) for t in np.linspace(0, math.pi, 9)], 0.02, 6)
     for (x, z) in C:
         lathe(m, 'gold', [(0.0, 0.0), (0.05, 0.0), (0.03, 0.1), (0.045, 0.16), (0.0, 0.32)], 8, m=T(x * 1.04, 3.12, z * 1.04))
     # ceiling inside: stained oculus + hanging lantern + two corner sconces
@@ -614,6 +632,8 @@ if __name__ == '__main__':
         sm = Mesh()
         portals = shaft(lift, sm, col)
         cm, info = cab(lift)
+        fC = stretch(cm, 1.1, 2.6, CE)
+        for k_ in ('needle_in', 'needle_out', 'gear_l', 'gear_r', 'lever'): info[k_] = [info[k_][0], round(float(fC(np.array(info[k_][1]))), 4), info[k_][2]]
         # shaft models are shared by lifts with the same stops (built at x = 0, z = 0, placed at each lift's x, z); one cab for all
         sk = 'sp_lift_shaft' + ('' if len(lift['stops']) == 5 else '_g')
         if not os.path.exists(OUT + sk + '.glb') or sk not in DONE:
@@ -629,11 +649,12 @@ if __name__ == '__main__':
                                  governor=[x - 1.6, TOP + 0.15, z + 1.25], cab_rope_top=[x, round(SHEAVE_Y, 3), z], cw_rope_top=[x, round(SHEAVE_Y, 3), round(z + CW_Z, 3)],
                                  spin_ratio_pinion=round(-1.0 / 0.33, 3), sheave_rad_per_m=round(1 / SHEAVE_R, 4)))
     print('col', write(OUT + 'sp_lift_col.glb', col, M_))
-    print('cabcol', write(OUT + 'sp_lift_cab_col.glb', cab_collider(), M_))
-    for nm, mesh in [('sp_lift_cgate', scissor_gate(DW / 2, 2.5)), ('sp_lift_lgate', scissor_gate(DW / 2, DH)), ('sp_lift_sheave', sheave()),
+    cc = cab_collider(); stretch(cc, 1.1, 2.6, CE)
+    print('cabcol', write(OUT + 'sp_lift_cab_col.glb', cc, M_))
+    for nm, mesh in [('sp_lift_cgate', scissor_gate(DW / 2, 2.5 + CE)), ('sp_lift_lgate', scissor_gate(DW / 2, DH)), ('sp_lift_sheave', sheave()),
                      ('sp_lift_pinion', pinion()), ('sp_lift_gov', governor()), ('sp_lift_cabgear', cabgear()), ('sp_lift_cable', cable()),
                      ('sp_lift_cw', counterweight()), ('sp_lift_needle', needle()), ('sp_lift_lever', lever()), ('sp_lift_call', call_button()),
-                     ('sp_lift_callglow', call_glow()), ('sp_lift_cgate_col', gate_col(DW + 0.1, 2.5)), ('sp_lift_lgate_col', gate_col(DW + 0.2, DH))]:
+                     ('sp_lift_callglow', call_glow()), ('sp_lift_cgate_col', gate_col(DW + 0.1, 2.5 + CE)), ('sp_lift_lgate_col', gate_col(DW + 0.2, DH))]:
         print(nm, write(OUT + nm + '.glb', mesh, M_))
     sounds()
     json.dump(lay, open('/home/claude/spire/out/lift_layout.json', 'w'), indent=1)

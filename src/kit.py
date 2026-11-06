@@ -150,7 +150,8 @@ def deck(m, poly, y, rng, mat='plank', plank_w=0.28, th=0.09, joists=True, hole=
         mm, L = place(poly[i], poly[(i + 1) % n], y - 0.2)
         bevel_box(m, edge_mat, L, 0.42, 0.12, 0.02, m=M(mm, T(L / 2, 0, 0)), uvs=3.0)
 
-def railing(m, pts, y, rng, h=1.1, post_every=2.0, closed=True, mat='dark', top='pale', balusters=True, rope_mat=None):
+def railing(m, pts, y, rng, h=1.1, post_every=2.0, closed=True, mat='dark', top='pale', balusters=True, rope_mat=None, bal_gap=0.24, cheap=False):
+    """cheap=True (v24, long balcony runs): plain posts, wider-spaced balusters - same look from the ground, a fraction of the triangles"""
     n = len(pts); segs = n if closed else n - 1
     for i in range(segs):
         p0, p1 = pts[i], pts[(i + 1) % n]
@@ -158,12 +159,13 @@ def railing(m, pts, y, rng, h=1.1, post_every=2.0, closed=True, mat='dark', top=
         k = max(1, int(round(L / post_every)))
         for j in range(k + 1):
             x = L * j / k
-            bevel_box(m, mat, 0.14, h + 0.1, 0.14, 0.02, m=M(mm, T(x, (h + 0.1) / 2, 0)), col=tint(rng, 0.08), uvs=1.5)
-            lathe(m, mat, [(0.1, 0), (0.1, 0.06), (0.06, 0.1), (0.07, 0.16), (0.0, 0.2)], 6, m=M(mm, T(x, h + 0.1, 0)))
+            if cheap: box(m, mat, 0.14, h + 0.1, 0.14, m=M(mm, T(x, (h + 0.1) / 2, 0)), col=tint(rng, 0.08), uvs=1.5, faces='xXzZy')
+            else: bevel_box(m, mat, 0.14, h + 0.1, 0.14, 0.02, m=M(mm, T(x, (h + 0.1) / 2, 0)), col=tint(rng, 0.08), uvs=1.5)
+            if not cheap: lathe(m, mat, [(0.1, 0), (0.1, 0.06), (0.06, 0.1), (0.07, 0.16), (0.0, 0.2)], 6, m=M(mm, T(x, h + 0.1, 0)))
         bevel_box(m, top, L, 0.09, 0.2, 0.02, m=M(mm, T(L / 2, h, 0)), uvs=3.0)
         bevel_box(m, mat, L, 0.07, 0.08, 0.015, m=M(mm, T(L / 2, 0.12, 0)), uvs=3.0)
         if balusters:
-            nb = int(L / 0.24)
+            nb = int(L / bal_gap)
             for j in range(1, nb):
                 x = L * j / nb
                 if any(abs(x - L * q / k) < 0.12 for q in range(k + 1)): continue
