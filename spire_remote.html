@@ -566,7 +566,7 @@ details.cheat dl { margin: 8px 0 0; } details.cheat dt { color: var(--sky); font
       R.btn(g, "NEW GAME", "clear the board, teams open again", () => R.say("royale open"), { cls: "b-sky" });
       R.btn(g, "EMPTY TEAMS", "everyone has to pick a team again", () => R.say("royale clear"), { cls: "b-sky", confirm: "Empty all four teams?" });
       R.btn(g, "TEAM COUNTS", "how many on each team + squares", () => R.say("royale"), { cls: "b-sky" });
-      R.note(p, "Players walk onto a team pad (Gators, Crawdads, Bullfrogs, Catfish) and can switch until you press START. The big board over the middle and each pad show how many players are on each team. After START everyone on a team gets 5 Mudwater cards on the YOUR HAND boards: click a card, then a square. A higher number beside an enemy card captures it. After 3 minutes, the most squares wins.");
+      R.note(p, "Players walk onto a team pad (Gators, Crawdads, Bullfrogs, Catfish) and can switch until you press START. The big board over the middle and each pad show how many players are on each team. After START everyone on a team gets 5 Mudwater cards on the YOUR HAND boards: click a card, then a square. A higher number beside an enemy card captures it. When the board is full, players upgrade: a card with a higher total can go on top of any card. The game always runs the full 3 minutes; the most squares wins.");
 
       p = R.panel(R.left, "The art wall", "the big canvas in the roof's back-left corner");
       g = R.grid(p);

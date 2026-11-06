@@ -34,7 +34,7 @@
 | Where | Version | What |
 |---|---|---|
 | branch `main` | v13 | the old LIVE build. Untouched. Push to main ONLY when the owner says. |
-| branch **`handoff-v14`** | **v34** | everything from sessions 6–11. This is what the owner tests. |
+| branch **`handoff-v14`** | **v35** | everything from sessions 6–11. This is what the owner tests. |
 
 The owner's files load assets from `https://raw.githubusercontent.com/dinopawnz/spire/handoff-v14/` (baked into spire.html by `build_html.py`), so **assets must be pushed to `handoff-v14` before the owner's HTML works.** Remote PIN: **7747**, then press LIVE BUILD.
 
@@ -180,7 +180,8 @@ Raised dark-timber photo stage with steps, Meshy photo arch (8 m) with the Mudwa
 - Teams: GATORS (green), CRAWDADS (red), BULLFROGS (gold), CATFISH (teal). Pads are the owner's Territory method: a VISIBLE `m-cube` slab 14 cm tall with `collide=true` + `collision-interval 90`, listening to `collisionstart`/`collisionmove` (connectionId) - NOT the position probe (which doesn't report in Otherside).
 - JS block "MUD ROYALE" in spire_src.html: `rJoin` (only while open), `rStart` (deal 5 random cards to everyone on a team; hands drawn per player with `visible-to` on all 4 hand boards; click a hand card to select, gold frame shows it), `rPlace` (click a square: 350 ms cooldown, taken/no team/out of cards messages hang under the hand boards, captures, pop animation, sounds), `rEnd` (at 3:00 or when the board is full: winner/tie on the scoreboard, MVP = player whose cards hold most squares, shown in one m-label; host gets a summary), scoreboard digits only re-drawn when a number changes, timer bar is one m-attr-anim. Disconnects leave the team.
 - Host: `royale start | stop | open | clear | demo` (+ status); remote panel "Mud Royale": START, END NOW, NEW GAME, EMPTY TEAMS, TEAM COUNTS. `royale demo` fills the board for renders.
-- Gameplay note told to the owner: with many players (more than 20 x 5 cards) the board fills before 3 minutes and the game ends early. If they want longer games, options: refill hands, or let a stronger card cover an enemy card.
+- **v35 rule change (owner):** the game NEVER ends early - only after 3 minutes. When every square is filled, players UPGRADE: a card whose four numbers add up to MORE than the card on a square can be played on top of it (any square, own team or enemy); it takes the square and captures neighbours as normal. Weaker -> "NEED A STRONGER CARD TO UPGRADE". Everyone gets "BOARD FULL! UPGRADE CARDS" when it fills. (My interpretation of "upgrade" - confirm with the owner if they meant something else.) Board size question for 100+ players is open: I suggested 14 x 14 = 196 squares.
+- `viewer/mmlshot.py` now takes a `js` staging script (bots join + play) - see `viewer/F3D.json` for a mid-game render.
 - **Bug fixed:** v24 scaled the Hall of Fakes banner HEIGHT by the floor-plan factor (`bannerAt`), lifting "FIND THE REAL FOUNDER" + the portraits-left counter through the hall ceiling onto floor 3. Back at 22.6.
 - Tests: `viewer/royaletest.py` (40 bots: team counts, switching, late joiner blocked, 100/100 squares match the capture rule, board-full end, winner + MVP, reopen), `viewer/royaletimer.py` (ends at 180 s). All old tests pass.
 - NEXT for floor 3: decoration pass to lounge standard (owner: "every floor must keep the same standard as the first floor") - it's dark and bare apart from the arena: lantern rings + warm light pools, Mudwater banners, framed cards on the walls, spectator benches/bleachers, plants, moss on beams.

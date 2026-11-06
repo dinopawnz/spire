@@ -50,6 +50,8 @@ try:
           return { out, worldZ: wg ? parseFloat(wg.getAttribute('z') || '0') : 0, n: document.querySelectorAll('*').length };
         }""", [pos, cfg.get('cmds', [])])
         print('page:', res)
+        if cfg.get('js'):                                  # optional staging script (e.g. bots join + play), runs after the build
+            print('js:', pg.evaluate("async () => { const fire = (n, name, detail) => n.dispatchEvent(new CustomEvent(name, { detail, bubbles: true })); const sleep = (ms) => new Promise(r => setTimeout(r, ms)); " + cfg['js'] + " }"))
         pg.wait_for_timeout(int(cfg.get('settle_ms', 1500)))
         o = dict(o); o['map'] = FM; o['viewer'] = 1; o['worldZ'] = res['worldZ']
         pg.evaluate("""(o) => {

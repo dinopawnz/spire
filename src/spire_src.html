@@ -510,6 +510,7 @@
     // the four YOUR HAND boards); click a card in your hand, then an empty square, to play it. A card captures an enemy card beside it when
     // its number on that side is higher (top/left/right/bottom). After 3 minutes (or when the board is full) the team holding the most
     // squares wins; MVP = the player whose cards hold the most squares. Host: royale open | start | stop | clear (remote panel).
+    // (v35) The game ALWAYS runs the full 3 minutes: when every square is filled, players upgrade (a stronger card on top of any card).
     const RY = { on: !!D.royale, ph: "open", roster: new Map(), hands: new Map(), board: [], last: new Map(), tok: 0, t0: 0, winner: null };
     if (D.royale) {
       const R = D.royale, N = R.n, TS = R.ts, HB = R.half, TOP = R.top, TM = R.teams, CARDS = R.cards, NT = TM.length;
@@ -624,7 +625,7 @@
         const ids = Array.from(RY.roster.keys()).filter((id) => ONLINE.has(id));
         if (!ids.length) return "NOBODY IS ON A TEAM YET";
         rClearBoard(); rClearHands(); rBig(null);
-        RY.ph = "live"; RY.t0 = now(); const tok = ++RY.tok;
+        RY.ph = "live"; RY.t0 = now(); RY.full = false; const tok = ++RY.tok;
         ids.forEach((id) => { RY.hands.set(id, { cards: Array.from({ length: R.hand }, () => Math.floor(Math.random() * CARDS.length)), sel: 0, els: [] }); handDraw(id); handMsg(id, ["r_go"], 2500); });
         faces.forEach((F) => tween(F.bar, "sx", 1, 0.001, R.secs * 1000, "linear"));
         sfx("finals.mp3", 0, R.y + 4, 0, 0.8);
@@ -656,9 +657,17 @@
         if (RY.ph !== "live") { handMsg(id, RY.ph === "open" ? ["r_wait"] : ["r_time"]); return; }
         const H = RY.hands.get(id); if (!H) { handMsg(id, ["r_noteam"]); return; }
         const t = now(); if (t - (RY.last.get(id) || 0) < 350) return; RY.last.set(id, t);
-        if (RY.board[i]) { handMsg(id, ["r_taken"], 1200); return; }
         let k = H.sel; if (H.cards[k] === null) k = H.cards.findIndex((c) => c !== null);
         if (k < 0) { handMsg(id, ["r_out"]); return; }
+        const sum = (cc) => CARDS[cc][0] + CARDS[cc][1] + CARDS[cc][2] + CARDS[cc][3];
+        const old = RY.board[i];
+        if (old) {
+          // (v35, owner) the game never ends early: once EVERY square is filled, players UPGRADE - play a stronger card (higher total
+          // of its four numbers) on top of any card, theirs or an enemy's. Before the board is full, a taken square stays taken.
+          if (!RY.board.every((b) => b)) { handMsg(id, ["r_taken"], 1200); return; }
+          if (sum(H.cards[k]) <= sum(old.c)) { handMsg(id, ["r_weak"], 1500); return; }
+          old.g.remove(); RY.board[i] = null;
+        }
         const c = H.cards[k], team = RY.roster.get(id); H.cards[k] = null;
         const nx = H.cards.findIndex((cc) => cc !== null); H.sel = nx < 0 ? 0 : nx; handDraw(id);
         const [x, z] = tileXZ(i);
@@ -681,9 +690,13 @@
             tween(o.card, "y", 0.35, 0.012, 420, "easeOutQuad");
           }
         });
+        if (old) tween(card, "y", 0.6, 0.012, 380, "easeOutQuad");
         if (caps) { sfx("found.mp3", x, TOP + 0.5, z, 0.45); handMsg(id, ["r_capture"], 1100); }
         rCounts();
-        if (RY.board.every((b) => b)) later(1200, () => { if (RY.ph === "live") rEnd(); });
+        if (!old && !RY.full && RY.board.every((b) => b)) {               // the board just filled up: tell everyone upgrades are on
+          RY.full = true; sfx("lift_chime.mp3", 0, R.y + 4, 0, 0.8);
+          RY.hands.forEach((_, pid) => handMsg(pid, ["r_full"], 3500));
+        }
       }
       onWin("disconnected", (e) => {
         const id = e.detail && e.detail.connectionId;
