@@ -654,7 +654,7 @@
             el("m-image", { src: BASE + (down ? "royale/back.jpg" : "royale/c_" + String(c + 1).padStart(3, "0") + ".jpg") + VER, x: slotX(k), y: -0.25, z: 0.06, width: CW * 0.92, height: CH * 0.92, emissive: 0.35, collide: "false", "cast-shadows": "false" }, pg);
             if (down) word("r_rockon", 0.3, { x: slotX(k), y: -0.25, z: 0.08 }, pg);
             const hb = hitBox({ x: slotX(k), y: -0.25, z: 0.1, width: CW * 0.92, height: CH * 0.92, depth: 0.06 }, pg);
-            hb.addEventListener("click", (e) => { if ((e.detail && e.detail.connectionId) !== id) return; const H2 = RY.hands.get(id); if (!H2 || H2.cards[k] === null) return; if (H2.sel === k) H2.rock = !H2.rock; else { H2.sel = k; H2.rock = false; } handDraw(id); });
+            hb.addEventListener("click", (e) => { if ((e.detail && e.detail.connectionId) !== id) return; const H2 = RY.hands.get(id); if (!H2 || H2.cards[k] === null) return; if (H2.sel === k && H2.chosen) H2.rock = !H2.rock; else { H2.sel = k; H2.rock = false; H2.chosen = true; } handDraw(id); });   // (v49) a ROCK only on a 2nd click of a card YOU picked (the first card is pre-selected)
           });
         });
       }
@@ -697,11 +697,16 @@
           if (left <= 0) { rEnd(); return; }
           // (v37, owner) REFILLS: a new card every 10 s into an empty slot (up to 5), so nobody runs dry and stands around
           const t = now();
+          // (v49, owner: "whenever i play down a card, it takes a while for me to get a new card") every EMPTY slot now refills on its own,
+          // R.refill seconds after it was emptied (was: one card every 10 s for the whole hand), so the hand stays nearly full
           RY.hands.forEach((H, pid) => {
-            const k = H.cards.indexOf(null);
-            if (k < 0) { H.next = 0; return; }
-            if (!H.next) H.next = t + R.refill * 1000;
-            if (t >= H.next) { H.cards[k] = deal(H.cards.every((cc) => cc === null || LV[cc] > 1)); if (H.cards[H.sel] === null) H.sel = k; H.next = H.cards.indexOf(null) < 0 ? 0 : t + R.refill * 1000; handDraw(pid); }
+            H.due = H.due || []; let ch = false;
+            H.cards.forEach((cc, k) => {
+              if (cc !== null) { H.due[k] = 0; return; }
+              if (!H.due[k]) H.due[k] = t + R.refill * 1000;
+              else if (t >= H.due[k]) { H.cards[k] = deal(H.cards.every((c2) => c2 === null || LV[c2] > 1)); H.due[k] = 0; if (H.cards[H.sel] === null) { H.sel = k; H.chosen = false; } ch = true; }
+            });
+            if (ch) handDraw(pid);
           });
           // (v37) the finale: at 30 s the clock bar turns red and everyone is told; the last 10 s tick at every corner sign
           if (left === 30) { faces.forEach((F) => F.bar.setAttribute("color", "#e5533d")); RY.hands.forEach((_, pid) => handMsg(pid, ["r_30"], 2500)); R.score.forEach(([sx, sy, sz]) => sfx("lift_chime.mp3", sx, sy + 1.5, sz, 0.7)); }
@@ -752,7 +757,7 @@
           if (LV[mine] !== (old.rock ? 1 : LV[old.c]) + 1) { handMsg(id, ["r_lvlow"], 2000); return; }
           old.g.remove(); RY.board[i] = null;
         }
-        const c = H.cards[k], team = RY.roster.get(id); H.cards[k] = null; H.rock = false;
+        const c = H.cards[k], team = RY.roster.get(id); H.cards[k] = null; H.rock = false; H.chosen = false;
         const nx = H.cards.findIndex((cc) => cc !== null); H.sel = nx < 0 ? 0 : nx; handDraw(id);
         const [x, z] = tileXZ(i);
         const g = el("m-group", { x, y: TOP, z }, rg);
@@ -1936,6 +1941,7 @@
       return m;
     });
     const realSlot = () => H.map.indexOf(D.realHall), vRealSlot = () => H.vmap.indexOf(D.realVault);
+    try { window.__realHall = () => H.map[realSlot()]; } catch (e) {}       // (for the bot tests)
     // the vault's glass door: shut for everyone but the finalists
     const VD = D.vaultDoor;
     const door = model("sp_vault_door.glb", { x: VD[0], y: VD[1], z: VD[2], ry: VD[3], collide: "false" });

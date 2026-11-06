@@ -29,7 +29,9 @@ D = {
   'chand': F1['rings'],
   'chand2': [],
   'lifts': LL['lifts'], 'sheaveY': LL['sheave_y'], 'hitch': LL['hitch'], 'rope': LL['rope'], 'sheaveR': LL['sheave_r'], 'cwZ': LL['cw_z'], 'cabApo': L['cab_apo'], 'doorW': L['door_w'], 'doorH': L['door_h'], 'cabWallH': 3.45, 'cabGateH': 3.35,       # v24: taller cabs (2.6 / 2.5 + 0.85)
-  'hall': [[p['x'], p['y'], p['z'], p['ry']] for p in F2['hall']], 'vault': [[p['x'], p['y'], p['z'], p['ry']] for p in F2['vault']],
+  # (v48, owner: "ALL THE PORTRAITS ON THE WALL WHERE THE STAIRS ARE cannot be clicked") the stair towers' invisible wall stands 7 cm
+  # in front of the portraits hung on it (x +-51.74, z -9.5..9.5), so it caught every click. Those portraits now hang 15 cm further out.
+  'hall': [[(p['x'] - math.copysign(0.15, p['x'])) if (abs(p['x']) > 51.5 and abs(p['z']) < 9.7) else p['x'], p['y'], p['z'], p['ry']] for p in F2['hall']], 'vault': [[p['x'], p['y'], p['z'], p['ry']] for p in F2['vault']],
   'realHall': real_hall, 'realVault': real_vault, 'hallImgs': F2['imgs'],
   'vaultDoor': F2['door'],
   'refs': [[r(-24.0 * KX_), Y2, r(12.0 * KZ_)], [r(24.0 * KX_), Y2, r(-12.0 * KZ_)], [r(-12.0 * KX_), Y2, r(-20.0 * KZ_)], [r(12.0 * KX_), Y2, r(20.0 * KZ_)]], 'refFlag': F2['plinth'],

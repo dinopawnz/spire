@@ -347,7 +347,7 @@ def apply(D, L, FL):
         hands=hand_frames(),
         cards=[[cards[str(k)]['t'], cards[str(k)]['l'], cards[str(k)]['r'], cards[str(k)]['b']] for k in range(1, 121)],
         lv=[cards[str(k)]['lv'] for k in range(1, 121)],                  # (v45) card levels: only level 1 goes on an empty square
-        secs=180, hand=5, refill=10, signs=signs,
+        secs=180, hand=5, refill=3, signs=signs,        # (v49) each empty hand slot refills 3 s after it's played
     )
     art = decor(D, L, FL)
     for (n_, *_r) in art:                                                  # plain (no badge) card art for the wall frames

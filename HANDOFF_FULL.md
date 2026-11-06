@@ -34,7 +34,7 @@
 | Where | Version | What |
 |---|---|---|
 | branch `main` | v13 | the old LIVE build. Untouched. Push to main ONLY when the owner says. |
-| branch **`handoff-v14`** | **v48** | everything from sessions 6–11. This is what the owner tests. |
+| branch **`handoff-v14`** | **v49** | everything from sessions 6–11. This is what the owner tests. |
 
 The owner's files load assets from `https://raw.githubusercontent.com/dinopawnz/spire/handoff-v14/` (baked into spire.html by `build_html.py`), so **assets must be pushed to `handoff-v14` before the owner's HTML works.** Remote PIN: **7747**, then press LIVE BUILD.
 
@@ -248,6 +248,11 @@ Raised dark-timber photo stage with steps, Meshy photo arch (8 m) with the Mudwa
 - **Solid water** (owner: people fall through): one invisible pad 356 x 356 m, top at y -0.25 (ankle-deep wading), centred on the water (0, 25).
 - **Music volume on the remote**: MUSIC QUIETER / LOUDER (10 % steps) / 50 % NORMAL; commands `music down|up|vol <0-100>`; changes the record that's playing (no restart) and the next ones; the remote's "Now playing" line shows the %.
 - **Hall of Fakes: no sound on a wrong pick** (owner worried about hundreds of wrong clicks); players still see FORGERY + countdown (private). The found sound stays (once per round).
+### v49 (session 11)
+- **Hall of Fakes: the portraits on the stair-tower walls couldn't be clicked** (owner, major): the stair towers' invisible wall in `sp_shell_col` stands 7 cm in front of the portraits hung at x +-51.74, z -9.5..9.5 (45 portraits), so it caught the clicks. Those portraits now hang 15 cm further out (build_html, D.hall).
+- **NEW TEST - every clickable portrait: `viewer/clicktest/`**: `export.py <spire.html>` builds the world in a headless page and writes every element with its world matrix; `run.py` loads it all in three.js and casts a click ray at each of the 500 portraits from 9 spots (1.5/2.5/3.6 m out, straight and +-35 deg), listing anything in the way (colliders, visible models, invisible boxes). Now: all 400 hall portraits clear from all 9 spots; vault portraits clear from 1.5 and 2.5 m (only the 3.6 m spot hits the vault room's own walls - finalists stand inside). **Run it after any change near clickable things.**
+- `viewer/hallload.py`: 100 bots clicking portraits for 60 s (~7,500 clicks): ~0.05 ms per click, worst <2 ms, no errors, winner registered.
+- **Mud Royale**: a hand's first card is pre-selected, so a player's first click on it turned it into a ROCK - now a rock needs a second click on a card the player picked. Refills: every empty hand slot refills 3 s after it's played (was one card per 10 s for the whole hand). Sign + message updated.
 - Possible next looks items: the team pens read a bit like boxing rings (owner asked what the "gator ring" was) - offer a restyle (timber platform / moss-and-lantern clearing).
 - (old note) NEXT for floor 3: decoration pass to lounge standard (owner: "every floor must keep the same standard as the first floor") - it's dark and bare apart from the arena: lantern rings + warm light pools, Mudwater banners, framed cards on the walls, spectator benches/bleachers, plants, moss on beams.
 
