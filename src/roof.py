@@ -43,7 +43,9 @@ def apply(D, L, FL):
     have = lambda n: n in outside.META
     # ---- the deck we use: x +-30, z -28 .. 26 (between the steeple house and the front gables)
     # the stage
-    x0, x1, z0, z1, h = -11.0, 11.0, -6.0, 3.0, 0.75
+    # (v40, owner: "this backdrop should be further back against the wall so we can take a picture with 100+ people") the stage stands
+    # right in front of the backdrop, which hangs against the steeple house wall: the whole deck in front is free for a big group photo
+    x0, x1, z0, z1, h = -16.0, 16.0, -29.9, -21.0, 0.75
     stage_glb(y, x0, x1, z0, z1, h)
     D.setdefault('roofModels', []).append(['sp_roof_stage', 0, 0, 0])
     pads.append([0.0, y + h / 2, (z0 + z1) / 2, x1 - x0, h, z1 - z0, 0])
@@ -58,7 +60,7 @@ def apply(D, L, FL):
     D['deco'].append(['mw_logo', 0.0, r3(ys + 5.6), r3(z0 + 2.0), 0.0, 1.9])
     # ---- planters with little cypress trees all round the terrace edge
     if have('planter'):
-        spots = [(x, -27.0) for x in (-26, -13, 13, 26)] + [(sx * 29.0, z) for sx in (-1, 1) for z in (-18, -6, 6, 18)] + [(x, 25.0) for x in (-24, -14, 14, 24)]
+        spots = [(x, -27.0) for x in (-26, 26)] + [(sx * 29.0, z) for sx in (-1, 1) for z in (-18, -6, 6, 18)] + [(x, 25.0) for x in (-24, -14, 14, 24)]
         for (x, z) in spots:
             add(place('planter', x, y, z, R.uniform(0, 360), 3.4, 'h')); pads.append([x, y + 0.6, z, 1.6, 1.2, 1.6, 0])
     # ---- benches facing the stage, two curved rows each side
@@ -91,8 +93,8 @@ def apply(D, L, FL):
     lights_glb(strands)
     D['roofModels'].append(['sp_roof_lights', 0, 0, 0])
     # ---- the Old Skipper stands beside the stage, facing the crowd
-    if 'where' in D and 'skipper' in D['where']: D['where']['skipper'] = [-13.5, y, 4.5, 20]
-    backdrop(D, L, FL, zb=z0 - 3.2)
+    if 'where' in D and 'skipper' in D['where']: D['where']['skipper'] = [-18.5, y, -19.0, 30]
+    backdrop(D, L, FL, zb=-30.45, half=18.0, top=8.0)
     artwall(D, L, FL)
     print('roof: stage, arch, %d planters, %d fires, %d light strands, %d pads' % (sum(1 for e in D['sdeco'] if e[0] == 'sp_m_planter'), len(fires), len(strands), len(pads)))
 
@@ -130,7 +132,7 @@ def backdrop(D, L, FL, zb=-9.2, half=12.4, top=8.6):
     for yy in (y + top - 0.13, y + top + 0.43):
         bevel_box(m, 'gold', 2 * half + 4.1, 0.06, 0.64, 0.01, m=T(0, yy, zb))
     # the light curtain: a strand every 0.45 m, bulbs every 0.42 m, the bottoms scalloped
-    xs = np.arange(-half + 0.55, half - 0.5, 0.45)
+    xs = np.arange(-half + 0.55, half - 0.5, 0.5)
     for k, x in enumerate(xs):
         bot = y + 1.0 + 0.55 * abs(math.sin(k * math.pi / 9.0))
         z = zb + 0.05 + 0.04 * math.sin(k * 1.7)

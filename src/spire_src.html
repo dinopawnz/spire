@@ -136,6 +136,10 @@
   }
   function zoneGroup(k, world) { if (!ZONES[k]) { ZONES[k] = el("m-group", { "visible-to": "-1" }, world || WORLD); ZSET[k] = new Set(); } return ZONES[k]; }
   function zoneUp(world) {
+    // (v40, owner: lift landing gate stayed shut / call button dead) with zoning OFF nothing is moved into the per-floor visible-to groups
+    // any more: everything stays in the world as before v24. Things inside those groups (the landing gates, the call buttons) misbehaved
+    // in Otherside while the parts kept outside them (the cab's own gate) worked.
+    if (!ZONING) return 0;
     const tg = (n) => String(n.tagName).toUpperCase();
     const VIS = ["visible", "visible-to", "hidden-from"], T0_ = ["x", "y", "z", "rx", "ry", "rz"], T1 = ["sx", "sy", "sz"];
     const plain = (n) => tg(n) === "M-GROUP" && !VIS.some((k) => n.hasAttribute(k)) &&
@@ -466,10 +470,30 @@
           hb.addEventListener("click", (e) => paintAt(c, r, e.detail && e.detail.connectionId));
         }
       };
+      // (v40, owner: "only allow players to draw using tiny dots, not giant squares") each click paints a 10 cm dot right where you
+      // clicked (Otherside sends the click position), so people can draw lines and write. One dot per 10 cm spot (a new colour replaces
+      // it); at most 5000 dots on the wall for everyone's frame rate - past that the oldest dots fade away. The eraser clears a small patch.
+      const DOT = 0.1, DCOLS = Math.round(W / DOT), DROWS = Math.round(H / DOT), MAXD = 5000;
+      ART.dots = new Map();
+      const dotAt = (lx, ly, id) => {
+        if (ART.locked || id === undefined) return;
+        const t = now(); if (t - (ART.last.get(id) || 0) < 90) return; ART.last.set(id, t);
+        const c = Math.floor((lx + W / 2) / DOT), r = Math.floor(ly / DOT);
+        if (c < 0 || r < 0 || c >= DCOLS || r >= DROWS) return;
+        const col = PAL[ART.brush.has(id) ? ART.brush.get(id) : 2];
+        if (col === "erase") {
+          for (let dc = -2; dc <= 2; dc++) for (let dr = -2; dr <= 2; dr++) { const k = (r + dr) * DCOLS + (c + dc), d = ART.dots.get(k); if (d) { d.remove(); ART.dots.delete(k); } }
+          return;
+        }
+        const k = r * DCOLS + c, have = ART.dots.get(k);
+        if (have) { if (have.getAttribute("color") !== col) have.setAttribute("color", col); ART.dots.delete(k); ART.dots.set(k, have); return; }
+        ART.dots.set(k, el("m-cube", { x: -W / 2 + DOT * (c + 0.5), y: DOT * (r + 0.5), z: 0.02, width: DOT * 1.15, height: DOT * 1.15, depth: 0.01, color: col, collide: "false", "cast-shadows": "false" }, AG));
+        if (ART.dots.size > MAXD) { const [k0, e0] = ART.dots.entries().next().value; e0.remove(); ART.dots.delete(k0); }
+      };
       big.addEventListener("click", (e) => {
         const p = e.detail && e.detail.position, id = e.detail && e.detail.connectionId;
         if (!p || (Math.abs(p.x) < 1e-6 && Math.abs(p.y) < 1e-6)) { toGrid(); return; }
-        paintAt(Math.floor((p.x + W / 2) / C), Math.floor((p.y + H / 2) / C), id);
+        dotAt(p.x, p.y + H / 2, id);
       });
       // the paint stands: a row of paint pots (13 colours + the eraser) on each table; click one to load your brush
       AW.stands.forEach(([sx, sy, sz, sry]) => {
@@ -511,7 +535,7 @@
         setBoard(ART.names.join("  ·  "));
         sfx("lift_chime.mp3", lx, ly + 1, lz, 0.5);
       });
-      ART.clear = () => { ART.cells.forEach((c) => c.remove()); ART.cells.clear(); ART.names = []; setBoard(null); };
+      ART.clear = () => { ART.cells.forEach((c) => c.remove()); ART.cells.clear(); ART.dots.forEach((d) => d.remove()); ART.dots.clear(); ART.names = []; setBoard(null); };
     }
     // ---------------------------------------------------- MUD ROYALE (v34, game 2, floor 3). The owner's rules: WALK ONTO a team pad to
     // join (switch freely until the host presses START); at the start every player on a team gets 5 Mudwater cards (shown only to them on
@@ -1397,6 +1421,7 @@
         const glow = model("sp_lift_callglow.glb", { collide: "false" }, cb); glow.remove();
         const hb = hitBox({ y: 0.02, width: 0.3, height: 0.42, depth: 0.16 }, cb);
         hb.addEventListener("click", (e) => request(st, k, e.detail && e.detail.connectionId));
+        [gR, gL, nd, cb].forEach((n) => (n._global = true));                  // (v40) part of the lift: never moved into a floor group
         return { po, gR, gL, gp, nd, cb, glow, gpY: po.gate_col[1] + D.doorH / 2 };
       });
       // --- the machine head, ropes and counterweight
@@ -1411,9 +1436,22 @@
       [CG, sheave, pinion, gov, cabRope, cwRope, CW].forEach((n) => (n._global = true));
       LANDS.forEach((l) => { [l.gR, l.gL, l.nd, l.cb].forEach((n) => (n._global = true)); });
 
+      function stepAttr(g, attr, a, b, ms, n) {
+        if (g._tw && g._tw[attr]) { cancel(g._tw[attr].h); g._tw[attr].a.remove(); delete g._tw[attr]; }
+        Array.from(g.children).forEach((c) => { if (c.tagName && c.tagName.toLowerCase() === "m-attr-anim" && c.getAttribute("attr") === attr) c.remove(); });
+        (g._steps || []).forEach((h) => cancel(h)); g._steps = [];
+        for (let i = 1; i <= n; i++) {
+          const u = i / n, e = u < 0.5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2;
+          g._steps.push(later(Math.round(ms * u), () => g.setAttribute(attr, String(r3(a + (b - a) * e)))));
+        }
+        g._steps.push(later(ms + 500, () => g.setAttribute(attr, String(r3(b + (b > a ? 0.002 : -0.002))))));     // a nudge + the final value again:
+        g._steps.push(later(ms + 700, () => g.setAttribute(attr, String(r3(b)))));                                    // a client that missed a step catches up
+      }
       function gates(open, k) {
         const s0 = open ? 1 : 0.15, s1 = open ? 0.15 : 1, l = LANDS[k];
-        [cgR, cgL, l.gR, l.gL].forEach((g) => tween(g, "sx", s0, s1, 1100, "easeInOutQuad"));
+        // (v40, owner: "the second gate didn't open so I can't get out") no m-attr-anim on the gates any more: they open/close in 9 plain
+        // attribute steps (every client always shows the last value it was sent), and the final value is sent again a moment later
+        [cgR, cgL, l.gR, l.gL].forEach((g) => stepAttr(g, "sx", s0, s1, 1100, 9));
         // the invisible gate walls follow the leaves: gone once the door is mostly open, back once it is mostly shut
         // (so a door that looks open is always walkable, and nobody gets stopped by glass while it still looks open)
         later(open ? 850 : 750, () => { if (st.open !== open) return; cgatePad.setAttribute("y", open ? -60 : D.cabGateH / 2); l.gp.setAttribute("y", open ? -300 : l.gpY); });
@@ -1466,7 +1504,7 @@
       function heal(why) {
         if (!st.busy || now() < st.deadline) return false;
         const k = st.target !== undefined ? st.target : st.at;
-        const fin = (n, attr, v) => { if (n._tw && n._tw[attr]) { cancel(n._tw[attr].h); n._tw[attr].a.remove(); delete n._tw[attr]; } Array.from(n.children).forEach((c) => { if (c.tagName && c.tagName.toLowerCase() === "m-attr-anim" && c.getAttribute("attr") === attr) c.remove(); }); n.setAttribute(attr, String(r3(v))); };
+        const fin = (n, attr, v) => { (n._steps || []).forEach((h) => cancel(h)); n._steps = []; if (n._tw && n._tw[attr]) { cancel(n._tw[attr].h); n._tw[attr].a.remove(); delete n._tw[attr]; } Array.from(n.children).forEach((c) => { if (c.tagName && c.tagName.toLowerCase() === "m-attr-anim" && c.getAttribute("attr") === attr) c.remove(); }); n.setAttribute(attr, String(r3(v))); };
         const b = Lf.stops[k];
         fin(CG, "y", b); fin(cabRope, "sy", SY - (b + HITCH)); fin(cwRope, "sy", SY - cwTop(b)); fin(CW, "y", cwTop(b));
         fin(needleIn, "rz", Lf.dial_rz[k]); fin(needleOut, "rz", Lf.dial_rz[k]); fin(lever, "rx", 0);
@@ -1745,7 +1783,7 @@
           if (a1 === "clear") { ART.clear(); return "ART WALL WIPED CLEAN"; }
           if (a1 === "lock") { ART.locked = true; return "ART WALL LOCKED - NOBODY CAN PAINT OR SIGN"; }
           if (a1 === "unlock") { ART.locked = false; return "ART WALL OPEN FOR PAINTING"; }
-          return "ART WALL: " + ART.cells.size + " SQUARES PAINTED, " + ART.names.length + " NAMES" + (ART.locked ? " (LOCKED)" : "") + (ART.grid ? " [GRID MODE]" : "");
+          return "ART WALL: " + (ART.dots ? ART.dots.size : 0) + " DOTS + " + ART.cells.size + " SQUARES PAINTED, " + ART.names.length + " NAMES" + (ART.locked ? " (LOCKED)" : "") + (ART.grid ? " [GRID MODE]" : "");
         }
         if (cmd === "pool") { POOL.forEach((T) => { T.busy = false; POOL.rack(T); }); return "BOTH POOL TABLES RACKED"; }
         if (cmd === "music") {

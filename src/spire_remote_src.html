@@ -573,7 +573,7 @@ details.cheat dl { margin: 8px 0 0; } details.cheat dt { color: var(--sky); font
       R.btn(g, "CLEAR WALL", "wipe all the paint and names", () => R.say("art clear"), { cls: "b-warn", confirm: "Wipe the whole art wall?" });
       R.btn(g, "LOCK WALL", "nobody can paint or sign", () => R.say("art lock"), { cls: "b-sky" });
       R.btn(g, "UNLOCK WALL", "painting allowed again", () => R.say("art unlock"), { cls: "b-go" });
-      R.note(p, "Players pick a paint pot on one of the two tables, then click the canvas to paint squares (the pink block is the eraser). Names typed at the lectern go on the board along the top.");
+      R.note(p, "Players pick a paint pot on one of the two tables, then click the canvas to paint small dots where they click (the pink block is the eraser; the wall keeps the newest 5000 dots). Names typed at the lectern go on the board along the top.");
 
       p = R.panel(R.left, "If people lag", "nobody loses progress");
       g = R.grid(p);
