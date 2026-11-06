@@ -78,12 +78,21 @@
     target._tw = target._tw || {};
     const prev = target._tw[attr];
     if (prev) { cancel(prev.h); prev.a.remove(); }
+    if (target._fu && target._fu[attr]) { cancel(target._fu[attr]); delete target._fu[attr]; }        // a newer move wins over an old catch-up
     // (v27, owner: lift doors stuck half open / one leaf open) the FINAL value is set right away: the animation only draws the
     // movement on top of it, so a client that misses the animation's end still shows the door/cab where it really is
     target.setAttribute(attr, String(r3(to)));
     const a = el("m-attr-anim", { attr, start: from, end: to, duration: Math.round(ms), loop: "false", easing: easing || "easeInOutCubic", "start-time": Math.round(now()) }, target);
     const rec = { a, to };
-    rec.h = later(ms + 80, () => { if (target._tw[attr] !== rec) return; target.setAttribute(attr, String(r3(to))); a.remove(); delete target._tw[attr]; });
+    // (v41, owner: pool cue "teleports back to where it was", white ball vanishing, lift gate stuck) when the animation is taken off,
+    // Otherside can fall back to the value the object had when the animation started. So after removing it the final value is sent
+    // AGAIN as a fresh change (a hair off, then exact), which every client applies.
+    rec.h = later(ms + 80, () => {
+      if (target._tw[attr] !== rec) return;
+      a.remove(); delete target._tw[attr];
+      target.setAttribute(attr, String(r3(to) + (to >= 0 ? 0.001 : -0.001)));
+      target._fu = target._fu || {}; target._fu[attr] = later(70, () => { delete target._fu[attr]; if (!target._tw[attr]) target.setAttribute(attr, String(r3(to))); });
+    });
     target._tw[attr] = rec;
   }
   const sfx = (file, x, y, z, vol, parent) => { const a = el("m-audio", { src: BASE + file + VER, x, y, z, loop: "false", volume: vol || 0.8, "start-time": Math.round(now()) }, parent); later(12000, () => a.remove()); return a; };
@@ -189,11 +198,12 @@
 
   // ---- LITE + REFRESH (as in the castle)
   let LITE = null;
-  const DECOR = /sp_(chandelier|lantern_[abc]|fx_|wisp|moonbeam|m_vines|m_ivy)|bio_|gc_\d|mw_motes|fireflies|mist\.glb|glowplant|reeds|floatlantern|lilypads|moss_c|shelfshroom|jarlantern|cypress|m_hanglantern|m_cattails/;
+  const DECOR = /sp_(chandelier|lantern_[abc]|fx_|wisp|moonbeam|m_vines|m_ivy)|bio_|mw_motes|fireflies|mist\.glb|glowplant|reeds|floatlantern|lilypads|moss_c|shelfshroom|jarlantern|cypress|m_hanglantern|m_cattails/;
   function liteOn() {
     if (LITE) return "LITE MODE IS ALREADY ON";
     const tg = (n) => String(n.tagName).toUpperCase();
-    const out = Array.from(WORLD.querySelectorAll("m-model, m-image, m-sphere")).filter((m) => DECOR.test(m.getAttribute("src") || "") || m.hasAttribute("data-lite"));
+    const out = Array.from(WORLD.querySelectorAll("m-model, m-image, m-sphere")).filter((m) => DECOR.test(m.getAttribute("src") || "") || m.hasAttribute("data-lite"))
+      .concat(Array.from(WORLD.querySelectorAll("m-attr-anim[data-lite-anim]")));          // (v41) the floating cards just stop moving
     LITE = { removed: out.map((n) => ({ n, parent: n.parentNode, next: n.nextSibling })), shadows: [] };
     LITE.removed.forEach((r) => r.n.remove());
     return "LITE MODE ON - " + LITE.removed.length + " DECORATIVE PIECES REMOVED. PROGRESS KEPT.";
@@ -305,7 +315,7 @@
     // the lounge's big lantern rings (timber hoops of iron lanterns, as in the owner's concept), swaying a touch
     D.chand.map((c) => [c[0], c[1], L.f2 - 0.5, c[2] || 1]).concat(D.chand2.map((c) => [c[0], c[1], L.gallery - 0.5, c[2] || 1])).concat((D.chand3 || []).map((c) => [c[0], c[1], L.f4 - 0.5, c[2] || 1])).forEach(([x, z, y, s], i) => {
       const g = el("m-group", { x, y, z });
-      anim(g, "rz", -1.2, 1.2, 5200 + i * 700, { pingPong: true, easing: "easeInOutSine", delay: i * 900 });
+      // (v41, fps) no sway: 34 fewer animations running all the time
       model("sp_lantern_ring.glb", { collide: "false", sx: s, sy: s, sz: s }, g);
     });
     // single iron lanterns hanging from the lounge ceiling at different heights
@@ -342,9 +352,11 @@
         ring.cards.forEach(([n, a, dy, sc], k) => {
           const c = polar(ring.r, a, dy);
           const g = el("m-group", { x: c[0], y: c[1], z: c[2], ry: a + 180 }, spin);     // faces the building
-          anim(g, "y", dy - 1.2, dy + 1.2, 7000 + (k % 5) * 900, { pingPong: true, easing: "easeInOutSine", delay: k * 700 });
+          // (owner: "i do want them to spin and bob but if i hit lite mode, maybe they can just hold still") the bob + turn are tagged so
+          // LITE MODE takes just these animations off (the cards stay) and puts them back when it's turned off
+          anim(g, "y", dy - 1.2, dy + 1.2, 7000 + (k % 5) * 900, { pingPong: true, easing: "easeInOutSine", delay: k * 700 }).setAttribute("data-lite-anim", "1");
           const turn = el("m-group", { rz: (k % 7) - 3 }, g);                              // each card slowly turns round, front then back
-          anim(turn, "ry", 0, k % 2 ? 360 : -360, 40000 + (k % 9) * 4000, { delay: k * 1300 });
+          anim(turn, "ry", 0, k % 2 ? 360 : -360, 40000 + (k % 9) * 4000, { delay: k * 1300 }).setAttribute("data-lite-anim", "1");
           model("gc_" + String(n).padStart(3, "0") + ".glb", { sx: sc, sy: sc, sz: sc, collide: "false" }, turn);
         });
         if (ring.strand) model(ring.strand + ".glb", { collide: "false" }, spin);            // gold light strings between the cards
@@ -381,7 +393,7 @@
       // faint moonlight shafts slanting down through the mist
       F.moon.forEach(([x, y, z, rx, rz, w, h]) => { const t = el("m-group", { x, y, z, rx, rz }); model("sp_moonbeam.glb", { sx: w, sy: h, sz: w, collide: "false" }, t); });
       // will-o'-wisps: little ghost lights wandering low over the water
-      F.wisps.forEach(([f, x, y, z, dx, dz, per, del, sc]) => {
+      F.wisps.filter((_, i) => i % 6 === 0).forEach(([f, x, y, z, dx, dz, per, del, sc]) => {      // (v41, fps) 70 -> 12 wisps
         const g = el("m-group", { x, y, z });
         anim(g, "x", x - dx, x + dx, per, { pingPong: true, easing: "easeInOutSine", delay: del });
         anim(g, "z", z - dz, z + dz, Math.round(per * 1.37), { pingPong: true, easing: "easeInOutSine", delay: del * 0.7 });
@@ -389,7 +401,7 @@
         model(f + ".glb", { sx: sc, sy: sc, sz: sc, collide: "false" }, g);
       });
       // sky lanterns drifting up off the water
-      F.lanterns.forEach(([x, z, dur, del, sc]) => {
+      F.lanterns.filter((_, i) => i % 3 === 0).forEach(([x, z, dur, del, sc]) => {                 // (v41, fps) a third of the sky lanterns
         const SL = F.skyLantern;
         const m = SL ? model(SL[0] + ".glb", { x, y: 0, z, sx: sc, sy: sc, sz: sc, collide: "false" }) : mw("mwm_floatlantern", { x, y: 0, z, sx: sc, sy: sc, sz: sc });
         anim(m, "y", 0, 150, dur, { delay: del });
@@ -904,6 +916,11 @@
       });
       [PD.howto, PD.howto2].forEach((h) => { if (h) el("m-image", { src: BASE + "pool_howto.png" + VER, x: h[0], y: h[1], z: h[2], ry: h[3], width: h[4], emissive: 0.8, collide: "false", "cast-shadows": "false" }); });
       function poolPlace(T) {
+        // (v41, owner: "the white ball becomes invisible") a pocketed ball's sink animation could finish AFTER the re-spot and pull it back
+        // under the felt: cancel every leftover animation on the balls first, then set where they really are
+        T.balls.forEach((b) => { const tw = b.el._tw || {}; Object.keys(tw).forEach((k) => { cancel(tw[k].h); tw[k].a.remove(); delete tw[k]; });
+          Object.values(b.el._fu || {}).forEach((h) => cancel(h)); b.el._fu = {};
+          Array.from(b.el.children).forEach((c) => { if (c.tagName && c.tagName.toLowerCase() === "m-attr-anim") c.remove(); }); });
         T.balls.forEach((b) => { b.el.setAttribute("x", r3(b.x)); b.el.setAttribute("z", r3(b.z)); b.el.setAttribute("y", FY); b.el.setAttribute("visible", b.on ? "true" : "false"); });
         const c = T.balls[0]; T.aimG.setAttribute("x", r3(c.x)); T.aimG.setAttribute("z", r3(c.z));
         T.aimG.setAttribute("visible", "true"); T.cuePivot.setAttribute("ry", r3(T.aim));
@@ -914,7 +931,12 @@
         const P = rackPos(); T.balls.forEach((b) => { b.x = P[b.n][0]; b.z = P[b.n][1]; b.on = true; });
         T.aim = 0; poolPlace(T); return "POOL TABLE " + (T.i + 1) + " RACKED";
       }
-      function poolAim(T, a) { if (T.busy) return; T.aim = ((a % 360) + 360) % 360; tween(T.cuePivot, "ry", T.cuePivot._ry || 0, T.aim, 350, "easeOutQuad"); T.cuePivot._ry = T.aim; }
+      function poolAim(T, a) {                                  // (v41) the cue turns straight to the new angle: a plain change every client keeps
+        if (T.busy) return; T.aim = ((a % 360) + 360) % 360;
+        if (T.cuePivot._tw && T.cuePivot._tw.ry) { cancel(T.cuePivot._tw.ry.h); T.cuePivot._tw.ry.a.remove(); delete T.cuePivot._tw.ry; }
+        if (T.cuePivot._fu && T.cuePivot._fu.ry) { cancel(T.cuePivot._fu.ry); delete T.cuePivot._fu.ry; }
+        T.cuePivot.setAttribute("ry", String(r3(T.aim))); T.cuePivot._ry = T.aim;
+      }
       function poolNudge(T, e, d) { poolAim(T, T.aim + d); }
       function simulate(T, speed) {
         const B = T.balls.map((b) => ({ n: b.n, x: b.x, z: b.z, vx: 0, vz: 0, on: b.on, keys: [] }));
@@ -1164,14 +1186,13 @@
     BIO.floor.forEach(([x, y, z, w, h, ry, del, per, gold]) => {
       const g = el("m-group", { x, y, z, ry });
       // the lounge (gold) gets thin warm amber veins with a gentle breath; the Hall of Fakes keeps its teal
-      const m = el("m-image", { src: bioSrc(gold ? "bio_veins_amber.png" : "bio_veins.png"), rx: -90, width: w, height: h, emissive: gold ? 0.5 : 0.6, opacity: 0.95, collide: "false", "cast-shadows": "false" }, g);
-      anim(m, "emissive", gold ? 0.2 : 0.15, gold ? 1.3 : 2.6, per, { pingPong: true, easing: "easeInOutSine", delay: del });
+      const m = el("m-image", { src: bioSrc(gold ? "bio_veins_amber.png" : "bio_veins.png"), rx: -90, width: w, height: h, emissive: gold ? 0.75 : 1.3, opacity: 0.95, collide: "false", "cast-shadows": "false" }, g);
+      // (v41, fps) a steady glow: 152 fewer animations
     });
     BIO.wall.forEach(([x, y, z, w, h, ry, del, per, gold]) => {
       const m = el("m-image", { src: bioSrc(gold ? "bio_wall_amber.png" : "bio_wall.png"), x, y, z, ry, width: w, height: h, emissive: gold ? 0.5 : 0.8, opacity: 0.95, collide: "false", "cast-shadows": "false" });
-      anim(m, "emissive", gold ? 0.25 : 0.2, gold ? 1.3 : 2.4, per, { pingPong: true, easing: "easeInOutSine", delay: del });
     });
-    BIO.spores.forEach(([x, y, z, rad, dur, del, rise]) => {
+    BIO.spores.filter((_, i) => i % 4 === 0).forEach(([x, y, z, rad, dur, del, rise]) => {          // (v41, fps) a quarter of the spores
       const m = el("m-sphere", { x, y, z, radius: rad, color: "#b9ffe6", emissive: 4, collide: "false", "cast-shadows": "false", "data-lite": "1" });
       anim(m, "y", y, y + rise, dur, { delay: del });
     });
@@ -1438,6 +1459,7 @@
 
       function stepAttr(g, attr, a, b, ms, n) {
         if (g._tw && g._tw[attr]) { cancel(g._tw[attr].h); g._tw[attr].a.remove(); delete g._tw[attr]; }
+        if (g._fu && g._fu[attr]) { cancel(g._fu[attr]); delete g._fu[attr]; }
         Array.from(g.children).forEach((c) => { if (c.tagName && c.tagName.toLowerCase() === "m-attr-anim" && c.getAttribute("attr") === attr) c.remove(); });
         (g._steps || []).forEach((h) => cancel(h)); g._steps = [];
         for (let i = 1; i <= n; i++) {
@@ -1504,7 +1526,7 @@
       function heal(why) {
         if (!st.busy || now() < st.deadline) return false;
         const k = st.target !== undefined ? st.target : st.at;
-        const fin = (n, attr, v) => { (n._steps || []).forEach((h) => cancel(h)); n._steps = []; if (n._tw && n._tw[attr]) { cancel(n._tw[attr].h); n._tw[attr].a.remove(); delete n._tw[attr]; } Array.from(n.children).forEach((c) => { if (c.tagName && c.tagName.toLowerCase() === "m-attr-anim" && c.getAttribute("attr") === attr) c.remove(); }); n.setAttribute(attr, String(r3(v))); };
+        const fin = (n, attr, v) => { (n._steps || []).forEach((h) => cancel(h)); n._steps = []; if (n._fu && n._fu[attr]) { cancel(n._fu[attr]); delete n._fu[attr]; } if (n._tw && n._tw[attr]) { cancel(n._tw[attr].h); n._tw[attr].a.remove(); delete n._tw[attr]; } Array.from(n.children).forEach((c) => { if (c.tagName && c.tagName.toLowerCase() === "m-attr-anim" && c.getAttribute("attr") === attr) c.remove(); }); n.setAttribute(attr, String(r3(v))); };
         const b = Lf.stops[k];
         fin(CG, "y", b); fin(cabRope, "sy", SY - (b + HITCH)); fin(cwRope, "sy", SY - cwTop(b)); fin(CW, "y", cwTop(b));
         fin(needleIn, "rz", Lf.dial_rz[k]); fin(needleOut, "rz", Lf.dial_rz[k]); fin(lever, "rx", 0);
