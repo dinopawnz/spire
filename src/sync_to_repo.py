@@ -24,9 +24,12 @@ branch = sys.argv[sys.argv.index('--branch') + 1] if '--branch' in sys.argv else
 if branch and branch in args: args.remove(branch)
 msg = args[0] if args else 'update build'
 
-subprocess.run(['node', VIEW + '/refcheck2.js', SP + '/out/spire.html', SP + '/out'], check=True, timeout=300)
-refs = [r[len(BASE):] for r in json.load(open('/tmp/refs.json')) if r.startswith(BASE)]
-refs += [os.path.relpath(p, SP + '/out/bio') for p in glob.glob(SP + '/out/bio/*.png')] + ['water_fall.png']
+# refcheck2 runs in headless Chrome (chrometest.py), since jsdom may not be installable; works for pages built against any branch
+subprocess.run(['python3', VIEW + '/chrometest.py', VIEW + '/refcheck2.js', SP + '/out/spire.html', SP + '/out'], check=True, timeout=600, stdout=subprocess.DEVNULL)
+import re
+refs = [re.sub(r'^https://raw\.githubusercontent\.com/dinopawnz/spire/[^/]+/', '', r) for r in json.load(open('/tmp/refs.json')) if '/dinopawnz/spire/' in r]
+refs = [r.split('?')[0] for r in refs]
+refs += [os.path.relpath(p, SP + '/out/bio') for p in glob.glob(SP + '/out/bio/*.png')] + ['water_fall.png', 'water_fall2.png', 'fall_glow.png', 'foam.png']
 
 todo = {}
 for f in sorted(set(refs)):
@@ -34,7 +37,8 @@ for f in sorted(set(refs)):
         if os.path.isfile(src):
             if not os.path.exists(REPO + '/' + f) or not filecmp.cmp(src, REPO + '/' + f, shallow=False): todo[f] = src
             break
-    else: print('!! no built file for', f)
+    else:
+        if not os.path.exists(REPO + '/' + f): print('!! no built file for', f)
 for f in ('spire.html', 'spire_remote.html'): todo[f] = SP + '/out/' + f
 big = [f for f, s in todo.items() if os.path.getsize(s) > 95e6]
 if big: sys.exit('!! over GitHub 100 MB limit: %s' % big)

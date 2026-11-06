@@ -26,7 +26,7 @@ D = {
   'taps': [[t[0], r(t[1] + 0.07), t[2], t[3]] for t in F1['taps']],
   'barTop': r(Y1 + 1.165), 'trayTop': r(Y1 + 1.195), 'barRound': F1['bar'],
   'books': [[6.5, FL['lounge'], 34.0, 0], [-6.5, FL['lounge'], 34.0, 0]],
-  'chand': [[16, 17], [25, 4], [-21, -15], [15, -12], [-19, 22], [33, -10], [-33, 18], [0, -16]],
+  'chand': F1['rings'],
   'chand2': [],
   'lifts': LL['lifts'], 'sheaveY': LL['sheave_y'], 'hitch': LL['hitch'], 'rope': LL['rope'], 'sheaveR': LL['sheave_r'], 'cwZ': LL['cw_z'], 'cabApo': L['cab_apo'],
   'hall': [[p['x'], p['y'], p['z'], p['ry']] for p in F2['hall']], 'vault': [[p['x'], p['y'], p['z'], p['ry']] for p in F2['vault']],
@@ -41,7 +41,8 @@ D = {
 }
 # ---- outside: the Mudwater Coliseum's swamp dressing (served from the dinopawnz/mudwater repo)
 import random as _r
-rg = _r.Random(5413); DECO = []
+rg = _r.Random(5413); DECO = []; SDECO = []
+def sd(f, x, y, z, ry=0, s=1.0): SDECO.append([f, r(x), r(y), r(z), round(ry, 1), round(s, 3)])
 def dz(f, x, y, z, ry=0, s=1.0): DECO.append([f, r(x), r(y), r(z), round(ry, 1), round(s, 3)])
 dz('water', 0, 0.0, 25, 0, 1.7); dz('mwm_lake', 0, 0.0, 25, 0, 1.7)
 for f, x, z, ry in [('bog_mangrove_tree_a_lite', -78, -40, 30), ('bog_mangrove_tree_b_lite', 82, -30, 200), ('bog_mangrove_tree_a_lite', -86, 58, 120), ('bog_mangrove_tree_b_lite', 90, 64, 300),
@@ -99,8 +100,6 @@ for k in range(12):
     t = k / 12 * 2 * math.pi
     dz('bog_glowplant_%s_lite' % ('a' if k % 2 else 'b') if k % 3 else 'reeds', gx + 8.3 * math.cos(t), Y1 + 0.4, gz + 6.7 * math.sin(t), rg.uniform(0, 360), 0.55 if k % 3 else 0.7)
 dz('mw_motes', gx, Y1 - 0.5, gz, 0, 0.22)
-for (x, z) in [(gx - 5, gz - 3), (gx + 4, gz + 2), (gx, gz + 6), (gx - 2, gz - 7), (-6.5, 1.0), (6.5, 1.0), (0.0, 7.5), (0.0, -5.5), (22, 19.5), (22, 8), (12, -10), (19, -17)]:
-    dz('mwm_jarlantern', x, FL['hall'] - 0.55, z, rg.uniform(0, 360), 0.85)
 # the Hall of Fakes, swamp-dressed: lanterns under the winding stair, two great root stumps, glow plants, reeds and lily pads round the moat,
 # fireflies and a low fog over the floor
 for (x, y, z) in F2['lanterns']: dz('mwm_jarlantern', x, y, z, rg.uniform(0, 360), 0.8)
@@ -121,7 +120,7 @@ pc = L['portico']; dz('mw_logo', 0, r(pc['y'] + 0.25), r(pc['z'] + 0.3), 0, 2.0)
 # ---- THE LIVING SWAMP: glowing veins on every floor and stair run (they breathe in slow waves), glowing vines on the walls, rising spores
 bio = dict(floor=[], wall=[], spores=[], runs=F2['runs'], band=F2['band'], floors=[FL[k] for k in L['keys']])
 def wave(x, z): return int(math.hypot(x, z) * 260) % 9000
-for x in np.arange(-27.5, 28, 11.0):                     # the lounge floor (not under the bar)
+for x in []:                                            # (lounge floor veins removed - wet muddy planks instead)
     for z in np.arange(-23.5, 24, 9.4):
         if math.hypot(x - F1['bar'][0], z - F1['bar'][1]) < 7.5: continue
         bio['floor'].append([r(x), r(Y1 + 0.03), r(z), 11.0, 9.4, 0, wave(x, z), int(rg.uniform(6500, 9000)), 1])
@@ -138,7 +137,7 @@ for (x0, z0, y0, x1, z1, y1, ax, wc) in F2['runs']:      # every run of the wind
             if ax == 'z': wx, wz, wry = x, wc - math.copysign(0.09, wc), (180 if wc > 0 else 0)
             else: wx, wz, wry = wc - math.copysign(0.09, wc), z, (270 if wc > 0 else 90)
             bio['wall'].append([r(wx), r(y + 4.25), r(wz), 5.5, 2.2, wry, wave(x, z), int(rg.uniform(7000, 10000))])
-for k in range(10):                                      # and on the lounge walls, high up
+for k in range(0):                                       # (lounge wall vines removed)
     x = -36 + k * 8.0
     if abs(x) < 6: continue
     bio['wall'].append([r(x), r(Y1 + 6.4), 29.55, 6.0, 2.4, 180, wave(x, 29), int(rg.uniform(7000, 10000)), 1])
@@ -153,11 +152,10 @@ D['falls'] = F1['falls']; D['booths'] = F1['booths']
 for (fx_, fy_, fz_, fw_, ft_) in F1['falls']:
     dz('mist', fx_, Y1 - 0.2, fz_ + 2.0, 0, 0.25); dz('mw_motes', fx_, Y1, fz_ + 2.0, 0, 0.12)
     for k in range(4): dz('bog_glowplant_%s_lite' % ('a' if k % 2 else 'b'), fx_ + (-3.6 if k < 2 else 3.6), Y1 + 0.3, fz_ + 1.2 + (k % 2) * 1.6, rg.uniform(0, 360), 0.5)
-for k in range(46):
-    for _ in range(30):
-        x, z = rg.uniform(-33, 33), rg.uniform(-27, 27)
-        if math.hypot(x - F1['bar'][0], z - F1['bar'][1]) > 4: break
-    dz('mwm_jarlantern', r(x), r(FL['hall'] - rg.uniform(1.2, 3.4)), r(z), rg.uniform(0, 360), round(rg.uniform(0.6, 0.95), 2))
+SDECO = F1['lanterns']        # iron lanterns over the lounge (placed in build_lounge.py, which also bakes their light pools)
+SDECO = SDECO + F1.get('trees', [])   # the giant Meshy tree trunks growing through the lounge
+SDECO = SDECO + F1.get('mprops', [])  # Meshy furniture, pond rim, grottos, booths, hearth (sp_m_*.glb)
+D['sdeco'] = SDECO
 D['deco'] = DECO
 gal = []; cards = list(range(1, 121)); rg.shuffle(cards); ci = 0
 for (n, rad, y, rx, rz, per, sc) in ((34, 78.0, 56.0, 7.0, -4.0, 300000, 9.0), (40, 100.0, 70.0, -5.0, 6.0, 380000, 11.0), (46, 124.0, 44.0, 4.0, 8.0, 460000, 13.0)):

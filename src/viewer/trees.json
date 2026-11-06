@@ -1,0 +1,1 @@
+[{"out": "/home/claude/shots/mtree_pair.png", "w": 1280, "h": 720, "models": [{"f": "/spire/out/glb/sp_mtree_1.glb", "p": [-1.2, 0, 0]}, {"f": "/spire/out/glb/sp_mtree_2.glb", "p": [1.2, 0, 0]}], "cam": [0, 0.6, 4.2], "at": [0, 0.1, 0], "fov": 50}]

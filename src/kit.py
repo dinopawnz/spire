@@ -6,8 +6,8 @@ from glb import *
 TEX = '/home/claude/spire/tex/'
 MR = '/home/claude/dinopawnz/mudwater/'
 MATS = {
-    'plank':   dict(tex=TEX + 'wood_planks.jpg', nrm=TEX + 'wood_planks_n.jpg', rough=0.82),
-    'dark':    dict(tex=TEX + 'wood_dark.jpg', nrm=TEX + 'wood_dark_n.jpg', rough=0.75),
+    'plank':   dict(tex=TEX + 'wood_planks.jpg', nrm=TEX + 'wood_planks_n.jpg', rough=0.7, emis_tex=TEX + 'wood_planks.jpg', emis=(0.07, 0.05, 0.034)),   # faint warm self-light: reads lantern-lit at night
+    'dark':    dict(tex=TEX + 'wood_dark.jpg', nrm=TEX + 'wood_dark_n.jpg', rough=0.68, emis_tex=TEX + 'wood_dark.jpg', emis=(0.06, 0.042, 0.03)),
     'pale':    dict(tex=TEX + 'wood_pale.jpg', nrm=TEX + 'wood_pale_n.jpg', rough=0.9),
     'bartop':  dict(tex=TEX + 'bar_top.jpg', nrm=TEX + 'bar_top_n.jpg', rough=0.32),
     'bark':    dict(tex=TEX + 'bark.jpg', nrm=TEX + 'bark_n.jpg', rough=0.95),
@@ -27,6 +27,7 @@ MATS = {
     'glow':    dict(color=(1.0, 0.8, 0.45, 1), emis=(1.0, 0.72, 0.3), emis_strength=2.0, rough=0.5),
     'mudglow': dict(tex=TEX + 'mudglow.jpg', emis_tex=TEX + 'mudglow.jpg', emis=(1.0, 0.8, 0.5), rough=0.4),
     'black':   dict(color=(0.03, 0.03, 0.03, 1), rough=0.6),
+    'wetfloor': dict(tex=TEX + 'wetfloor.jpg', nrm=TEX + 'wetfloor_n.jpg', mr=TEX + 'wetfloor_mr.png', rough=1.0, metal=0.0),   # lounge: wet muddy planks, shiny where soaked
     'col':     dict(color=(1, 1, 1, 0.0), alpha='BLEND', rough=1.0),        # invisible collider
 }
 

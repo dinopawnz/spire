@@ -166,7 +166,7 @@
 
   // ---- LITE + REFRESH (as in the castle)
   let LITE = null;
-  const DECOR = /sp_(chandelier|fx_|wisp|moonbeam)|bio_|gc_\d|mw_motes|fireflies|mist\.glb|glowplant|reeds|floatlantern|lilypads|moss_c|shelfshroom|jarlantern|cypress/;
+  const DECOR = /sp_(chandelier|lantern_[abc]|fx_|wisp|moonbeam)|bio_|gc_\d|mw_motes|fireflies|mist\.glb|glowplant|reeds|floatlantern|lilypads|moss_c|shelfshroom|jarlantern|cypress/;
   function liteOn() {
     if (LITE) return "LITE MODE IS ALREADY ON";
     const tg = (n) => String(n.tagName).toUpperCase();
@@ -274,12 +274,14 @@
       const pb = L.porch_box;
       pad({ x: 0, y: L.porch - 0.15, z: (pb.zb + pb.zf) / 2, width: 2 * pb.x, height: 0.3, depth: pb.zf - pb.zb });
     }
-    // the lounge's wagon-wheel chandeliers, swaying a touch
-    D.chand.map((c) => [c[0], c[1], L.f2 - 0.5]).concat(D.chand2.map((c) => [c[0], c[1], L.gallery - 0.5])).forEach(([x, z, y], i) => {
+    // the lounge's big lantern rings (timber hoops of iron lanterns, as in the owner's concept), swaying a touch
+    D.chand.map((c) => [c[0], c[1], L.f2 - 0.5, c[2] || 1]).concat(D.chand2.map((c) => [c[0], c[1], L.gallery - 0.5, c[2] || 1])).forEach(([x, z, y, s], i) => {
       const g = el("m-group", { x, y, z });
-      anim(g, "rz", -1.6, 1.6, 5200 + i * 700, { pingPong: true, easing: "easeInOutSine", delay: i * 900 });
-      model("sp_chandelier.glb", { collide: "false" }, g);
+      anim(g, "rz", -1.2, 1.2, 5200 + i * 700, { pingPong: true, easing: "easeInOutSine", delay: i * 900 });
+      model("sp_lantern_ring.glb", { collide: "false", sx: s, sy: s, sz: s }, g);
     });
+    // single iron lanterns hanging from the lounge ceiling at different heights
+    (D.sdeco || []).forEach(([f, x, y, z, ry, s]) => model(f + ".glb", { x, y, z, ry, sx: s, sy: s, sz: s, collide: "false" }));
 
     // ---------------------------------------------------- sprites (words as pictures)
     const ASP = D.ms;
@@ -362,14 +364,25 @@
     // ---------------------------------------------------- THE LOUNGE: two indoor waterfalls (sheets of water sliding down over dark rock,
     // into lit pools) and the shop booth signs
     D.falls.forEach(([x, y, z, w, top]) => {
-      const h = top - y, cy = y + h / 2;
-      for (let k = 0; k < 3; k++) {
-        const m = el("m-image", { src: BASE + "water_fall.png" + VER, x, y: cy, z: z + 0.02 + k * 0.03, width: w - k * 0.4, height: h, emissive: 0.9, opacity: 0.55, collide: "false", "cast-shadows": "false" });
-        anim(m, "y", cy + 0.5, cy - 0.5, 900 + k * 230, { delay: k * 300 });
-        anim(m, "opacity", 0.35, 0.7, 700 + k * 190, { pingPong: true, easing: "easeInOutSine", delay: k * 150 });
+      const h = top - y, cy = y + h / 2, P = 1.2;
+      // a soft glow behind the water, like light coming through the falls
+      const glow = el("m-image", { src: BASE + "fall_glow.png" + VER, x, y: cy, z: z - 0.05, width: w + 0.6, height: h, emissive: 0.7, opacity: 0.55, collide: "false", "cast-shadows": "false" });
+      anim(glow, "emissive", 0.45, 0.85, 3200, { pingPong: true, easing: "easeInOutSine" });
+      // four sheets of falling water: each slides down P metres while fading in and out, a quarter-cycle apart,
+      // so the water pours continuously with no visible jump (the sheets are taller than the fall; the rock lip and the pool hide the ends)
+      for (let k = 0; k < 4; k++) {
+        const dur = 1000 + (k % 2) * 160, op = 0.75 - 0.08 * k;
+        const m = el("m-image", { src: BASE + "water_fall2.png" + VER, x: x + (k - 1.5) * 0.08, y: cy, z: z + 0.03 + k * 0.025, width: w - (k % 2) * 0.35, height: h + P, emissive: 0.85, opacity: op, collide: "false", "cast-shadows": "false" });
+        anim(m, "y", cy + P / 2, cy - P / 2, dur, { delay: (dur * k) / 4 });
+        anim(m, "opacity", 0.0, op, dur / 2, { pingPong: true, easing: "easeInOutSine", delay: (dur * k) / 4 });
       }
-      const foam = el("m-image", { src: BASE + "bio_ring.png" + VER, x, y: y + 0.04, z: z + 1.0, rx: -90, width: w + 0.6, height: 1.8, emissive: 1.2, opacity: 0.6, collide: "false", "cast-shadows": "false", "data-lite": "1" });
-      anim(foam, "opacity", 0.3, 0.75, 1100, { pingPong: true, easing: "easeInOutSine" });
+      // white churning foam where it lands, in two layers turning slowly against each other
+      for (let k = 0; k < 2; k++) {
+        const fg = el("m-group", { x, y: y + 0.03 + k * 0.02, z: z + 0.9 });
+        const foam = el("m-image", { src: BASE + "foam.png" + VER, rx: -90, width: w + 0.8, height: 2.0, emissive: 0.8, opacity: 0.8, collide: "false", "cast-shadows": "false", "data-lite": "1" }, fg);
+        anim(fg, "ry", k ? 8 : -8, k ? -8 : 8, 2600 + k * 700, { pingPong: true, easing: "easeInOutSine" });
+        anim(foam, "opacity", 0.45, 0.85, 900 + k * 300, { pingPong: true, easing: "easeInOutSine" });
+      }
     });
     D.booths.forEach(([x, y, z, ry, key]) => word("bt_" + key, 0.55, { x, y, z, ry }));
 
@@ -378,12 +391,13 @@
     const BIO = D.bio, bioSrc = (f) => BASE + f + VER;
     BIO.floor.forEach(([x, y, z, w, h, ry, del, per, gold]) => {
       const g = el("m-group", { x, y, z, ry });
-      const m = el("m-image", { src: bioSrc(gold ? "bio_veins_gold.png" : "bio_veins.png"), rx: -90, width: w, height: h, emissive: 0.6, opacity: 0.95, collide: "false", "cast-shadows": "false" }, g);
-      anim(m, "emissive", 0.15, 2.6, per, { pingPong: true, easing: "easeInOutSine", delay: del });
+      // the lounge (gold) gets thin warm amber veins with a gentle breath; the Hall of Fakes keeps its teal
+      const m = el("m-image", { src: bioSrc(gold ? "bio_veins_amber.png" : "bio_veins.png"), rx: -90, width: w, height: h, emissive: gold ? 0.5 : 0.6, opacity: 0.95, collide: "false", "cast-shadows": "false" }, g);
+      anim(m, "emissive", gold ? 0.2 : 0.15, gold ? 1.3 : 2.6, per, { pingPong: true, easing: "easeInOutSine", delay: del });
     });
     BIO.wall.forEach(([x, y, z, w, h, ry, del, per, gold]) => {
-      const m = el("m-image", { src: bioSrc(gold ? "bio_wall_gold.png" : "bio_wall.png"), x, y, z, ry, width: w, height: h, emissive: 0.8, opacity: 0.95, collide: "false", "cast-shadows": "false" });
-      anim(m, "emissive", 0.2, 2.4, per, { pingPong: true, easing: "easeInOutSine", delay: del });
+      const m = el("m-image", { src: bioSrc(gold ? "bio_wall_amber.png" : "bio_wall.png"), x, y, z, ry, width: w, height: h, emissive: gold ? 0.5 : 0.8, opacity: 0.95, collide: "false", "cast-shadows": "false" });
+      anim(m, "emissive", gold ? 0.25 : 0.2, gold ? 1.3 : 2.4, per, { pingPong: true, easing: "easeInOutSine", delay: del });
     });
     BIO.spores.forEach(([x, y, z, rad, dur, del, rise]) => {
       const m = el("m-sphere", { x, y, z, radius: rad, color: "#b9ffe6", emissive: 4, collide: "false", "cast-shadows": "false", "data-lite": "1" });
@@ -412,7 +426,7 @@
       const su = surfaceUnder(pos); if (su.y === null) return;
       p.bioAt = { x: pos.x, z: pos.z }; p.bioT = t; blooms++;
       const zg = zoneGroup(zKey(pos.x, su.y + 0.5, pos.z));
-      const ring = el("m-image", { src: bioSrc("bio_ring.png"), x: pos.x, y: su.y + 0.07, z: pos.z, rx: -90, width: 1, height: 1, sx: 0.5, sy: 0.5, sz: 0.5, emissive: 3.5, opacity: 0.95, collide: "false", "cast-shadows": "false" }, zg);
+      const ring = el("m-image", { src: bioSrc(su.y < D.L.f2 - 1 ? "bio_ring_amber.png" : "bio_ring.png"), x: pos.x, y: su.y + 0.07, z: pos.z, rx: -90, width: 1, height: 1, sx: 0.5, sy: 0.5, sz: 0.5, emissive: 3.5, opacity: 0.95, collide: "false", "cast-shadows": "false" }, zg);
       tween(ring, "sx", 0.5, 3.4, 1300, "easeOutQuad"); tween(ring, "sy", 0.5, 3.4, 1300, "easeOutQuad"); tween(ring, "opacity", 0.95, 0.0, 1300, "easeInQuad");
       later(1420, () => { ring.remove(); blooms--; });
       // on the winding stair the wall beside you shimmers, a band of light running the way you walk

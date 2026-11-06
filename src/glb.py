@@ -295,6 +295,7 @@ def write(path, mesh, mats, name='spire', quantize=False):
         if md.get('tex') is not None: pbr['baseColorTexture'] = {'index': tex(md['tex'])}
         mat = {'name': mname, 'pbrMetallicRoughness': pbr}
         if md.get('nrm') is not None: mat['normalTexture'] = {'index': tex(md['nrm']), 'scale': md.get('nrm_scale', 1.0)}
+        if md.get('mr') is not None: pbr['metallicRoughnessTexture'] = {'index': tex(md['mr'])}     # G = roughness, B = metalness (multiplied by the factors)
         if md.get('emis') is not None: mat['emissiveFactor'] = list(md['emis'])[:3]
         if md.get('emis_tex') is not None: mat['emissiveTexture'] = {'index': tex(md['emis_tex'])}
         if md.get('emis_strength'):

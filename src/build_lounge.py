@@ -28,15 +28,43 @@ M_['label'] = dict(color=(0.92, 0.84, 0.62, 1), rough=0.8)
 M_['mirror'] = dict(color=(0.55, 0.5, 0.42, 1), metal=1.0, rough=0.08)
 M_['felt'] = dict(color=(0.08, 0.28, 0.16, 1), rough=1.0)
 M_['chalk'] = dict(color=(0.07, 0.08, 0.07, 1), rough=0.95)
-M_['pond'] = dict(tex=TEX + 'mudglow.jpg', emis_tex=TEX + 'mudglow.jpg', emis=(0.35, 0.55, 0.45), color=(0.55, 0.85, 0.75, 1), rough=0.05, metal=0.2)
-M_['shroom'] = dict(color=(0.95, 0.78, 0.5, 1), emis=(0.9, 0.55, 0.2), emis_strength=0.6, rough=0.6)
-M_['puddle'] = dict(color=(0.05, 0.05, 0.04, 0.85), metal=0.8, rough=0.03, alpha='BLEND')
+M_['pond'] = dict(color=(0.03, 0.045, 0.035, 1), emis=(0.01, 0.03, 0.02), rough=0.03, metal=0.5)        # dark still swamp water
+M_['shroom'] = dict(color=(0.5, 0.22, 0.06, 1), emis=(1.0, 0.36, 0.05), emis_strength=0.5, rough=0.6)     # warm amber, like the concept
+M_['lglass'] = dict(color=(0.6, 0.26, 0.05, 1), emis=(1.0, 0.4, 0.06), emis_strength=0.62, rough=0.3)     # iron-lantern glass
+M_['gills'] = dict(color=(0.7, 0.3, 0.06, 1), emis=(1.0, 0.42, 0.06), emis_strength=0.7, rough=0.7, double=True)   # glowing mushroom undersides
+M_['pool'] = dict(tex=TEX + 'pool.png', emis_tex=TEX + 'pool.png', emis=(1.0, 0.62, 0.26), alpha='BLEND', rough=0.2)      # lantern light on the wet floor
+M_['dance'] = dict(tex=TEX + 'wood_planks.jpg', emis_tex=TEX + 'wood_planks.jpg', emis=(0.6, 0.33, 0.1), rough=0.25)
+M_['puddle'] = dict(color=(0.035, 0.026, 0.016, 0.9), metal=0.6, rough=0.02, alpha='BLEND')
 M_['banner'] = dict(tex=TEX + 'banner_mw.jpg', rough=0.9, double=True)
 M_['ember'] = dict(color=(1, 0.4, 0.1, 1), emis=(1.0, 0.35, 0.05), emis_strength=2.0)
 L1 = Mesh(); C1 = Mesh()
 BAR_DX, BAR_DZ = -21.5, 27.5                   # old bar (x -12..6, counter z -19.5) -> x -33.5..-15.5, counter z 8
 
+# ---- Meshy props: high-detail sculpted models replace the code-built furniture. Each call records [file, x, y, z, ry, scale] for
+# build_html to place (sp_m_<name>.glb, made by meshy_props.py, which also writes meshy_meta.json = each model's bounding box).
+import os
+MESHY_PROPS = True
+_META_P = OUT + 'meshy_meta.json'
+META = json.load(open(_META_P)) if os.path.exists(_META_P) else {}
+META_RY = json.load(open(OUT + 'meshy_ry.json')) if os.path.exists(OUT + 'meshy_ry.json') else {}   # per-model turn so its front faces +z
+MPROPS = []; PROP_XF = None
+def mp(name, mm, size):
+    """place Meshy model `name` with the pose of matrix mm (floor point + yaw), scaled so its size[0] extent ('w' x, 'd' z, 'h' y,
+    'l' longest of x/z) equals size[1] metres. False if the model isn't built (then the code-built piece is used)."""
+    if not MESHY_PROPS or name not in META: return False
+    mm = np.asarray(mm if PROP_XF is None else PROP_XF @ np.asarray(mm))
+    ry = math.degrees(math.atan2(mm[0, 2], mm[2, 2])) + META_RY.get(name, 0)
+    mn, mx = META[name]
+    ext = {'w': mx[0] - mn[0], 'h': mx[1] - mn[1], 'd': mx[2] - mn[2], 'l': max(mx[0] - mn[0], mx[2] - mn[2])}[size[0]]
+    sc = size[1] / ext
+    ccx, ccz = -(mn[0] + mx[0]) / 2 * sc, -(mn[2] + mx[2]) / 2 * sc          # centre the model's footprint on the point
+    c, sn = math.cos(math.radians(ry)), math.sin(math.radians(ry))
+    MPROPS.append(['sp_m_' + name, round(float(mm[0, 3] + ccx * c + ccz * sn), 3), round(float(mm[1, 3] - mn[1] * sc), 3),
+                   round(float(mm[2, 3] - ccx * sn + ccz * c), 3), round(ry, 1), round(sc, 4)])
+    return True
+
 def barrel(m, mm, r=0.42, h=1.1, lying=False, mat='dark'):
+    if not lying and np.asarray(mm)[1, 1] > 0.95 and mp('barrel', mm, ('h', h)): return
     prof = [(r * (1 + 0.12 * math.sin(math.pi * i / 10)), h * i / 10) for i in range(11)]
     lathe(m, mat, prof, 20, m=mm, cap_top=True, cap_bot=True, uvs_u=3)
     for y in (0.1, h - 0.1, h * 0.38, h * 0.62):
@@ -45,6 +73,7 @@ def barrel(m, mm, r=0.42, h=1.1, lying=False, mat='dark'):
 
 def chesterfield(m, mm, w=2.6, leather='leather'):
     """tufted leather sofa, front faces +z, origin at floor centre"""
+    if mp('sofa', mm, ('w', w)): return
     d = 0.95
     bevel_box(m, leather, w - 0.3, 0.45, d - 0.15, 0.08, m=M(mm, T(0, 0.3, 0.05)), uvs=1.5)           # base
     for k in range(3):                                                                                  # seat cushions
@@ -63,6 +92,7 @@ def chesterfield(m, mm, w=2.6, leather='leather'):
     for g in gold_nails: sphere(m, 'brass', 0.012, 5, 3, m=g)
 
 def armchair(m, mm, leather='leather'):
+    if mp('armchair', mm, ('h', 1.2)): return
     w = 1.05; d = 0.95
     bevel_box(m, leather, w - 0.3, 0.42, d - 0.15, 0.08, m=M(mm, T(0, 0.3, 0.05)))
     bevel_box(m, leather, w - 0.32, 0.2, d - 0.35, 0.08, m=M(mm, T(0, 0.6, 0.13)))
@@ -72,6 +102,7 @@ def armchair(m, mm, leather='leather'):
         lathe(m, leather, [(0.0, 0), (0.15, 0.0), (0.18, 0.08), (0.18, d - 0.08), (0.15, d), (0.0, d)], 10, m=M(mm, T(s * (w / 2 - 0.12), 0.8, -d / 2), Rx(90)))
 
 def stool(m, mm):
+    if mp('stool', mm, ('h', 0.9)): return
     lathe(m, 'leather', [(0.0, 0.78), (0.2, 0.78), (0.22, 0.84), (0.19, 0.9), (0.0, 0.92)], 14, m=mm)
     lathe(m, 'dark', [(0.18, 0.7), (0.2, 0.78)], 14, m=mm)
     for k in range(4):
@@ -104,10 +135,21 @@ def floor_and_rugs():
                 x = -w / 2 + k * 0.06
                 box(L1, 'pale', 0.012, 0.004, 0.12, m=M(T(cx, Y + 0.046, cz), Ry(90), T(x, 0, s * (h / 2 + 0.05))), faces='Y')
     # the foyer: a big glowing Mudwater medallion inside the grand doors, and a runner from the doors to the lifts
-    lathe(L1, 'mudglow', [(3.0, Y + 0.03), (3.6, Y + 0.03)], 64, m=T(0, 0, 21.0))
-    lathe(L1, 'gold', [(3.6, Y + 0.032), (3.8, Y + 0.032)], 64, m=T(0, 0, 21.0))
-    lathe(L1, 'gold', [(2.8, Y + 0.032), (3.0, Y + 0.032)], 64, m=T(0, 0, 21.0))
-    quad(L1, 'logo', 5.2, 5.2 * 323 / 1334, M(T(0, Y + 0.035, 21.0), Rx(-90)))
+    floor_plaque(0.0, 19.5, 10.0)
+
+def floor_plaque(cx, cz, w):
+    """the MUDWATER logo inlaid in the floor: a long gold-framed plaque with pointed ends, as in the owner's lounge concept"""
+    h = w * 0.27; e = h * 0.55
+    hexo = lambda W, H, E: [(-W / 2, 0), (-W / 2 + E, -H / 2), (W / 2 - E, -H / 2), (W / 2, 0), (W / 2 - E, H / 2), (-W / 2 + E, H / 2)]
+    base = M(T(cx, Y, cz), Rx(-90))
+    extrude(L1, 'gold', hexo(w, h, e), 0.03, m=base)
+    extrude(L1, 'dark', hexo(w - 0.36, h - 0.3, e - 0.12), 0.038, m=base, uvs=2.0)
+    extrude(L1, 'gold', hexo(w - 0.62, h - 0.52, e - 0.2), 0.04, m=base)
+    extrude(L1, 'dark', hexo(w - 0.74, h - 0.62, e - 0.24), 0.042, m=base, uvs=2.0)
+    lw = w * 0.74
+    quad(L1, 'logo_floor', lw, lw * 323 / 1334, M(T(cx, Y + 0.046, cz), Rx(-90)))
+    for sx in (-1, 1):          # little gold leaf points at both ends
+        extrude(L1, 'gold', [(0, -0.22), (0.5, 0), (0, 0.22), (-0.12, 0)], 0.044, m=M(base, T(sx * (w / 2 - e * 0.55), 0, 0), S(sx, 1, 1)))
 
 def the_bar():
     global L1, C1
@@ -179,30 +221,34 @@ def the_bar():
     return dict(taps=[[tx0 + k * 0.6 + BAR_DX, Y + 1.5, bz - 0.25 + BAR_DZ] for k in range(6)], bz=bz + BAR_DZ, x0=x0 + BAR_DX, x1=x1 + BAR_DX)
 
 def fireplace():
-    global L1, C1
-    RL, RC = L1, C1; L1 = Mesh(); C1 = Mesh()
+    global L1, C1, PROP_XF
+    RL, RC = L1, C1; L1 = Mesh(); C1 = Mesh(); PROP_XF = M(T(22.0, 0, 3.0), Ry(90))
     # big mud-stone hearth on the west face (x = -23.6)
     fx = -23.0 - dA; fz = 2.0
-    for k in range(7):
+    meshy_fire = mp('fireplace', M(T(fx + 0.4, Y, fz), Ry(90)), ('w', 5.2))
+    for k in (range(7) if not meshy_fire else []):
         w = 4.6 - k * 0.2 if k > 4 else 4.6
         bevel_box(L1, 'mud', 1.3, 1.0, w, 0.08, m=T(fx + 0.1, Y + 0.5 + k * 1.0, fz), uvs=2.0)
-    box(L1, 'black', 0.6, 1.5, 2.4, m=T(fx + 0.5, Y + 0.95, fz))
-    bevel_box(L1, 'dark', 0.6, 0.25, 5.2, 0.04, m=T(fx + 0.75, Y + 2.25, fz), uvs=3.0)             # mantel
-    bevel_box(L1, 'mud', 1.8, 0.25, 5.4, 0.05, m=T(fx + 0.8, Y + 0.12, fz), uvs=2.0)              # hearth stone
-    for k in range(5): cyl(L1, 'bark', 0.09, 1.3, 8, m=M(T(fx + 0.55, Y + 0.32 + (k % 2) * 0.14, fz - 0.6 + k * 0.3), Rx(90), T(0, -0.65, 0)))
-    for k in range(9): sphere(L1, 'ember', 0.07, 6, 4, m=T(fx + 0.55 + rng.uniform(-0.15, 0.15), Y + 0.28, fz + rng.uniform(-0.9, 0.9)))
+    if not meshy_fire:
+        box(L1, 'black', 0.6, 1.5, 2.4, m=T(fx + 0.5, Y + 0.95, fz))
+        bevel_box(L1, 'dark', 0.6, 0.25, 5.2, 0.04, m=T(fx + 0.75, Y + 2.25, fz), uvs=3.0)             # mantel
+        bevel_box(L1, 'mud', 1.8, 0.25, 5.4, 0.05, m=T(fx + 0.8, Y + 0.12, fz), uvs=2.0)              # hearth stone
+    for k in (range(5) if not meshy_fire else []): cyl(L1, 'bark', 0.09, 1.3, 8, m=M(T(fx + 0.55, Y + 0.32 + (k % 2) * 0.14, fz - 0.6 + k * 0.3), Rx(90), T(0, -0.65, 0)))
+    for k in (range(9) if not meshy_fire else []): sphere(L1, 'ember', 0.07, 6, 4, m=T(fx + 0.55 + rng.uniform(-0.15, 0.15), Y + 0.28, fz + rng.uniform(-0.9, 0.9)))
     collider_box(C1, 1.6, 7, 4.8, T(fx + 0.1, Y + 3.5, fz))
     # mounted gator skull... a ship's wheel above the mantel and two armchairs facing the fire
-    mm = M(T(fx + 0.82, Y + 3.8, fz), Ry(90))
-    lathe(L1, 'dark', [(0.85, -0.05), (0.95, -0.05), (0.95, 0.05), (0.85, 0.05)], 24, m=M(mm, Rx(90)))
-    lathe(L1, 'brass', [(0.0, -0.08), (0.18, -0.08), (0.18, 0.08), (0.0, 0.08)], 12, m=M(mm, Rx(90)))
-    for k in range(8):
-        a = k * 45; d = np.array([math.sin(math.radians(a)), math.cos(math.radians(a)), 0])
-        tube(L1, 'dark', [np.zeros(3) + d * 0.15, d * 1.25], 0.035, 6, m=mm)
-        lathe(L1, 'dark', [(0.0, 0), (0.05, 0.02), (0.04, 0.2), (0.0, 0.25)], 6, m=M(mm, T(*(d * 1.2)), look_basis(d), Rx(-90)))
+    if not meshy_fire:
+        mm = M(T(fx + 0.82, Y + 3.8, fz), Ry(90))
+        lathe(L1, 'dark', [(0.85, -0.05), (0.95, -0.05), (0.95, 0.05), (0.85, 0.05)], 24, m=M(mm, Rx(90)))
+        lathe(L1, 'brass', [(0.0, -0.08), (0.18, -0.08), (0.18, 0.08), (0.0, 0.08)], 12, m=M(mm, Rx(90)))
+        for k in range(8):
+            a = k * 45; d = np.array([math.sin(math.radians(a)), math.cos(math.radians(a)), 0])
+            tube(L1, 'dark', [np.zeros(3) + d * 0.15, d * 1.25], 0.035, 6, m=mm)
+            lathe(L1, 'dark', [(0.0, 0), (0.05, 0.02), (0.04, 0.2), (0.0, 0.25)], 6, m=M(mm, T(*(d * 1.2)), look_basis(d), Rx(-90)))
     for k, dz in enumerate((-2.2, 2.2)):
         armchair(L1, M(T(fx + 4.0, Y, fz + dz), Ry(-90 + (20 if dz < 0 else -20))), 'leatherg')
         collider_box(C1, 1.0, 0.9, 1.0, T(fx + 4.0, Y + 0.45, fz + dz))
+    PROP_XF = None
     mv = M(T(22.0, 0, 3.0), Ry(90)); RL.merge(L1, mv); RC.merge(C1, mv); L1, C1 = RL, RC          # on the front wall, facing into the room
     p = mv @ np.array([fx + 0.55, Y + 0.3, fz, 1])
     return dict(fire=[round(float(p[0]), 3), round(float(p[1]), 3), round(float(p[2]), 3)])
@@ -215,11 +261,12 @@ def lounge_seating():
             chesterfield(L1, M(T(cx + dx, Y, cz + dz), Ry(ry)), 2.8 if k < 2 else 2.2, 'leather' if (k + gi) % 2 == 0 else 'leatherg')
             collider_box(C1, 2.8 if k < 2 and ry in (0, 180) else 1.0, 0.9, 1.0 if ry in (0, 180) else 2.2, T(cx + dx, Y + 0.45, cz + dz))
         # coffee table: thick planks on iron legs, with a lantern, a deck of cards and mugs
-        bevel_box(L1, 'bartop', 2.2, 0.12, 1.1, 0.03, m=T(cx, Y + 0.48, cz), uvs=2.0)
-        for sx in (-1, 1):
-            for sz in (-1, 1): bevel_box(L1, 'iron', 0.08, 0.42, 0.08, 0.01, m=T(cx + sx * 0.95, Y + 0.21, cz + sz * 0.45))
+        if not mp('coffeetable', T(cx, Y, cz), ('l', 2.2)):
+            bevel_box(L1, 'bartop', 2.2, 0.12, 1.1, 0.03, m=T(cx, Y + 0.48, cz), uvs=2.0)
+            for sx in (-1, 1):
+                for sz in (-1, 1): bevel_box(L1, 'iron', 0.08, 0.42, 0.08, 0.01, m=T(cx + sx * 0.95, Y + 0.21, cz + sz * 0.45))
         collider_box(C1, 2.2, 0.55, 1.1, T(cx, Y + 0.28, cz))
-        mug(L1, T(cx + 0.5, Y + 0.54, cz + 0.2)); mug(L1, T(cx - 0.6, Y + 0.54, cz - 0.15), full=False)
+        if 'coffeetable' not in META: mug(L1, T(cx + 0.5, Y + 0.54, cz + 0.2)); mug(L1, T(cx - 0.6, Y + 0.54, cz - 0.15), full=False)
         # barrel side tables with candles
         for s in (-1, 1):
             barrel(L1, T(cx + s * 2.0, Y, cz - 3.4 if gi == 0 else cz - 3.3), r=0.36, h=0.85)
@@ -228,14 +275,16 @@ def lounge_seating():
 
 def card_tables():
     for (cx, cz) in [(12.0, -10.0), (19.0, -17.0), (-26.0, -15.0), (-16.0, -15.0), (-14.0, 22.0), (-24.0, 22.0)]:
-        lathe(L1, 'bartop', [(1.05, Y + 0.76), (1.2, Y + 0.78), (1.2, Y + 0.84), (1.05, Y + 0.86)], 24, m=T(cx, 0, cz))
-        lathe(L1, 'felt', [(0.0, Y + 0.81), (1.06, Y + 0.81), (1.06, Y + 0.83), (0.0, Y + 0.83)], 24, m=T(cx, 0, cz))
-        lathe(L1, 'dark', [(0.25, Y), (0.12, Y + 0.1), (0.1, Y + 0.7), (0.3, Y + 0.78)], 12, m=T(cx, 0, cz))
+        meshy_table = mp('cardtable', M(T(cx, Y, cz), Ry(rng.uniform(0, 360))), ('l', 2.3))
+        if not meshy_table:
+            lathe(L1, 'bartop', [(1.05, Y + 0.76), (1.2, Y + 0.78), (1.2, Y + 0.84), (1.05, Y + 0.86)], 24, m=T(cx, 0, cz))
+            lathe(L1, 'felt', [(0.0, Y + 0.81), (1.06, Y + 0.81), (1.06, Y + 0.83), (0.0, Y + 0.83)], 24, m=T(cx, 0, cz))
+            lathe(L1, 'dark', [(0.25, Y), (0.12, Y + 0.1), (0.1, Y + 0.7), (0.3, Y + 0.78)], 12, m=T(cx, 0, cz))
         collider_box(C1, 2.2, 0.85, 2.2, T(cx, Y + 0.42, cz))
         for k in range(4):
             a = k * 90 + 45; x = cx + 1.65 * math.sin(math.radians(a)); z = cz + 1.65 * math.cos(math.radians(a))
             armchair(L1, M(T(x, Y, z), Ry(a + 180)), 'leather')
-        for k in range(6):   # poker chips + cards
+        for k in (range(6) if not meshy_table else []):   # poker chips + cards
             a = k * 60; x = cx + 0.6 * math.sin(math.radians(a)); z = cz + 0.6 * math.cos(math.radians(a))
             for j in range(rng.randint(2, 6)): cyl(L1, rng.choice(['gold', 'velvet', 'velvett']), 0.035, 0.008, 10, m=T(x, Y + 0.835 + j * 0.009, z))
 
@@ -361,15 +410,15 @@ def round_bar():
         mm, ln = place(a, b, Y + ph)
         bevel_box(L1, 'dark', ln, 0.5, 0.3, 0.03, m=M(mm, T(ln / 2, 0.0, 0)), uvs=2.0)
         quad(L1, 'gold', ln * 0.7, 0.12, M(mm, T(ln / 2, 0.0, 0.16), Ry(180)))
-        P = np.array([[a[0], Y + ph + 0.25, a[1]], [b[0], Y + ph + 0.25, b[1]], [cx, Y + ph + 2.6, cz]])
+        P = np.array([[a[0], Y + ph + 0.25, a[1]], [b[0], Y + ph + 0.25, b[1]], [cx, Y + ph + 1.45, cz]])
         nrm = np.cross(P[1] - P[0], P[2] - P[0]); nrm /= np.linalg.norm(nrm)
         idx = [0, 1, 2] if nrm[1] > 0 else [0, 2, 1]
         L1.add('shingle', P, [nrm if nrm[1] > 0 else -nrm] * 3, [[0, 0], [ln / 3, 0], [ln / 6, 2.4 / 3]], idx)
         L1.add('dark', P - np.array([0, 0.08, 0]), [-nrm if nrm[1] > 0 else nrm] * 3, [[0, 0], [1, 0], [0.5, 1]], idx[::-1])
-    for k in range(4):        # the MUDWATER board on four faces of the pavilion
+    for k in range(4):        # a big glowing MUDWATER sign on all four faces of the pavilion (framed, gold trim, marquee bulbs)
         a = k * 90
-        mm = M(T(cx + (PR + 0.38) * math.sin(math.radians(a)), Y + ph + 0.95, cz + (PR + 0.38) * math.cos(math.radians(a))), Ry(a))
-        quad(L1, 'logo', 4.0, 4.0 * 323 / 1334, mm)
+        mm = M(T(cx + (PR + 0.62) * math.sin(math.radians(a)), Y + ph - 0.08, cz + (PR + 0.62) * math.cos(math.radians(a))), Ry(a))
+        bar_sign(mm)
     lathe(L1, 'dark', [(3.2, Y + 3.15), (3.6, Y + 3.15), (3.6, Y + 3.3), (3.2, Y + 3.3)], 48, m=C())
     for k in range(40):
         a = math.radians(k * 9)
@@ -393,23 +442,25 @@ def garden():
     f = np.cross(P[I[1]] - P[I[0]], P[I[2]] - P[I[0]])
     if f[1] < 0: I = list(np.array(I).reshape(-1, 3)[:, ::-1].reshape(-1))
     L1.add('pond', P, [[0, 1, 0]] * len(P), U, I)
+    meshy_pond = mp('pond', T(cx, Y, cz), ('w', 17.0))
     for i in range(n):
         a, b = blob[i], blob[(i + 1) % n]
         d = np.array(b) - np.array(a); ln = np.linalg.norm(d)
         mm = M(T((a[0] + b[0]) / 2, Y + 0.22, (a[1] + b[1]) / 2), Ry(math.degrees(math.atan2(d[0], d[1])) + 90))
-        bevel_box(L1, 'mud', ln + 0.3, 0.45, 0.6, 0.08, m=mm, uvs=1.5)
-        if i % 2 == 0: lathe(L1, 'moss', [(0.35, 0.0), (0.25, 0.18), (0.0, 0.25)], 8, m=T(a[0], Y + 0.42, a[1]))
+        if not meshy_pond:
+            bevel_box(L1, 'mud', ln + 0.3, 0.45, 0.6, 0.08, m=mm, uvs=1.5)
+            if i % 2 == 0: lathe(L1, 'moss', [(0.35, 0.0), (0.25, 0.18), (0.0, 0.25)], 8, m=T(a[0], Y + 0.42, a[1]))
         collider_box(C1, ln + 0.3, 0.8, 0.6, mm)
     # an arched footbridge across the middle (walkable)
     z0, z1 = cz - 7.4, cz + 7.4; w = 1.8; n = 16
-    for k in range(n):
+    for k in (range(n) if not meshy_pond else []):
         t0, t1 = k / n, (k + 1) / n
         za, zb = z0 + (z1 - z0) * t0, z0 + (z1 - z0) * t1
         ya, yb = Y + 0.15 + 0.9 * math.sin(math.pi * t0), Y + 0.15 + 0.9 * math.sin(math.pi * t1)
         mm = M(T(cx, (ya + yb) / 2, (za + zb) / 2), Rx(-math.degrees(math.atan2(yb - ya, zb - za))))
         bevel_box(L1, 'plank', w, 0.1, math.hypot(zb - za, yb - ya) + 0.02, 0.015, m=mm, col=tint(rng, 0.1), uvs=2.0)
         collider_box(C1, w, 0.25, math.hypot(zb - za, yb - ya) + 0.05, M(mm, T(0, -0.08, 0)))
-    for sx in (-1, 1):
+    for sx in ((-1, 1) if not meshy_pond else ()):
         pts = [(cx + sx * w / 2, Y + 1.1 + 0.9 * math.sin(math.pi * t), z0 + (z1 - z0) * t) for t in np.linspace(0, 1, 12)]
         tube(L1, 'pale', pts, 0.05, 6)
         for p in pts[::2]: box(L1, 'dark', 0.08, 1.0, 0.08, m=T(p[0], p[1] - 0.5, p[2]))
@@ -417,11 +468,25 @@ def garden():
     # benches round the pond
     for (bx, bz, ry) in ((cx - 10.0, cz, 90), (cx + 9.6, cz - 3.0, -90), (cx - 4.0, cz - 9.0, 0), (cx + 3.0, cz + 8.6, 180)):
         mm = M(T(bx, Y, bz), Ry(ry))
+        if mp('bench', mm, ('w', 2.4)): collider_box(C1, 2.4, 0.9, 0.6, M(mm, T(0, 0.45, 0))); continue
         bevel_box(L1, 'plank', 2.4, 0.1, 0.5, 0.02, m=M(mm, T(0, 0.48, 0)), col=tint(rng, 0.15))
         bevel_box(L1, 'plank', 2.4, 0.5, 0.08, 0.02, m=M(mm, T(0, 0.8, -0.24)), col=tint(rng, 0.15))
         for sx in (-1, 1): bevel_box(L1, 'iron', 0.08, 0.48, 0.45, 0.01, m=M(mm, T(sx * 1.05, 0.24, 0)))
         collider_box(C1, 2.4, 0.9, 0.6, M(mm, T(0, 0.45, 0)))
     return dict(pond=[cx, cz])
+
+def bar_sign(mm, W=6.2, Hh=1.5):
+    """one MUDWATER sign board, origin at the bottom centre, facing +z"""
+    bevel_box(L1, 'dark', W, Hh, 0.14, 0.03, m=M(mm, T(0, Hh / 2, 0)), uvs=2.0)
+    for (sx, sy, tx, ty) in [(W + 0.12, 0.1, 0, Hh), (W + 0.12, 0.1, 0, 0), (0.1, Hh, -W / 2, Hh / 2), (0.1, Hh, W / 2, Hh / 2)]:
+        bevel_box(L1, 'gold', sx, sy, 0.18, 0.02, m=M(mm, T(tx, ty, 0.02)))
+    lw = W * 0.86
+    quad(L1, 'logo_hot', lw, lw * 323 / 1334, M(mm, T(0, Hh / 2, 0.085)))
+    n = 20
+    for i in range(n):
+        x = -W / 2 + 0.22 + (W - 0.44) * i / (n - 1)
+        for y in (0.13, Hh - 0.13): sphere(L1, 'glow', 0.045, 6, 4, m=M(mm, T(x, y, 0.1)))
+    for sx in (-1, 1): lathe(L1, 'gold', [(0.0, 0.0), (0.07, 0.03), (0.04, 0.1), (0.0, 0.22)], 8, m=M(mm, T(sx * W / 2, Hh + 0.04, 0.02)))
 
 def stage():
     """a raised stage in the back-east corner with a glowing dance floor in front of it"""
@@ -446,7 +511,7 @@ def stage():
     for i in range(n):
         for j in range(5):
             xa = fx0 + (fx1 - fx0) * i / n; za = fz0 + (fz1 - fz0) * j / 5
-            mat = 'mudglow' if (i + j) % 2 == 0 else 'bartop'
+            mat = 'dance' if (i + j) % 2 == 0 else 'bartop'
             quad(L1, mat, (fx1 - fx0) / n - 0.06, (fz1 - fz0) / 5 - 0.06, M(T(xa + (fx1 - fx0) / n / 2, Y + 0.03, za + (fz1 - fz0) / 10), Rx(-90)))
     return dict(stage=[(x0 + x1) / 2, Y + h, (z0 + z1) / 2])
 
@@ -471,7 +536,7 @@ def ceiling_lights():
 def swamp_moss():
     """swamp inside: moss beards hanging from every ceiling beam, vines winding up the columns"""
     yb = LY['FL']['hall'] - 1.0
-    for i in range(1, 16):
+    for i in []:          # (the thick moss cones were removed - the trusses carry thin trailing moss now)
         x = -42.5 + 85.0 * i / 16
         if abs(x) > 34.0: continue
         for z in np.arange(-28.5, 28.5, 1.6):
@@ -490,6 +555,8 @@ def swamp_moss():
 
 
 TREES = [(-10.6, -15.0), (-10.6, 15.0), (10.6, -15.0), (10.6, 15.0), (-24.0, -21.0), (25.0, -2.0), (-30.0, 21.0)]
+MESHY_TREES = True     # high-detail Meshy trunks (sp_mtree_1/2.glb, placed by build_html from f1_layout 'trees'); the code keeps the colliders + ceiling branches
+
 def giant_trees():
     """great mossy swamp trees growing up through the lounge floor into the ceiling: flaring roots across the floor, moss, vines,
     glowing shelf mushrooms up the trunk, candles in the roots, branches spreading under the ceiling"""
@@ -497,37 +564,38 @@ def giant_trees():
     for ti, (x, z) in enumerate(TREES):
         r0 = 1.25 + 0.2 * (ti % 3)
         prof = [(r0 * (1.0 + 0.9 * math.exp(-t * 9)) * (1 + 0.06 * math.sin(t * 23 + ti)), H * t) for t in np.linspace(0, 1, 14)]
-        lathe(L1, 'bark', prof, 18, m=M(T(x, Y, z), Ry(ti * 37)), uv_v=4.0, uvs_u=3)
+        if not MESHY_TREES: lathe(L1, 'bark', prof, 18, m=M(T(x, Y, z), Ry(ti * 37)), uv_v=4.0, uvs_u=3)
         collider_box(C1, r0 * 2.0, H, r0 * 2.0, T(x, Y + H / 2, z))
-        # roots snaking out over the floor
-        for k in range(7):
-            a = math.radians(k * 360 / 7 + ti * 17); L_ = rng.uniform(3.0, 5.5)
-            pts = []
-            for u in np.linspace(0, 1, 9):
-                rr = r0 * 1.6 + L_ * u; wob = 0.4 * math.sin(u * 7 + k)
-                pts.append((x + rr * math.cos(a) + wob * math.sin(a), Y + 0.9 * (1 - u) ** 1.6 + 0.05, z + rr * math.sin(a) - wob * math.cos(a)))
-            tube(L1, 'bark', pts, 0.35, 7, radii=list(np.linspace(0.42, 0.08, 9)))
-            tube(L1, 'moss', [(p[0], p[1] + 0.25, p[2]) for p in pts[:5]], 0.14, 5, radii=list(np.linspace(0.18, 0.05, 5)))
-        lathe(L1, 'moss', [(r0 * 2.3, Y + 0.02), (r0 * 1.9, Y + 0.25), (r0 * 1.5, Y + 0.6), (r0 * 1.3, Y + 1.1)], 18, m=T(x, 0, z))
-        # moss sheets and vines climbing the trunk
-        for ph in (0.0, 2.1, 4.2):
-            vine = [(x + (r0 + 0.08) * math.cos(u * 8 + ph), Y + H * u, z + (r0 + 0.08) * math.sin(u * 8 + ph)) for u in np.linspace(0.05, 0.98, 32)]
-            tube(L1, 'moss', vine, 0.07, 4)
-        for k in range(10):
-            a = rng.uniform(0, 2 * math.pi); yy = Y + rng.uniform(2.5, H - 0.4); hh = rng.uniform(0.8, 2.2)
-            p = (x + (r0 + 0.12) * math.cos(a), z + (r0 + 0.12) * math.sin(a))
-            tube(L1, 'moss', [(p[0], yy, p[1]), (p[0] + 0.1 * math.cos(a), yy - hh / 2, p[1] + 0.1 * math.sin(a)), (p[0], yy - hh, p[1])], 0.08, 4, radii=[0.16, 0.09, 0.02])
-        # glowing shelf mushrooms in clusters up the trunk
-        for c in range(3):
-            a = rng.uniform(0, 2 * math.pi); yb = Y + 1.6 + c * 1.5 + rng.uniform(-0.3, 0.3)
-            for k in range(rng.randint(2, 4)):
-                sz = rng.uniform(0.45, 0.85); yy = yb + k * 0.42; aa = a + rng.uniform(-0.3, 0.3)
-                px, pz = x + (r0 + sz * 0.6) * math.cos(aa), z + (r0 + sz * 0.6) * math.sin(aa)
-                mm = M(T(px, yy, pz), Ry(-math.degrees(aa) + 90))
-                lathe(L1, 'shroom', [(0.0, 0.12), (sz * 0.6, 0.1), (sz, 0.02), (sz * 0.95, -0.02), (0.0, 0.0)], 14, m=M(mm, S(1, 1, 0.75)))
-                lathe(L1, 'glow', [(0.0, -0.01), (sz * 0.9, -0.025)], 14, m=M(mm, S(1, 1, 0.75)))
-        # branches spreading under the ceiling
-        for k in range(5):
+        if not MESHY_TREES:   # (the Meshy trunks bring their own roots, moss, vines and glowing mushrooms)
+            # roots snaking out over the floor
+            for k in range(7):
+                a = math.radians(k * 360 / 7 + ti * 17); L_ = rng.uniform(3.0, 5.5)
+                pts = []
+                for u in np.linspace(0, 1, 9):
+                    rr = r0 * 1.6 + L_ * u; wob = 0.4 * math.sin(u * 7 + k)
+                    pts.append((x + rr * math.cos(a) + wob * math.sin(a), Y + 0.9 * (1 - u) ** 1.6 + 0.05, z + rr * math.sin(a) - wob * math.cos(a)))
+                tube(L1, 'bark', pts, 0.35, 7, radii=list(np.linspace(0.42, 0.08, 9)))
+                tube(L1, 'moss', [(p[0], p[1] + 0.25, p[2]) for p in pts[:5]], 0.14, 5, radii=list(np.linspace(0.18, 0.05, 5)))
+            lathe(L1, 'moss', [(r0 * 2.3, Y + 0.02), (r0 * 1.9, Y + 0.25), (r0 * 1.5, Y + 0.6), (r0 * 1.3, Y + 1.1)], 18, m=T(x, 0, z))
+            # moss sheets and vines climbing the trunk
+            for ph in (0.0, 2.1, 4.2):
+                vine = [(x + (r0 + 0.08) * math.cos(u * 8 + ph), Y + H * u, z + (r0 + 0.08) * math.sin(u * 8 + ph)) for u in np.linspace(0.05, 0.98, 32)]
+                tube(L1, 'moss', vine, 0.07, 4)
+            for k in range(10):
+                a = rng.uniform(0, 2 * math.pi); yy = Y + rng.uniform(2.5, H - 0.4); hh = rng.uniform(0.8, 2.2)
+                p = (x + (r0 + 0.12) * math.cos(a), z + (r0 + 0.12) * math.sin(a))
+                tube(L1, 'moss', [(p[0], yy, p[1]), (p[0] + 0.1 * math.cos(a), yy - hh / 2, p[1] + 0.1 * math.sin(a)), (p[0], yy - hh, p[1])], 0.08, 4, radii=[0.16, 0.09, 0.02])
+            # glowing shelf mushrooms in clusters up the trunk
+            for c in range(3):
+                a = rng.uniform(0, 2 * math.pi); yb = Y + 1.6 + c * 1.5 + rng.uniform(-0.3, 0.3)
+                for k in range(rng.randint(2, 4)):
+                    sz = rng.uniform(0.45, 0.85); yy = yb + k * 0.42; aa = a + rng.uniform(-0.3, 0.3)
+                    px, pz = x + (r0 + sz * 0.6) * math.cos(aa), z + (r0 + sz * 0.6) * math.sin(aa)
+                    mm = M(T(px, yy, pz), Ry(-math.degrees(aa) + 90))
+                    lathe(L1, 'shroom', [(0.0, 0.12), (sz * 0.6, 0.1), (sz, 0.02), (sz * 0.95, -0.02), (0.0, 0.0)], 14, m=M(mm, S(1, 1, 0.75)))
+                    lathe(L1, 'gills', [(0.0, -0.01), (sz * 0.9, -0.025)], 14, m=M(mm, S(1, 1, 0.75)))
+        # branches spreading under the ceiling (code trees only; the Meshy trunks don't need them)
+        for k in (range(5) if not MESHY_TREES else []):
             a = math.radians(k * 72 + ti * 23); L_ = rng.uniform(4, 7)
             pts = [(x + (r0 * 0.8 + L_ * u) * math.cos(a), Y + H - 1.6 + 1.3 * math.sin(u * 2.2), z + (r0 * 0.8 + L_ * u) * math.sin(a)) for u in np.linspace(0, 1, 8)]
             tube(L1, 'bark', pts, 0.3, 6, radii=list(np.linspace(0.45, 0.1, 8)))
@@ -541,15 +609,47 @@ def giant_trees():
             cyl(L1, 'label', 0.045, hh, 8, m=T(px, Y, pz))
             lathe(L1, 'glow', [(0.0, 0.0), (0.03, 0.03), (0.02, 0.09), (0.0, 0.12)], 6, m=T(px, Y + hh, pz))
 
+# ---- where the lanterns hang (build_html places them from f1_layout.json), and the warm light pools they throw on the wet floor
+RINGS = [[0, 24.0, 1.0], [0, -14.5, 1.0], [17, 18, 0.8], [27, 6, 0.75], [-20, -13, 0.8], [17, -10, 0.8], [-19, 22, 0.8], [31, -14, 0.75], [-33, 15, 0.75], [-30, -2, 0.75]]
+HOOK_Y = LY['FL']['hall'] - 0.5
+def place_lanterns():
+    lr = random.Random(5413); out = []
+    def ok(x, z):
+        if math.hypot(x - BAR_C[0], z - BAR_C[1]) < 8.0: return False
+        if any(math.hypot(x - tx, z - tz) < 3.6 for tx, tz in TREES): return False
+        if any(math.hypot(x - c[0], z - c[1]) < 3.6 * c[2] for c in RINGS): return False
+        if z < -21.5 or (abs(x) < 9 and z < -16): return False
+        return all(math.hypot(x - s[1], z - s[3]) > 2.2 for s in out)
+    garden = [(-30, 1), (-21, 6), (-25, 10), (-27, -3), (22, 19.5), (22, 8), (12, -10), (19, -17)]
+    for (x, z) in garden:
+        if ok(x, z): out.append(['sp_lantern_' + 'abc'[lr.randint(0, 2)], x, HOOK_Y, z, round(lr.uniform(0, 60), 1), 1.0])
+    for _ in range(5000):
+        if len(out) >= 60: break
+        x, z = lr.uniform(-33, 33), lr.uniform(-21, 27)
+        if ok(x, z): out.append(['sp_lantern_' + 'abc'[lr.randint(0, 2)], round(x, 2), HOOK_Y, round(z, 2), round(lr.uniform(0, 60), 1), 1.0])
+    return out
+
+def light_pools(lanterns):
+    """soft, irregular pools of warm light under every lantern, ring, the bar, the fireplace and the booths (MML has no real lights)"""
+    def pool(x, z, r, a, rot):
+        quad(L1, 'pool', 2 * r, 2 * r, M(T(x, Y + 0.03, z), Ry(rot), Rx(-90)), col=(1, 1, 1, a))
+    for f, x, y, z, ry, s in lanterns:
+        k = 'abc'.index(f[-1]); pool(x, z, (1.5, 1.8, 2.1)[k], (0.32, 0.42, 0.55)[k], ry * 6)
+    for x, z, s in RINGS: pool(x, z, 4.3 * s, 0.6, x * 7 + z)
+    for k in range(6):          # the round bar glows all round
+        a = k * 60 + 30; pool(BAR_C[0] + 7.4 * math.sin(math.radians(a)), BAR_C[1] + 7.4 * math.cos(math.radians(a)), 3.2, 0.42, a)
+    pool(24.0, 25.6, 3.6, 0.7, 20)                                       # the fireplace
+    for x in (-30.0, -21.0, 21.0, 30.0): pool(x, -22.2, 2.8, 0.5, x)    # the shop booths
+
 def wet_floor():
     """puddles that mirror the lanterns, and grass tufts poking up through the boards"""
-    for k in range(34):
+    for k in range(48):
         for _ in range(20):
             x, z = rng.uniform(-33, 33), rng.uniform(-27, 27)
             if math.hypot(x - BAR_C[0], z - BAR_C[1]) > 8.5 and abs(x + 25) + abs(z - 4) > 12 and not (abs(x) < 8 and z < -8): break
         rx, rz = rng.uniform(0.8, 2.6), rng.uniform(0.6, 1.8)
         pts = [(x + rx * (1 + 0.25 * math.sin(3 * t + k)) * math.cos(t), z + rz * (1 + 0.2 * math.cos(2 * t + k)) * math.sin(t)) for t in np.linspace(0, 2 * math.pi, 18, endpoint=False)]
-        P = np.array([[px, Y + 0.012, pz] for px, pz in pts] + [[x, Y + 0.012, z]]); n = len(pts)
+        P = np.array([[px, Y + 0.02, pz] for px, pz in pts] + [[x, Y + 0.02, z]]); n = len(pts)
         I = []
         for i in range(n): I += [n, (i + 1) % n, i]
         if np.cross(P[I[1]] - P[I[0]], P[I[2]] - P[I[0]])[1] < 0: I = list(np.array(I).reshape(-1, 3)[:, ::-1].reshape(-1))
@@ -580,31 +680,41 @@ def banners():
             tube(L1, 'iron', [(x, yt + 0.05, z), (x, LY['FL']['hall'] - 0.45, z)], 0.01, 3)
 
 def trusses():
-    """arched timber trusses across the lounge ceiling"""
-    yc = LY['FL']['hall'] - 0.5
-    for z in (-21.0, -7.0, 7.0, 21.0):
-        pts = [(x, yc - 1.5 * (1 - (x / 34.0) ** 2) * 0.0 - 1.4 * (1 - (abs(x) / 34.0) ** 1.5) + 1.4 - 1.6 * math.exp(-((x) / 30.0) ** 2) * 0.0, z) for x in np.linspace(-34, 34, 25)]
-        arch = [(x, yc - 1.6 * (1 - (x / 34.0) ** 2) ** 0.5 + 0.0, z) for x in np.linspace(-34, 34, 25)]
-        tube(L1, 'dark', arch, 0.22, 6)
-        for x in np.linspace(-30, 30, 11):
-            yy = yc - 1.6 * (1 - (x / 34.0) ** 2) ** 0.5
-            box(L1, 'dark', 0.18, yc - yy, 0.18, m=T(x, (yc + yy) / 2, z))
-            lathe(L1, 'brass', [(0.0, 0), (0.09, 0.0), (0.0, 0.08)], 6, m=T(x, yy - 0.05, z))
+    """squared timber trusses across the lounge ceiling, as in the owner's concept: a gently arched rib of hewn beams,
+    a straight top beam tight under the ceiling, upright posts between them with iron straps, a little moss trailing down"""
+    yc = LY['FL']['hall'] - 0.45; tr = random.Random(4)
+    def beam(a, b, w, h):
+        a = np.array(a, float); b = np.array(b, float); d = b - a
+        bevel_box(L1, 'dark', w, h, np.linalg.norm(d) + 0.04, 0.03, m=M(T(*((a + b) / 2)), look_basis(d)), uvs=2.0)
+    for z in (-24.5, -17.5, -10.5, -3.5, 3.5, 10.5, 17.5, 24.5):
+        xs = np.linspace(-35, 35, 21)
+        arch = [(x, yc - 0.4 - 1.5 * (1 - (x / 35.5) ** 2) ** 0.6, z) for x in xs]
+        for a, b in zip(arch[:-1], arch[1:]): beam(a, b, 0.32, 0.46)
+        beam((-35, yc - 0.18, z), (35, yc - 0.18, z), 0.3, 0.32)
+        for k in range(1, 20, 2):
+            x, yy, _ = arch[k]
+            bevel_box(L1, 'dark', 0.24, yc - 0.34 - yy, 0.24, 0.025, m=T(x, (yc - 0.34 + yy) / 2, z), uvs=2.0)
+            box(L1, 'iron', 0.36, 0.06, 0.36, m=T(x, yy + 0.05, z))
+        for k in range(10):
+            p = arch[tr.randint(2, 18)]; hh = tr.uniform(0.5, 1.4)
+            tube(L1, 'moss', [(p[0], p[1] - 0.25, p[2]), (p[0] + 0.06, p[1] - 0.25 - hh / 2, p[2] + 0.04), (p[0], p[1] - 0.25 - hh, p[2])], 0.05, 4, radii=[0.08, 0.05, 0.01])
 
 def waterfalls():
     """two indoor waterfalls in the back wall either side of the stage: a mossy rock face, the falling sheet (animated by the game), a pool"""
     out = []
     for sx in (-1, 1):
-        x = sx * 13.5; z = -29.0; w = 4.2; top = LY['FL']['hall'] - 1.2
-        for k in range(9):                    # rough stacked rocks framing the fall
+        x = sx * 13.5; z = -29.0; w = 3.0 if 'grotto' in META else 4.2; top = LY['FL']['hall'] - 1.2
+        meshy_g = mp('grotto', T(x, Y, z + 0.3), ('h', top - Y + 0.6))
+        for k in (range(9) if not meshy_g else []):                    # rough stacked rocks framing the fall
             for side in (-1, 1):
                 rw = rng.uniform(1.0, 1.7)
                 bevel_box(L1, 'mud', rw, rng.uniform(0.7, 1.2), 1.4, 0.15, m=M(T(x + side * (w / 2 + rw / 2 - 0.2), Y + 0.5 + k * 0.78, z + rng.uniform(-0.2, 0.2)), Ry(rng.uniform(-10, 10))), uvs=1.5)
-        bevel_box(L1, 'mud', w + 2.8, 1.0, 1.8, 0.2, m=T(x, top + 0.2, z + 0.1), uvs=1.5)            # the lip
-        for k in range(6): lathe(L1, 'moss', [(0.5, 0.0), (0.35, 0.3), (0.0, 0.42)], 8, m=T(x + rng.uniform(-w / 2 - 1, w / 2 + 1), top + 0.7, z + rng.uniform(-0.3, 0.6)))
+        if not meshy_g: bevel_box(L1, 'mud', w + 2.8, 1.0, 1.8, 0.2, m=T(x, top + 0.2, z + 0.1), uvs=1.5)            # the lip
+        for k in (range(6) if not meshy_g else []): lathe(L1, 'moss', [(0.5, 0.0), (0.35, 0.3), (0.0, 0.42)], 8, m=T(x + rng.uniform(-w / 2 - 1, w / 2 + 1), top + 0.7, z + rng.uniform(-0.3, 0.6)))
         quad(L1, 'black', w, top - Y, M(T(x, (Y + top) / 2, z - 0.35)))                             # the dark rock behind the water
         # the pool
-        lathe(L1, 'mud', [(2.6, Y), (2.9, Y + 0.45), (2.6, Y + 0.6), (2.3, Y + 0.5)], 24, m=M(T(x, 0, z + 1.6), S(1.2, 1, 0.8)))
+        if not (meshy_g and mp('pond', M(T(x, Y, z + 1.7), Ry(90 * sx)), ('l', 6.4))):      # a mossy rock basin (the pond rim, small)
+            lathe(L1, 'mud', [(2.6, Y), (2.9, Y + 0.45), (2.6, Y + 0.6), (2.3, Y + 0.5)], 24, m=M(T(x, 0, z + 1.6), S(1.2, 1, 0.8)))
         lathe(L1, 'pond', [(0.0, Y + 0.38), (2.45, Y + 0.38)], 24, m=M(T(x, 0, z + 1.6), S(1.2, 1, 0.8)))
         collider_box(C1, 6.6, 0.7, 4.4, T(x, Y + 0.35, z + 1.6))
         collider_box(C1, w + 3.4, top - Y + 1, 1.6, T(x, (Y + top) / 2, z))
@@ -616,6 +726,8 @@ def booths():
     out = []
     for (x, z, ry, key) in ((-30.0, -26.6, 0, 'cardshop'), (-21.0, -26.6, 0, 'merch'), (21.0, -26.6, 0, 'trophies'), (30.0, -26.6, 0, 'photos')):
         mm = M(T(x, Y, z), Ry(ry)); w = 6.6
+        if mp('booth', M(mm, T(0, 0, 1.0)), ('w', w)):
+            collider_box(C1, w, 1.2, 1.1, M(mm, T(0, 0.6, 1.2))); out.append([x, Y + 4.3, z + 1.95, ry, key]); continue
         bevel_box(L1, 'dark', w, 1.1, 1.0, 0.04, m=M(mm, T(0, 0.55, 1.2)), uvs=2.0)
         bevel_box(L1, 'bartop', w + 0.2, 0.08, 1.2, 0.02, m=M(mm, T(0, 1.14, 1.2)))
         for sx in (-1, 1): bevel_box(L1, 'dark', 0.25, 3.6, 0.25, 0.03, m=M(mm, T(sx * w / 2, 1.8, 1.65)))
@@ -650,6 +762,49 @@ def chandelier():
     tube(m, 'iron', [(0, -0.6, 0), (0, 0, 0)], 0.03, 6)
     return m
 
+def iron_lantern(m, mm, chain=1.0):
+    """a black-iron hexagonal lantern with warm amber glass, hook at the origin, hanging \'chain\' metres below it"""
+    tube(m, 'iron', [(0, 0, 0), (0, -chain, 0)], 0.014, 4, m=mm)
+    y0 = -chain
+    lathe(m, 'iron', [(0.0, y0 + 0.01), (0.04, y0), (0.04, y0 - 0.06), (0.0, y0 - 0.07)], 6, m=mm, smooth=False)
+    lathe(m, 'iron', [(0.04, y0 - 0.06), (0.19, y0 - 0.2), (0.215, y0 - 0.23), (0.17, y0 - 0.245)], 6, m=mm, smooth=False)
+    lathe(m, 'lglass', [(0.15, y0 - 0.245), (0.15, y0 - 0.565)], 6, m=mm, smooth=False)
+    for k in range(6):
+        a = math.radians(k * 60)
+        p = (0.152 * math.cos(a), 0.152 * math.sin(a))
+        tube(m, 'iron', [(p[0], y0 - 0.245, p[1]), (p[0], y0 - 0.565, p[1])], 0.013, 4, m=mm)
+    lathe(m, 'iron', [(0.158, y0 - 0.395), (0.158, y0 - 0.415)], 6, m=mm, smooth=False)
+    lathe(m, 'iron', [(0.17, y0 - 0.565), (0.19, y0 - 0.585), (0.16, y0 - 0.62), (0.06, y0 - 0.66), (0.0, y0 - 0.73)], 6, m=mm, smooth=False)
+
+def lantern_single(chain):
+    m = Mesh(); iron_lantern(m, T(0, 0, 0), chain); return m
+
+def lantern_ring(R=3.0):
+    """the concept's big round lantern ring: a timber hoop banded in iron, a smaller hoop under it, a ring of iron lanterns,
+    a big lantern in the middle and moss trailing down. Origin = the ceiling hook."""
+    m = Mesh(); rr = random.Random(7); yr = -2.0; R2 = R * 0.7; y2 = yr - 0.6
+    lathe(m, 'dark', [(R - 0.15, yr - 0.13), (R + 0.15, yr - 0.13), (R + 0.15, yr + 0.13), (R - 0.15, yr + 0.13), (R - 0.15, yr - 0.13)], 48, uvs_u=12, smooth=False)
+    for yy in (yr - 0.1, yr + 0.1):
+        lathe(m, 'iron', [(R + 0.16, yy - 0.025), (R + 0.17, yy - 0.025), (R + 0.17, yy + 0.025), (R + 0.16, yy + 0.025)], 48)
+    lathe(m, 'dark', [(R2 - 0.09, y2 - 0.08), (R2 + 0.09, y2 - 0.08), (R2 + 0.09, y2 + 0.08), (R2 - 0.09, y2 + 0.08), (R2 - 0.09, y2 - 0.08)], 40, uvs_u=8, smooth=False)
+    for k in range(12):
+        a = math.radians(k * 30 + 15)
+        tube(m, 'iron', [(R * math.sin(a), yr - 0.1, R * math.cos(a)), (R2 * math.sin(a), y2, R2 * math.cos(a))], 0.025, 4)
+    for k in range(4):
+        a = math.radians(k * 90 + 45)
+        tube(m, 'iron', [(0, 0, 0), (R * math.sin(a), yr + 0.13, R * math.cos(a))], 0.02, 4)
+    for k in range(12):
+        a = math.radians(k * 30)
+        iron_lantern(m, T(R * math.sin(a), yr - 0.13, R * math.cos(a)), 0.22 + 0.12 * (k % 2))
+    for k in range(6):
+        a = math.radians(k * 60 + 30)
+        iron_lantern(m, M(T(R2 * math.sin(a), y2 - 0.08, R2 * math.cos(a)), S(0.85)), 0.2)
+    iron_lantern(m, M(T(0, -0.05, 0), S(1.7)), 1.55)
+    for k in range(22):
+        a = rr.uniform(0, 2 * math.pi); hh = rr.uniform(0.5, 1.5); x, z = R * math.sin(a), R * math.cos(a)
+        tube(m, 'moss', [(x, yr - 0.1, z), (x + 0.06, yr - 0.1 - hh / 2, z), (x, yr - 0.1 - hh, z)], 0.05, 4, radii=[0.07, 0.045, 0.012])
+    return m
+
 def tap_handle():
     m = Mesh()   # pivot at the base of the handle; pulled forward by rotating about x
     lathe(m, 'brass', [(0.0, 0), (0.03, 0), (0.025, 0.05)], 8)
@@ -674,12 +829,18 @@ def guestbook():
     return m
 
 if __name__ == '__main__':
-    M_['logo'] = dict(tex='/home/claude/spire/tmp/ext/mw_logo_0.png', emis_tex='/home/claude/spire/tmp/ext/mw_logo_0.png', emis=(0.6, 0.5, 0.35), alpha='MASK', cutoff=0.4, double=True)
+    LOGO = '/home/claude/spire/tmp/ext/mw_logo_0.png'
+    M_['logo'] = dict(tex=LOGO, emis_tex=LOGO, emis=(0.6, 0.5, 0.35), alpha='MASK', cutoff=0.4, double=True)
+    M_['logo_hot'] = dict(tex=LOGO, emis_tex=LOGO, emis=(1.0, 0.78, 0.42), emis_strength=1.8, alpha='MASK', cutoff=0.4)   # the big bar signs
+    M_['logo_floor'] = dict(tex=LOGO, emis_tex=LOGO, emis=(0.75, 0.55, 0.25), alpha='MASK', cutoff=0.4, rough=0.25, metal=0.4)
     floor_and_rugs(); bar = round_bar(); fire = fireplace(); lounge_seating(); card_tables(); jb = jukebox(); wall_cards(); ceiling_hardware()
     gd = garden(); st = stage(); ceiling_lights(); swamp_moss(); giant_trees(); wet_floor(); banners(); trusses(); wf = waterfalls(); bt = booths()
+    LANT = place_lanterns(); light_pools(LANT)
     print('lounge', write(OUT + 'sp_f1_lounge.glb', L1, M_))
     print('col', write(OUT + 'sp_f1_col.glb', C1, M_))
-    for name, mesh in [('sp_chandelier', chandelier()), ('sp_tap', tap_handle()), ('sp_pour', pour()), ('sp_foam', foam_head()), ('sp_guestbook', guestbook())]:
+    for name, mesh in [('sp_lantern_ring', lantern_ring()), ('sp_lantern_a', lantern_single(0.6)), ('sp_lantern_b', lantern_single(1.4)), ('sp_lantern_c', lantern_single(2.4)),
+                       ('sp_chandelier', chandelier()), ('sp_tap', tap_handle()), ('sp_pour', pour()), ('sp_foam', foam_head()), ('sp_guestbook', guestbook())]:
         print(name, write(OUT + name + '.glb', mesh, M_))
     mm = Mesh(); mug(mm, T(0, 0, 0)); print('mug', write(OUT + 'sp_mug.glb', mm, M_))
-    json.dump(dict(bar, **fire, **jb, **gd, **st, **wf, **bt), open('/home/claude/spire/out/f1_layout.json', 'w'))
+    TREEM = [['sp_mtree_%d' % (1 + i % 2), x, round(Y + (0.946 if i % 2 == 0 else 0.951) * 4.0 - 0.08, 3), z, (i * 77) % 360, 4.0] for i, (x, z) in enumerate(TREES)] if MESHY_TREES else []
+    json.dump(dict(bar, **fire, **jb, **gd, **st, **wf, **bt, lanterns=LANT, rings=RINGS, trees=TREEM, mprops=MPROPS), open('/home/claude/spire/out/f1_layout.json', 'w'))

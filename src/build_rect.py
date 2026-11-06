@@ -132,7 +132,7 @@ def bay_spec(side, k, p0, p1, bi):
         if side == 'front' and abs(cx) < 6: return ('door', 4.6, 4.6)
         if side in ('east', 'west') and abs(cz + 15) < 2.6: return ('door', 3.0, 3.6)
         if bi % 5 == 2: return ('brace',)
-        return ('win', 2.2, 2.6, 1.6, 'win' if kind == 'boarded' else kind)
+        return ('win', 2.5, 4.6, 1.1, 'win' if kind in ('boarded', 'crooked') else kind)     # tall glowing lounge windows (owner's concepts)
     if (bi + k) % 4 == 0: return ('brace',)
     if k == 1: return ('win', 2.4, 3.0, 17.0, kind) if side in ('front', 'back') else ('brace',)   # the Hall of Fakes: high windows above the stair
     if k == 3: return ('win', 2.4, 3.0, 5.5, kind)            # the heist warehouse: high windows
@@ -322,7 +322,7 @@ def shacks():
 # ------------------------------------------------------------------ floors: slabs, ceilings, colliders
 def slabs():
     holes0 = well_holes() + SHAFTS
-    flat_deck(shell, 'dark', RECT, FL['lounge'] + 0.01, holes=[h for h in SHAFTS], under=None)      # dark wet wood: the glowing veins show up on it
+    flat_deck(shell, 'wetfloor', RECT, FL['lounge'] + 0.01, holes=[h for h in SHAFTS], under=None, uvs=3.2)      # wet muddy planks (owner's lounge concept)
     for k in range(1, NS + 1):
         y = YS[k]
         holes = holes0
