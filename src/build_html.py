@@ -25,7 +25,7 @@ D = {
             'appraiser': [29.0, Y2, 15.5, 240], 'skipper': [8.0, FL['roof'], 12.0, 200], 'dealer': [0.0, FL['cards'], 0.0, 0]},
   'taps': [[t[0], r(t[1] + 0.07), t[2], t[3]] for t in F1['taps']],
   'barTop': r(Y1 + 1.165), 'trayTop': r(Y1 + 1.195), 'barRound': F1['bar'],
-  'books': [[6.5, FL['lounge'], 34.0, 0], [-6.5, FL['lounge'], 34.0, 0]],
+  'books': [[0.0, FL['lounge'], 26.6, 0]],          # ONE sign-up book, in the middle of the main entrance (owner)
   'chand': F1['rings'],
   'chand2': [],
   'lifts': LL['lifts'], 'sheaveY': LL['sheave_y'], 'hitch': LL['hitch'], 'rope': LL['rope'], 'sheaveR': LL['sheave_r'], 'cwZ': LL['cw_z'], 'cabApo': L['cab_apo'],
@@ -149,6 +149,7 @@ for k in range(54):                                      # spores rising through
 D['bio'] = bio
 # ---- the new lounge: waterfalls, shop booths, a sky of hanging lanterns
 D['falls'] = F1['falls']; D['booths'] = F1['booths']
+D['fire'] = F1['fire']        # the hearth's fire point (for the animated flames)
 for (fx_, fy_, fz_, fw_, ft_) in F1['falls']:
     dz('mist', fx_, Y1 - 0.2, fz_ + 2.0, 0, 0.25); dz('mw_motes', fx_, Y1, fz_ + 2.0, 0, 0.12)
     for k in range(4): dz('bog_glowplant_%s_lite' % ('a' if k % 2 else 'b'), fx_ + (-3.6 if k < 2 else 3.6), Y1 + 0.3, fz_ + 1.2 + (k % 2) * 1.6, rg.uniform(0, 360), 0.5)

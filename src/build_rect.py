@@ -20,7 +20,7 @@ PORCH = dict(x=50.0, zb=-37.0, zf=42.0)    # porch deck round the building (fron
 WALK = dict(w=8.0, z0=42.0, z1=108.0, y1=0.6)
 # stair wells (east one; the west one is the mirror):  landing strip z -9.5..-6 is floor, the rest of the well is open
 SW = dict(xi=34.4, xd=38.4, xo=42.1, zl=-9.5, z0=-6.0, z1=6.0, zm=9.5)
-LIFTS = [('A', 'The Grand Cage', 38.25, 14.0, True), ('B', 'The Gator Cage', 38.25, -20.0, False), ('C', 'The Heron Cage', -38.25, 14.0, False), ('D', 'The Lucky Cage', -38.25, -20.0, False)]
+LIFTS = [('B', 'The Grand Cage', 38.25, -20.0, False), ('D', 'The Lucky Cage', -38.25, -20.0, False)]     # owner: 2 lifts, the back corners (the front ones blocked the ramp)
 L = dict(FL=FL, keys=KEYS, X1=X1, Z1=Z1, porch_box=PORCH, walk=WALK, sw=SW,
          porch=FL['lounge'], f2=FL['hall'], gallery=FL['gallery'], f3=FL['cards'], f4=FL['rooms'], roof=FL['roof'], band=BAND,
          walk_y=WALK['y1'], walk_len=WALK['z1'] - WALK['z0'], walk_w=WALK['w'], walk_z0=WALK['z0'],
@@ -139,7 +139,7 @@ def bay_spec(side, k, p0, p1, bi):
     if k == 3: return ('win', 2.4, 3.0, 5.5, kind)            # the heist warehouse: high windows
     return ('win', 2.2, 2.4, 1.8, kind)
 
-def rustic_wall(p0, p1, y0, h, holes, battens=True):
+def rustic_wall(p0, p1, y0, h, holes, battens=True, plates=True):
     """weathered vertical boards of uneven width and colour, a ragged bottom edge, two battens; holes = [(x, y, w, h)]"""
     mm, ln = place(p0, p1, y0)
     x = 0.0
@@ -168,8 +168,9 @@ def rustic_wall(p0, p1, y0, h, holes, battens=True):
                 segs = subtract(segs, [(hx - hw / 2 - 0.25, hx + hw / 2 + 0.25)])
         for a, b in segs:
             if b - a > 0.3: box(shell, 'dark', b - a, 0.16, 0.1, m=M(mm, T((a + b) / 2, yy, 0.09)), col=tint(rng, 0.1), uvs=3.0)
-    box(shell, 'dark', ln, 0.3, 0.3, m=M(mm, T(ln / 2, h - 0.15, 0.05)), uvs=3.0)          # top plate
-    box(shell, 'dark', ln, 0.25, 0.3, m=M(mm, T(ln / 2, 0.12, 0.05)), uvs=3.0)             # sill beam
+    if plates:
+        box(shell, 'dark', ln, 0.3, 0.3, m=M(mm, T(ln / 2, h - 0.15, 0.05)), uvs=3.0)          # top plate
+        box(shell, 'dark', ln, 0.25, 0.3, m=M(mm, T(ln / 2, 0.12, 0.05)), uvs=3.0)             # sill beam
     return mm, ln
 
 def boarded(mm, w, h):
@@ -372,8 +373,22 @@ def slabs():
     y = FL['gallery']
     flat_deck(shell, 'plank', G, y, holes=gh, under='dark', th=0.4)
     slab_collider(col, y, ('p', G), holes=gh, pad=0.0)
-    rustic_wall((BAND['xo'], SW['zm']), (X1 - 0.2, SW['zm']), y, 3.6, [])             # closes it off from the stair well
-    collider_box(col, X1 - BAND['xo'], 3.6, 0.45, T((BAND['xo'] + X1) / 2, y + 1.8, SW['zm']))
+    # the ramp carries on (owner: "the ramp should continue up to the next floor"): from the gallery landing a wide ramp climbs
+    # through the east core (where the old front lift stood) onto the stair tower's half landing, and the stairs go on up to floor 3
+    ym_hi = [ (c[0] + c[1]) / 2 for c in cycles() if c[0] < FL['cards'] - 0.1 and c[1] > FL['gallery'] + 0.1 ][0]     # the half landing above the gallery
+    za, zb = SW['zm'] + 12.0, SW['zm']                    # foot of the ramp (on the gallery) -> top (at the half landing's edge)
+    xa_, xb_ = BAND['xo'] + 0.05, X1 - 0.25
+    P = np.array([[xa_, y, za], [xb_, y, za], [xb_, ym_hi, zb], [xa_, ym_hi, zb]])
+    U = np.c_[P[:, 0] / 3.2, np.array([0, 0, 1, 1]) * np.linalg.norm(P[3] - P[0]) / 3.2]
+    nrm = np.cross(P[1] - P[0], P[3] - P[0]); nrm /= np.linalg.norm(nrm); idx = [0, 1, 2, 0, 2, 3]
+    if nrm[1] < 0: nrm = -nrm; idx = [0, 2, 1, 0, 3, 2]
+    shell.add('plank', P + nrm * 0.02, [nrm] * 4, U, idx); shell.add('dark', P - nrm * 0.25, [-nrm] * 4, U, idx[::-1])
+    ln = math.hypot(za - zb, ym_hi - y); ang = math.degrees(math.atan2(ym_hi - y, za - zb))
+    collider_box(col, xb_ - xa_, 0.4, ln + 0.4, M(T((xa_ + xb_) / 2, (y + ym_hi) / 2 - 0.2, (za + zb) / 2), Rx(ang)))
+    for k in range(9):                                     # cleats across the ramp so it reads as a boardwalk ramp
+        t = (k + 0.5) / 9; zz = za + (zb - za) * t; yy = y + (ym_hi - y) * t
+        box(shell, 'dark', xb_ - xa_ - 0.2, 0.05, 0.08, m=M(T((xa_ + xb_) / 2, yy + 0.05, zz), Rx(ang)))
+    L['gallery_ramp'] = dict(y0=y, y1=ym_hi, z0=za, z1=zb)
 
 # ------------------------------------------------------------------ the two stair towers (switchbacks, gentle ramps under the treads)
 def flight(s, x_a, x_b, z_from, z_to, y_from, y_to):
@@ -407,7 +422,8 @@ def stairs():
                 flat_deck(shell, 'plank', P, y1, under='dark', th=0.3)
                 collider_box(col, xb_ - xa_, 0.3, SW['z0'] - SW['zl'] + 0.2, T((xa_ + xb_) / 2, y1 - 0.15, (SW['zl'] + SW['z0']) / 2))
                 xw = s * SW['xi']
-                rustic_wall(*(((xw, SW['zl']), (xw, SW['z0'])) if s > 0 else ((xw, SW['z0']), (xw, SW['zl']))), y1, 3.6, [])
+                in_hall = FL['hall'] - 0.5 < y1 < FL['cards']
+                rustic_wall(*(((xw, SW['zl']), (xw, SW['z0'])) if s > 0 else ((xw, SW['z0']), (xw, SW['zl']))), y1, 3.6, [], battens=not in_hall, plates=not in_hall)
                 collider_box(col, 0.45, 3.6, SW['z0'] - SW['zl'], T(xw, y1 + 1.8, (SW['zl'] + SW['z0']) / 2))
             xd = s * SW['xd']
             pts = [(xd, y0 + (ym - y0) * t + 1.0, SW['z0'] + (SW['z1'] - SW['z0']) * t) for t in np.linspace(0, 1, 7)]
@@ -419,7 +435,8 @@ def stairs():
         for k in range(NS + 1):
             y0 = YS[k]; h = (YS[k + 1] - y0) if k < NS else 4.0
             p0, p1 = ((xa, SW['z0']), (xa, SW['zm'])) if s > 0 else ((xa, SW['zm']), (xa, SW['z0']))
-            rustic_wall(p0, p1, y0, h, [])
+            in_hall = KEYS[k] == 'hall' if k < len(KEYS) else False           # the Hall of Fakes portraits hang along this wall: no battens, no beams
+            rustic_wall(p0, p1, y0, h, [], battens=not in_hall, plates=not in_hall)
             collider_box(col, 0.45, h, SW['zm'] - SW['z0'], T(xa, y0 + h / 2, (SW['z0'] + SW['zm']) / 2))
             # a lit STAIRS lamp over each stair door
             lathe(shell, 'glow', [(0.0, 0), (0.16, 0.05), (0.18, 0.3), (0.12, 0.45), (0.0, 0.48)], 10, m=T(xa - s * 0.35, y0 + 4.0, (SW['zl'] + SW['z0']) / 2 + 2.3))

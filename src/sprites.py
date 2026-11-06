@@ -143,6 +143,7 @@ SPRITES = {
     'fl_cards': (['MUD ROYALE'], 'gold'), 'fl_deck': (["CAPTAIN'S DECK"], 'gold'),
     'fl_rooms': (['GROUP MUD'], 'gold'), 'fl_roof': (['ROOF DECK'], 'gold'), 'stairs': (['STAIRS'], 'gold'),
     'realone': (['THE REAL ONE'], 'gold'),
+    'signup': (['MUDWATER', 'SIGN-UP BOOK'], 'gold'), 'signup_sub': (['SIGN YOUR NAME HERE'], 'cream'),
     'bt_cardshop': (['CARD SHOP'], 'gold'), 'bt_merch': (['MUDWATER MERCH'], 'gold'), 'bt_trophies': (['TROPHY ROOM'], 'gold'), 'bt_photos': (['PHOTO BOOTH'], 'gold'),
 }
 for k in range(10): SPRITES['d%d' % k] = ([str(k)], 'gold')

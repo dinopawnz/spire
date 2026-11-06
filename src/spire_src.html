@@ -31,7 +31,8 @@
   const SHOW_PADS = false;
 
   // ---- tweakables ---------------------------------------------------------
-  const LIFT_SPEED = 2.4;            // m/s (gentle, so riders stay on the floor going down)
+  const OP_LIFT = "B";             // the lift the operator (the host's ape) rides
+  const LIFT_SPEED = 1.8;            // m/s (gentle, so riders stay on the floor going down)
   const LIFT_DWELL = 7000;           // doors stay open this long at a stop
   const LIFT_HOME_MS = 45000;        // an idle cage goes back down to the lounge after this
   const LOCKOUT_MS = 5000;           // wrong portrait
@@ -72,8 +73,14 @@
   function onWin(ev, f) { window.addEventListener(ev, f); LISTENERS.push([ev, f]); }
   const _setWin = (ev, f) => window.addEventListener(ev, f);
   function tween(target, attr, from, to, ms, easing) {
+    target._tw = target._tw || {};
+    const prev = target._tw[attr];
+    if (prev) { cancel(prev.h); prev.a.remove(); }
+    target.setAttribute(attr, String(r3(from)));
     const a = el("m-attr-anim", { attr, start: from, end: to, duration: Math.round(ms), loop: "false", easing: easing || "easeInOutCubic", "start-time": Math.round(now()) }, target);
-    later(ms + 80, () => { target.setAttribute(attr, String(r3(to))); a.remove(); });
+    const rec = { a, to };
+    rec.h = later(ms + 80, () => { if (target._tw[attr] !== rec) return; target.setAttribute(attr, String(r3(to))); a.remove(); delete target._tw[attr]; });
+    target._tw[attr] = rec;
   }
   const sfx = (file, x, y, z, vol, parent) => { const a = el("m-audio", { src: BASE + file + VER, x, y, z, loop: "false", volume: vol || 0.8, "start-time": Math.round(now()) }, parent); later(12000, () => a.remove()); return a; };
   const polar = (r, a, y) => [r * Math.sin(a * Math.PI / 180), y, r * Math.cos(a * Math.PI / 180)];
@@ -384,6 +391,28 @@
         anim(foam, "opacity", 0.45, 0.85, 900 + k * 300, { pingPong: true, easing: "easeInOutSine" });
       }
     });
+    // ---------------------------------------------------- the fireplace: flickering flames, embers rising, a glow pulsing on the floor
+    if (D.fire) {
+      const [fx, fy, fz] = D.fire;
+      const fg = el("m-group", { x: fx, y: fy - 0.25, z: fz + 0.2 });          // just behind the iron grate
+      [[0, 1.7, 1.25, 360, 0.95], [-0.45, 1.1, 0.95, 290, 0.85], [0.5, 1.2, 1.05, 410, 0.85], [0.05, 0.9, 1.5, 330, 0.7]].forEach(([dx, w, h, per, op], i) => {
+        const flick = el("m-group", { x: dx, ry: i % 2 ? 180 : 0 }, fg);
+        const im = el("m-image", { src: BASE + "fire_flame.png" + VER, y: h / 2, width: w, height: h, emissive: 1.6, opacity: op, collide: "false", "cast-shadows": "false" }, flick);
+        anim(flick, "sy", 0.82, 1.14, per, { pingPong: true, easing: "easeInOutSine", delay: i * 97 });
+        anim(flick, "sx", 1.06, 0.92, Math.round(per * 1.31), { pingPong: true, easing: "easeInOutSine", delay: i * 53 });
+        anim(flick, "rz", -3, 3, Math.round(per * 1.7), { pingPong: true, easing: "easeInOutSine", delay: i * 131 });
+        anim(im, "emissive", 1.2, 2.0, Math.round(per * 0.77), { pingPong: true, easing: "easeInOutSine", delay: i * 71 });
+      });
+      for (let k = 0; k < 10; k++) {          // embers drifting up into the chimney
+        const e = el("m-sphere", { x: -0.6 + 1.2 * ((k * 37) % 10) / 10, y: 0.3, z: -0.1 + 0.2 * ((k * 53) % 10) / 10, radius: 0.025, color: "#ff8a2a", emissive: 5, collide: "false", "cast-shadows": "false", "data-lite": "1" }, fg);
+        const dur = 1600 + (k * 211) % 1200;
+        anim(e, "y", 0.3, 2.2, dur, { delay: k * 230 });
+        anim(e, "opacity", 1, 0, dur, { delay: k * 230 });
+      }
+      const glow = el("m-image", { src: BASE + "fire_glow.png" + VER, x: fx, y: fy - 0.2, z: fz - 2.2, rx: -90, width: 6.5, height: 5.0, emissive: 0.9, opacity: 0.75, collide: "false", "cast-shadows": "false" });
+      anim(glow, "opacity", 0.55, 0.9, 470, { pingPong: true, easing: "easeInOutSine" });
+      anim(glow, "emissive", 0.7, 1.15, 610, { pingPong: true, easing: "easeInOutSine" });
+    }
     D.booths.forEach(([x, y, z, ry, key]) => word("bt_" + key, 0.55, { x, y, z, ry }));
 
     // ---------------------------------------------------- THE LIVING SWAMP (Pandora by night): glowing veins on the floors and the stair that
@@ -449,6 +478,7 @@
       const g = el("m-group", Object.assign({ x, y, z, ry }, sc ? { sx: sc, sy: sc, sz: sc } : {}), parent);
       const m = model("npc_" + key + ".glb", { collide: "false", anim: BASE + "npc_" + key + "_idle.glb" + VER, "anim-loop": "true" }, g);
       const hb = hitBox({ y: 1.0, width: 1.0, height: 2.0, depth: 0.9 }, g);
+      pad({ y: 0.95, width: 0.75, height: 1.9, depth: 0.7 }, g);          // the character is solid - nobody walks through them
       const n = { key, g, m, i: 0, talking: false, cur: null, greeted: new Map(), lines: D.npc[key].lines, x, y, z, parent };
       hb.addEventListener("click", (e) => { const id = e.detail && e.detail.connectionId; if (id === undefined) return; if (npcTalk(n, peekLine(n), id, false, "click")) n.i++; });
       NPCS[key] = n; return n;
@@ -563,8 +593,15 @@
 
     // ---------------------------------------------------- guest book (porch) - the name you sign shows on the leaderboards
     D.books.forEach(([x, y, z, ry]) => {
-      const pr = el("m-prompt", { x, y, z, ry, message: "Sign the Mudwater Guest Book - type the name you want on the leaderboards", placeholder: "Your name (up to 18 letters)" });
-      model("sp_guestbook.glb", { collide: "true" }, pr);
+      // THE MUDWATER SIGN-UP BOOK: a carved lectern with the big open book, between two lantern posts holding a gold-framed sign
+      const sg = el("m-group", { x, y, z: z - 1.0, ry });
+      [-1.75, 1.75].forEach((dx) => { model("sp_m_lanternpost.glb", { x: dx, y: 1.700, sx: 1.789, sy: 1.789, sz: 1.789, collide: "false" }, sg); pad({ x: dx, y: 1.7, width: 0.45, height: 3.4, depth: 0.45 }, sg); });
+      model("sp_m_signframe.glb", { y: 1.55 + 1.249, sx: 1.317, sy: 1.317, sz: 1.317, collide: "false" }, sg);
+      word("signup", 0.95, { y: 3.0, z: 0.14 }, sg);
+      word("signup_sub", 0.26, { y: 2.22, z: 0.14 }, sg);
+      const pr = el("m-prompt", { x, y, z, ry, message: "Sign the Mudwater Sign-Up Book - type the name you want on the leaderboards", placeholder: "Your name (up to 18 letters)" });
+      model("sp_m_lectern.glb", { y: 0.675, sx: 0.710, sy: 0.710, sz: 0.710, collide: "false" }, pr);
+      pad({ y: 0.65, width: 1.1, height: 1.3, depth: 0.9 }, pr);
       pr.addEventListener("prompt", (e) => {
         const id = e.detail && e.detail.connectionId; if (id === undefined) return;
         const raw = String(e.detail.value || "").replace(/[<>\u0000-\u001f]/g, "").replace(/\s+/g, " ").trim().slice(0, 18);
@@ -588,8 +625,9 @@
       // MOVING: the cab, ropes, counterweight and dials carry an m-attr-lerp. To move, the server just sets the new value and every
       // player's client glides it there over the same time - one cab, the same for everybody, riders carried on its floor.
       // (The old way played a timed animation; players whose clocks didn't match saw the cab somewhere else.)
-      const LERPS = [];
-      const glider = (n, attr) => { const l = el("m-attr-lerp", { attr, duration: 1000, easing: "easeInOutSine" }, n); LERPS.push(l); return (to, ms) => { l.setAttribute("duration", Math.round(ms)); n.setAttribute(attr, String(r3(to))); }; };
+      // MOVING (v16): every moving part plays a timed m-attr-anim that starts at the shared document time, so every player's
+      // client shows the cab in the same place and it glides at a steady elevator speed (Otherside ignores m-attr-lerp).
+      const glider = (n, attr) => (to, ms) => { const from = parseFloat(n.getAttribute(attr) || "0"); tween(n, attr, from, to, ms, "easeInOutSine"); };
       model("sp_lift_cab.glb", { collide: "false" }, CG);
       const cgR = model("sp_lift_cgate.glb", { x: ci.gate_r[0], z: ci.gate_r[2], collide: "false" }, CG);
       const cgL = model("sp_lift_cgate.glb", { x: ci.gate_l[0], z: ci.gate_l[2], ry: 180, collide: "false" }, CG);
@@ -599,7 +637,7 @@
       const needleOut = model("sp_lift_needle.glb", { x: ci.needle_out[0], y: ci.needle_out[1], z: ci.needle_out[2], rz: Lf.dial_rz[0], collide: "false" }, CG);
       const gCab = glider(CG, "y"), gNin = glider(needleIn, "rz"), gNout = glider(needleOut, "rz");
       // floor, walls (door side open), the cab gate's collider
-      [0, 45, 90, 135].forEach((a) => pad({ y: -0.13, width: 4.05, height: 0.26, depth: 1.66, ry: a }, CG));
+      [0, 45, 90, 135].forEach((a) => pad({ y: -0.6, width: 4.05, height: 1.2, depth: 1.66, ry: a }, CG));       // 1.2 m thick floor, top flush
       for (let i = 0; i < 7; i++) { const a = 45 + 45 * i, c = polar(D.cabApo + 0.03, a, 1.3); pad({ x: c[0], y: c[1], z: c[2], ry: a, width: 1.8, height: 2.6, depth: 0.12 }, CG); }
       pad({ y: -0.13, z: D.cabApo + 0.13, width: 1.7, height: 0.26, depth: 0.3 }, CG);               // the sill
       const cgatePad = pad({ y: 1.25, z: D.cabApo - 0.02, width: 1.8, height: 2.5, depth: 0.12 }, CG);
@@ -607,7 +645,7 @@
       const music = el("m-audio", { src: BASE + "lift_music.mp3" + VER, y: 2.3, loop: "true", volume: 0.32, "start-time": -9000 * "ABCD".indexOf(id) }, CG);
       st.music = music; st.musicHome = CG;
       // the operator (the host's own ape) rides the Grand Cage
-      if (id === "A") npc("operator", ci.operator[0], ci.operator[1], ci.operator[2], ci.operator_ry, CG);
+      if (id === OP_LIFT) npc("operator", ci.operator[0], ci.operator[1], ci.operator[2], ci.operator_ry, CG);
       // floor buttons inside the cab (pictures of the floor names) on the front-left diagonal
       {
         const pc = polar(D.cabApo - 0.55, 315, 0);                 // a brass-edged board 0.55 m in from the front-left wall, facing the middle
@@ -615,7 +653,7 @@
         el("m-cube", { y: 1.45, z: -0.04, width: 1.05, height: 1.75, depth: 0.04, color: "#2a1a0c", collide: "false", "cast-shadows": "false" }, panel);
         const n = Lf.keys.length;
         Lf.keys.forEach((key, k) => {
-          const bg = el("m-group", { y: 2.15 - k * (1.3 / Math.max(1, n - 1)), z: 0.02 }, panel);   // top floor at the top
+          const bg = el("m-group", { y: 0.85 + k * (1.3 / Math.max(1, n - 1)), z: 0.02 }, panel);   // lounge at the bottom, roof at the top
           word("fl_" + key, 0.17, {}, bg);
           const hb = hitBox({ z: 0.05, width: 0.98, height: 0.24, depth: 0.12 }, bg);
           hb.addEventListener("click", (e) => request(st, k, e.detail && e.detail.connectionId));
@@ -650,7 +688,9 @@
       function gates(open, k) {
         const s0 = open ? 1 : 0.15, s1 = open ? 0.15 : 1, l = LANDS[k];
         [cgR, cgL, l.gR, l.gL].forEach((g) => tween(g, "sx", s0, s1, 1100, "easeInOutQuad"));
-        later(open ? 900 : 0, () => { cgatePad.setAttribute("y", open ? -60 : 1.25); l.gp.setAttribute("y", open ? -300 : l.gpY); });
+        // the invisible gate walls follow the leaves: gone once the door is mostly open, back once it is mostly shut
+        // (so a door that looks open is always walkable, and nobody gets stopped by glass while it still looks open)
+        later(open ? 850 : 750, () => { if (st.open !== open) return; cgatePad.setAttribute("y", open ? -60 : 1.25); l.gp.setAttribute("y", open ? -300 : l.gpY); });
         sfx("lift_gate.mp3", l.po.gate_col[0], l.po.gate_col[1] + 1.4, l.po.gate_col[2], 0.7);
         st.open = open;
       }
@@ -665,14 +705,14 @@
         const spins = [anim(sheave, "rx", 0, 360 * sg, revSheave), anim(pinion, "rx", 0, -360 * sg, Math.round(revSheave * 0.33)), anim(gov, "ry", 0, 360, 900)]
           .concat(gears.map((g) => anim(g, "rx", 0, 360 * sg, 1400)));
         const hum = el("m-audio", { src: BASE + "lift_hum.mp3" + VER, y: 1.5, loop: "true", volume: 0.55, "start-time": Math.round(now()) }, CG);
-        if (id === "A" && NPCS.operator) npcTalk(NPCS.operator, up ? "up" : "down", undefined, true);
+        if (id === OP_LIFT && NPCS.operator) npcTalk(NPCS.operator, up ? "up" : "down", undefined, true);
         later(ms, () => { spins.forEach((s) => s.remove()); hum.remove(); done(); });
       }
       function arrive(k) {
         const l = LANDS[k]; if (l.glow.parentNode) l.glow.remove();
         sfx("lift_chime.mp3", l.po.call[0], l.po.call[1] + 1.5, l.po.call[2], 0.9);
         gates(true, k);
-        if (id === "A" && NPCS.operator) later(600, () => npcTalk(NPCS.operator, "s_" + Lf.keys[k], undefined, true));
+        if (id === OP_LIFT && NPCS.operator) later(600, () => npcTalk(NPCS.operator, "s_" + Lf.keys[k], undefined, true));
       }
       function pump() {
         if (st.busy) return;
@@ -688,7 +728,7 @@
           st.at = next; st.req.delete(next); arrive(next); st.lastUse = now();
           later(LIFT_DWELL, () => { st.busy = false; pump(); });
         });
-        if (st.open) { if (id === "A" && NPCS.operator) npcTalk(NPCS.operator, "close", undefined, true); gates(false, st.at); later(1400, go); } else go();
+        if (st.open) { if (id === OP_LIFT && NPCS.operator) npcTalk(NPCS.operator, "close", undefined, true); gates(false, st.at); later(1400, go); } else go();
       }
       function request(s, k, who) {
         if (k === s.at && s.open && !s.busy) return;

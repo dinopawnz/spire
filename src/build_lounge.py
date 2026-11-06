@@ -32,7 +32,7 @@ M_['pond'] = dict(color=(0.03, 0.045, 0.035, 1), emis=(0.01, 0.03, 0.02), rough=
 M_['shroom'] = dict(color=(0.5, 0.22, 0.06, 1), emis=(1.0, 0.36, 0.05), emis_strength=0.5, rough=0.6)     # warm amber, like the concept
 M_['lglass'] = dict(color=(0.6, 0.26, 0.05, 1), emis=(1.0, 0.4, 0.06), emis_strength=0.62, rough=0.3)     # iron-lantern glass
 M_['gills'] = dict(color=(0.7, 0.3, 0.06, 1), emis=(1.0, 0.42, 0.06), emis_strength=0.7, rough=0.7, double=True)   # glowing mushroom undersides
-for _n, _r in (('dec_puddle1', 0.24), ('dec_puddle2', 0.26), ('dec_mud1', 0.32), ('dec_mud2', 0.4)):     # puddle / mud decals: never pitch black
+for _n, _r in (('dec_puddle1', 0.12), ('dec_puddle2', 0.12), ('dec_puddle3', 0.14)):     # puddle / mud decals: never pitch black
     M_[_n] = dict(tex=TEX + _n + '.png', emis_tex=TEX + _n + '.png', emis=(0.2, 0.15, 0.1), alpha='BLEND', rough=_r, metal=0.0)
 M_['pool'] = dict(tex=TEX + 'pool.png', emis_tex=TEX + 'pool.png', emis=(1.0, 0.62, 0.26), alpha='BLEND', rough=0.2)      # lantern light on the wet floor
 M_['dance'] = dict(tex=TEX + 'wood_planks.jpg', emis_tex=TEX + 'wood_planks.jpg', emis=(0.6, 0.33, 0.1), rough=0.25)
@@ -54,6 +54,7 @@ def mp(name, mm, size):
     """place Meshy model `name` with the pose of matrix mm (floor point + yaw), scaled so its size[0] extent ('w' x, 'd' z, 'h' y,
     'l' longest of x/z) equals size[1] metres. False if the model isn't built (then the code-built piece is used)."""
     if not MESHY_PROPS or name not in META: return False
+    mm_local = np.asarray(mm)
     mm = np.asarray(mm if PROP_XF is None else PROP_XF @ np.asarray(mm))
     ry = math.degrees(math.atan2(mm[0, 2], mm[2, 2])) + META_RY.get(name, 0)
     mn, mx = META[name]
@@ -63,7 +64,15 @@ def mp(name, mm, size):
     c, sn = math.cos(math.radians(ry)), math.sin(math.radians(ry))
     MPROPS.append(['sp_m_' + name, round(float(mm[0, 3] + ccx * c + ccz * sn), 3), round(float(mm[1, 3] - mn[1] * sc), 3),
                    round(float(mm[2, 3] - ccx * sn + ccz * c), 3), round(ry, 1), round(sc, 4)])
+    if name in SOLID:            # solid: an invisible box the size of the model (slightly inset), so nobody walks through it
+        fx, fy, fz = SOLID[name]
+        wx, hy, dz = (mx[0] - mn[0]) * sc * fx, (mx[1] - mn[1]) * sc * fy, (mx[2] - mn[2]) * sc * fz
+        collider_box(C1, wx, hy, dz, M(mm_local, Ry(META_RY.get(name, 0)), T(0, hy / 2, 0)))
     return True
+# which Meshy props get a box collider (fraction of the model's width, height, depth). The pond, grottos, booths, hearth and trees
+# keep their own hand-placed colliders.
+SOLID = {'sofa': (0.9, 0.75, 0.85), 'armchair': (0.85, 0.75, 0.85), 'cardtable': (0.8, 1.0, 0.8), 'coffeetable': (0.9, 1.0, 0.85),
+         'stool': (0.6, 1.0, 0.6), 'barrel': (0.85, 1.0, 0.85), 'bench': (0.9, 0.8, 0.8)}
 
 def barrel(m, mm, r=0.42, h=1.1, lying=False, mat='dark'):
     if not lying and np.asarray(mm)[1, 1] > 0.95 and mp('barrel', mm, ('h', h)): return
@@ -131,11 +140,11 @@ def mug(m, mm, full=True):
 def floor_and_rugs():
     for (cx, cz), w in zip(GROUPS, (7.0, 5.0)):
         h = w * 711 / 512
-        quad(L1, 'rug', w, h, M(T(cx, Y + 0.045, cz), Rx(-90), Rz(90)))
+        quad(L1, 'rug', w, h, M(T(cx, Y + 0.078, cz), Rx(-90), Rz(90)))
         for s in (-1, 1):
             for k in range(int(w / 0.06)):
                 x = -w / 2 + k * 0.06
-                box(L1, 'pale', 0.012, 0.004, 0.12, m=M(T(cx, Y + 0.046, cz), Ry(90), T(x, 0, s * (h / 2 + 0.05))), faces='Y')
+                box(L1, 'pale', 0.012, 0.004, 0.12, m=M(T(cx, Y + 0.079, cz), Ry(90), T(x, 0, s * (h / 2 + 0.05))), faces='Y')
     # the foyer: a big glowing Mudwater medallion inside the grand doors, and a runner from the doors to the lifts
     floor_plaque(0.0, 19.5, 10.0)
 
@@ -514,7 +523,7 @@ def stage():
         for j in range(5):
             xa = fx0 + (fx1 - fx0) * i / n; za = fz0 + (fz1 - fz0) * j / 5
             mat = 'dance' if (i + j) % 2 == 0 else 'bartop'
-            quad(L1, mat, (fx1 - fx0) / n - 0.06, (fz1 - fz0) / 5 - 0.06, M(T(xa + (fx1 - fx0) / n / 2, Y + 0.03, za + (fz1 - fz0) / 10), Rx(-90)))
+            quad(L1, mat, (fx1 - fx0) / n - 0.06, (fz1 - fz0) / 5 - 0.06, M(T(xa + (fx1 - fx0) / n / 2, Y + 0.09, za + (fz1 - fz0) / 10), Rx(-90)))
     return dict(stage=[(x0 + x1) / 2, Y + h, (z0 + z1) / 2])
 
 def ceiling_lights():
@@ -634,7 +643,7 @@ def place_lanterns():
 def light_pools(lanterns):
     """soft, irregular pools of warm light under every lantern, ring, the bar, the fireplace and the booths (MML has no real lights)"""
     def pool(x, z, r, a, rot):
-        quad(L1, 'pool', 2 * r, 2 * r, M(T(x, Y + 0.03, z), Ry(rot), Rx(-90)), col=(1, 1, 1, a))
+        quad(L1, 'pool', 2 * r, 2 * r, M(T(x, Y + 0.065, z), Ry(rot), Rx(-90)), col=(1, 1, 1, a))      # above the puddles, under the dance floor
     for f, x, y, z, ry, s in lanterns:
         k = 'abc'.index(f[-1]); pool(x, z, (1.5, 1.8, 2.1)[k], (0.32, 0.42, 0.55)[k], ry * 6)
     for x, z, s in RINGS: pool(x, z, 4.3 * s, 0.6, x * 7 + z)
@@ -646,7 +655,7 @@ def light_pools(lanterns):
 def wet_floor():
     """photo-detailed muddy puddles and boot-printed mud splats (Meshy-made decals) scattered over the wet planks,
     and grass tufts poking up through the boards"""
-    kinds = ['dec_puddle1', 'dec_puddle2', 'dec_mud1', 'dec_mud2']
+    kinds = ['dec_puddle1', 'dec_puddle2', 'dec_puddle1', 'dec_puddle3']        # shallow glossy water (owner: like the concept's puddles)
     placed = []
     for k in range(62):
         for _ in range(40):
@@ -655,8 +664,8 @@ def wet_floor():
             if abs(x) < 6 and abs(z - 19.5) < 2.2: continue                      # keep the MUDWATER plaque clear
             if all(math.hypot(x - px, z - pz) > 2.6 for px, pz in placed): break
         placed.append((x, z))
-        kd = kinds[k % 4]; sz = rng.uniform(1.8, 3.4) if 'puddle' in kd else rng.uniform(1.4, 2.6)
-        quad(L1, kd, sz, sz * rng.uniform(0.75, 1.0), M(T(x, Y + 0.02 + 0.0015 * (k % 7), z), Ry(rng.uniform(0, 360)), Rx(-90)))
+        kd = kinds[k % 4]; sz = rng.uniform(2.0, 4.2)
+        quad(L1, kd, sz, sz * rng.uniform(0.75, 1.0), M(T(x, Y + 0.022 + 0.005 * (k % 7), z), Ry(rng.uniform(0, 360)), Rx(-90)))   # 5 mm apart: no flicker
     for (tx, tz) in TREES + [(rng.uniform(-33, 33), rng.uniform(-27, 27)) for _ in range(30)]:
         for k in range(rng.randint(6, 14)):
             a = rng.uniform(0, 2 * math.pi); rr = rng.uniform(2.6, 4.5) if (tx, tz) in TREES else rng.uniform(0, 1.2)

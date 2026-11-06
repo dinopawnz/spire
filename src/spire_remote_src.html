@@ -519,7 +519,7 @@ details.cheat dl { margin: 8px 0 0; } details.cheat dt { color: var(--sky); font
       p = R.panel(R.left, "The lifts", "call either cage to any of its floors");
       ui.liftBox = h("div", { class: "lifts" }); p.append(ui.liftBox);
       ui.liftCards = {};
-      [["A", "The Grand Cage"], ["B", "The Gator Cage"], ["C", "The Heron Cage"], ["D", "The Lucky Cage"]].map(([a, b]) => [a, b, a === "A" ? ["lounge", "hall", "gallery", "cards", "rooms", "roof"] : ["lounge", "hall", "cards", "rooms", "roof"]]).forEach(([id, nm, stops]) => {
+      [["B", "The Grand Cage (east)"], ["D", "The Lucky Cage (west)"]].map(([a, b]) => [a, b, ["lounge", "hall", "cards", "rooms", "roof"]]).forEach(([id, nm, stops]) => {
         const c = h("div", { class: "liftcard" }, h("div", { class: "nm", text: nm }));
         const s = h("div", { class: "st", text: "-" }); c.append(s);
         const gg = R.grid(c, "narrow");

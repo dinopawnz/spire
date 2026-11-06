@@ -19,8 +19,9 @@ YS = Y0 + 3.2                                  # where the winding stair starts 
 LAPS = 2
 PW, PH = 1.1, 1.1 * 533 / 384                  # Black Flag portraits (finals)
 PWH, PHH = 1.3, 1.3 * 533 / 384                # Founder portraits (on the walls)
-N_HALL = 200
-IMGS = [821] + sorted(random.Random(62).sample([i for i in range(1000) if i != 821], N_HALL - 1))
+ROW_Y = (1.45, 3.4)              # portrait centre heights above the ramp: a lower row at eye level and an upper row
+N_HALL = None                    # = the number of wall slots (two rows round both laps)
+IMGS = None
 RX, RZ = 13.0, 10.0                            # the finals hall: x -13..13, z -10..10
 MOAT = 3.2                                     # the glowing moat round it
 hall = Mesh(); col = Mesh(); vm = Mesh(); vc = Mesh()
@@ -117,14 +118,16 @@ def band():
         n = int(round(ln / 2.24))
         for k in range(n):
             t = (k + 0.5) / n
-            px = a[0] + (b[0] - a[0]) * t; pz = a[1] + (b[1] - a[1]) * t; py = y0 + (y1 - y0) * t + 2.15
+            px = a[0] + (b[0] - a[0]) * t; pz = a[1] + (b[1] - a[1]) * t
             if ax == 'z': x, z, ry = px, wc - np.sign(wc) * 0.06, 180 if wc > 0 else 0
             else: x, z, ry = wc - np.sign(wc) * 0.06, pz, 270 if wc > 0 else 90
-            frame(hall, PWH, PHH, M(T(x, py, z), Ry(ry)))
-            slots.append(dict(x=round(x - math.sin(math.radians(ry)) * -0.03, 3), y=round(py, 3), z=round(z - math.cos(math.radians(ry)) * -0.03, 3), ry=ry))
+            for dy in ROW_Y:            # two rows of portraits (owner: at least 400 on the walls)
+                py = y0 + (y1 - y0) * t + dy
+                frame(hall, PWH, PHH, M(T(x, py, z), Ry(ry)))
+                slots.append(dict(x=round(x - math.sin(math.radians(ry)) * -0.03, 3), y=round(py, 3), z=round(z - math.cos(math.radians(ry)) * -0.03, 3), ry=ry))
             if k < n - 1:
                 t2 = (k + 1) / n
-                sx = a[0] + (b[0] - a[0]) * t2; sz = a[1] + (b[1] - a[1]) * t2; sy = y0 + (y1 - y0) * t2 + 2.9
+                sx = a[0] + (b[0] - a[0]) * t2; sz = a[1] + (b[1] - a[1]) * t2; sy = y0 + (y1 - y0) * t2 + ROW_Y[-1] + 1.15
                 if ax == 'z': sconce(hall, M(T(sx, sy, wc - np.sign(wc) * 0.02), Ry(ry)))
                 else: sconce(hall, M(T(wc - np.sign(wc) * 0.02, sy, sz), Ry(ry)))
     corner('front', YTOP)          # the top landing (the gallery door on the east wall opens off it)
@@ -340,7 +343,8 @@ MM = dict(MATS)
 MM['pond'] = dict(tex=TEX + 'mudglow.jpg', emis_tex=TEX + 'mudglow.jpg', emis=(0.35, 0.55, 0.45), color=(0.55, 0.85, 0.75, 1), rough=0.05, metal=0.2)
 if __name__ == '__main__':
     slots = band(); foot = grand_steps(); end_walls(); vslots = finals_hall(); chandeliers()
-    assert len(slots) == N_HALL, len(slots)
+    N_HALL = len(slots)
+    IMGS = [821] + sorted(random.Random(62).sample([i for i in range(1000) if i != 821], N_HALL - 1))     # the real #62 (821) + fakes
     print('hall', write(OUT + 'sp_f2_hall.glb', hall, MM), 'portraits', len(slots), 'lap', round(LAP_LEN, 1), 'rise/lap', round(RISE_LAP, 2))
     print('col', write(OUT + 'sp_f2_col.glb', col, MATS))
     VM = dict(MATS); VM['vglass'] = VGLASS
