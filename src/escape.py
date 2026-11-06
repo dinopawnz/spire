@@ -202,7 +202,7 @@ def apply(D, L, FL):
             for c in range(6):
                 cards.append([r3(X(0.36)), r3(YU + 1.1 + r * 1.85), r3(zc + (c - 2.5) * 1.45 * (-s)), ryi])
         # (fps) the static bits of the puzzles live in this model, not as separate objects: keypad buttons, lantern caps, rug border
-        for (kx, ky, kz) in keys: box(vis, 'dark', 0.05, 0.34, 0.34, m=T(kx + 0.03 * s, ky, kz))
+        for (kx, ky, kz) in keys: box(vis, 'dark', 0.05, 0.34, 0.34, m=T(kx - 0.03 * s, ky, kz))      # (v46) behind the number, not over it
         for (lx, ly, lz) in lant:
             cyl(vis, 'iron', 0.13, 0.04, 10, m=T(lx, ly, lz)); cyl(vis, 'iron', 0.09, 0.05, 10, m=T(lx, ly + 0.34, lz))
         rw_, rd_ = 12.5, 21.5
@@ -217,6 +217,8 @@ def apply(D, L, FL):
             keys=keys, disp=[r3(X(17.76)), r3(Y0 + 2.95), r3(zc - 4.0), ryo],
             pads=[[r3(X(u)), r3(Y0), r3(zc + v)] for (u, v) in ((22.5, -5.5), (31.5, -5.5), (22.5, 5.0), (31.5, 5.0))],
             cards=cards, frogs=frogs, rounds=[r3(X(26.5)), r3(YU + 0.1), r3(zc + 9.0), ryo],
+            rsigns=[[r3(X(0.25)), r3(Y0 + 2.5), r3(zc - 5.0), ryi, 'esc_r1'], [r3(X(18.2)), r3(Y0 + 2.5), r3(zc - 1.5), ryi, 'esc_r2'],
+                    [r3(X(17.8)), r3(YU + 2.4), r3(zc - 3.6), ryo, 'esc_r3'], [r3(X(18.2)), r3(YU + 2.4), r3(zc - 1.5), ryi, 'esc_r4']],
             hint=[[r3(X(9)), r3(Y0 + 3.6), zc, ryi], [r3(X(27)), r3(Y0 + 3.6), zc, ryi], [r3(X(9)), r3(YU + 3.6), zc, ryi], [r3(X(27)), r3(YU + 3.6), zc, ryi]]))
     # ---- the middle: corridor downstairs (open at both ends), Victory Hall upstairs, the stair between them
     slab(-XC, -3.0, -ZB, ZB, YU); slab(3.0, XC, -ZB, ZB, YU); slab(-3.0, 3.0, -ZB, 23.5, YU); slab(-3.0, 3.0, 34.0, ZB, YU)

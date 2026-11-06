@@ -34,7 +34,7 @@
 | Where | Version | What |
 |---|---|---|
 | branch `main` | v13 | the old LIVE build. Untouched. Push to main ONLY when the owner says. |
-| branch **`handoff-v14`** | **v45** | everything from sessions 6–11. This is what the owner tests. |
+| branch **`handoff-v14`** | **v46** | everything from sessions 6–11. This is what the owner tests. |
 
 The owner's files load assets from `https://raw.githubusercontent.com/dinopawnz/spire/handoff-v14/` (baked into spire.html by `build_html.py`), so **assets must be pushed to `handoff-v14` before the owner's HTML works.** Remote PIN: **7747**, then press LIVE BUILD.
 
@@ -234,6 +234,10 @@ Raised dark-timber photo stage with steps, Meshy photo arch (8 m) with the Mudwa
 - **Mud Royale card LEVELS** (owner: "im able to play cards that are not level 1 on the board without upgrading a card. that should not be a thing"): LEVEL 1 cards go on empty squares only; LEVEL 2+ cards are UPGRADES, played on top of a LOWER-level card (yours or an enemy's - an enemy square becomes yours), captures as before. With a full board a same-level card with a higher total may also upgrade. Levels from `cards/cards.json` (`lv`: 55 lv1, 30 lv2, 13 lv3, 14 lv4, 8 lv5) -> `D.royale.lv`. Starting hands get at least 2 level-1 cards; deals are level 1 ~55%+ of the time (always level 1 if a hand has none). Each card picture now has a clear **LV n** badge bottom-left (green LV 1 / gold LV 2+; `royale/c_NNN.jpg` regenerated - copy `out/royale/` to the repo by hand). New messages `r_lvup`, `r_lvlow`; rules sign updated. Test: `viewer/royalelevel.py` (the old `royaletest.py` places random cards, so it no longer fits the rules).
 - Two framed cards on the Mud Royale floor hung at z +-10, just past the end of the stair tower wall (it runs z -9.5..9.5) - floating in air. Now at z -2 and 6 on that wall.
 - **Escape**: the low wall under the Victory Hall windows ran across the bottom of every final door (owner: "the bottom of the door is blocked by wood") - fixed. Each start door now shows its team's PLAYER COUNT big over the door on the aisle side (updates every 3 s), so hosts can balance teams. The winner = the first team to open its final door (solve room 4): its colour + WINS on both progress boards, confetti in the Victory Hall, host message with the time; later teams get their place.
+### v46 (session 11)
+- **Lift jerk / riders dropped at the start of a ride** (owner): `glider()` (cab, ropes, counterweight, needles) used `tween()`, which writes the FINAL value first and then adds the animation - for an instant the cab (with its floor colliders) was at the destination. Now the animation starts from where the cab is, the final value is written under the finished animation 120 ms after the ride, and the animation is removed 450 ms after (plus the v41 resend). `heal()` cancels these timers too. lifttest (702 rides), healtest, gatecheck pass.
+- **Escape keypad showed no numbers**: the button plates baked into sp_escape.glb sat in front of the number sprites (wrong side). Fixed; numbers at z 0.05.
+- **Escape: a how-to sign in every room** (`sg_esc_r1..r4`, pictures of text): what to look for and do. Rooms 3-4 signs describe card memory / frog choir until those rooms are replaced.
 - Possible next looks items: the team pens read a bit like boxing rings (owner asked what the "gator ring" was) - offer a restyle (timber platform / moss-and-lantern clearing).
 - (old note) NEXT for floor 3: decoration pass to lounge standard (owner: "every floor must keep the same standard as the first floor") - it's dark and bare apart from the arena: lantern rings + warm light pools, Mudwater banners, framed cards on the walls, spectator benches/bleachers, plants, moss on beams.
 

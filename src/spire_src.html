@@ -851,6 +851,8 @@
         // player count, big, over its start door on the aisle side (+ the word PLAYERS under it)
         T.doorCnt = el("m-group", { x: t.doors[0][0] + t.side * 0.4, y: E.y0 + 5.15, z: t.zc, ry: 90 * t.side }, eg);
         word("r_players", 0.32, { x: t.doors[0][0] + t.side * 0.4, y: E.y0 + 4.55, z: t.zc, ry: 90 * t.side }, eg);
+        // (v46, owner: "i have no idea what to do in the room") a sign in every room says what to do (pictures of text = cheap)
+        (t.rsigns || []).forEach(([x, y, z, ry, key]) => model("sg_" + key + ".glb", { x, y, z, ry, collide: "false" }, eg));
         // R1: lanterns (click to see its number), the clue painting (4 gems in order), the keypad
         t.lanterns.forEach(([x, y, z], i) => {
           const g = el("m-group", { x, y, z }, eg);
@@ -863,7 +865,7 @@
         T.clue = t.clue; T.gems = [0, 1, 2, 3].map((j) => el("m-sphere", { x: t.clue[0] + 0.02 * -t.side, y: t.clue[1], z: t.clue[2] + (j - 1.5) * 0.55 * t.side, radius: 0.19, color: "#555", emissive: 1.0, collide: "false", "cast-shadows": "false" }, eg));
         t.keys.forEach(([x, y, z], d) => {
           const g = el("m-group", { x, y, z, ry: 90 * t.side }, eg);
-          const w_ = word("d" + d, 0.24, { z: 0.035 }, g);
+          const w_ = word("d" + d, 0.24, { z: 0.05 }, g);
           const hb = hitBox({ z: -0.01, width: 0.36, height: 0.36, depth: 0.04 }, g);
           [w_, hb].forEach((n) => n.addEventListener("click", (e) => keyPress(T, d, e.detail && e.detail.connectionId)));
         });
@@ -1727,7 +1729,19 @@
       // (The old way played a timed animation; players whose clocks didn't match saw the cab somewhere else.)
       // MOVING (v16): every moving part plays a timed m-attr-anim that starts at the shared document time, so every player's
       // client shows the cab in the same place and it glides at a steady elevator speed (Otherside ignores m-attr-lerp).
-      const glider = (n, attr) => (to, ms) => { const from = parseFloat(n.getAttribute(attr) || "0"); tween(n, attr, from, to, ms, "easeInOutSine"); };
+      // (v46, owner: "right when the elevator starts moving, it does a very quick jerk and sometimes it teleports players to the ground
+      // floor") the cab used to get its FINAL height first and the animation a moment later, so for an instant the cab (and its floor)
+      // jumped to the destination and back - riders fell through. Now the animation starts from where the cab is and the final height is
+      // only written under it once the ride has finished (the finished animation still holds the end value, so nothing jumps), and the
+      // animation is taken off after that.
+      const glider = (n, attr) => (to, ms) => {
+        const from = parseFloat(n.getAttribute(attr) || "0");
+        if (n._lg) { cancel(n._lg.h1); cancel(n._lg.h2); n._lg.a.remove(); n._lg = null; }
+        const a = el("m-attr-anim", { attr, start: r3(from), end: r3(to), duration: Math.round(ms), loop: "false", easing: "easeInOutSine", "start-time": Math.round(now()) }, n);
+        const rec = { a }; n._lg = rec;
+        rec.h1 = later(ms + 120, () => { if (n._lg === rec) n.setAttribute(attr, String(r3(to))); });
+        rec.h2 = later(ms + 450, () => { if (n._lg !== rec) return; a.remove(); n._lg = null; n.setAttribute(attr, String(r3(to) + 0.001)); later(70, () => { if (!n._lg) n.setAttribute(attr, String(r3(to))); }); });
+      };
       model("sp_lift_cab.glb", { collide: "false" }, CG);
       const cgR = model("sp_lift_cgate.glb", { x: ci.gate_r[0], z: ci.gate_r[2], collide: "false" }, CG);
       const cgL = model("sp_lift_cgate.glb", { x: ci.gate_l[0], z: ci.gate_l[2], ry: 180, collide: "false" }, CG);
@@ -1856,7 +1870,7 @@
       function heal(why) {
         if (!st.busy || now() < st.deadline) return false;
         const k = st.target !== undefined ? st.target : st.at;
-        const fin = (n, attr, v) => { (n._steps || []).forEach((h) => cancel(h)); n._steps = []; if (n._fu && n._fu[attr]) { cancel(n._fu[attr]); delete n._fu[attr]; } if (n._tw && n._tw[attr]) { cancel(n._tw[attr].h); n._tw[attr].a.remove(); delete n._tw[attr]; } Array.from(n.children).forEach((c) => { if (c.tagName && c.tagName.toLowerCase() === "m-attr-anim" && c.getAttribute("attr") === attr) c.remove(); }); n.setAttribute(attr, String(r3(v))); };
+        const fin = (n, attr, v) => { (n._steps || []).forEach((h) => cancel(h)); n._steps = []; if (n._lg) { cancel(n._lg.h1); cancel(n._lg.h2); n._lg = null; } if (n._fu && n._fu[attr]) { cancel(n._fu[attr]); delete n._fu[attr]; } if (n._tw && n._tw[attr]) { cancel(n._tw[attr].h); n._tw[attr].a.remove(); delete n._tw[attr]; } Array.from(n.children).forEach((c) => { if (c.tagName && c.tagName.toLowerCase() === "m-attr-anim" && c.getAttribute("attr") === attr) c.remove(); }); n.setAttribute(attr, String(r3(v))); };
         const b = Lf.stops[k];
         fin(CG, "y", b); fin(cabRope, "sy", SY - (b + HITCH)); fin(cwRope, "sy", SY - cwTop(b)); fin(CW, "y", cwTop(b));
         fin(needleIn, "rz", Lf.dial_rz[k]); fin(needleOut, "rz", Lf.dial_rz[k]); fin(lever, "rx", 0);
