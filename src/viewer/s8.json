@@ -1,0 +1,1 @@
+[{"out": "/home/claude/shots/op_fixed.png", "models": [{"f": "/spire/out/glb/npc_operator.glb", "p": [-0.9, 0, 0], "anim": 0, "t": 1.0}, {"f": "/spire/out/glb/npc_operator.glb", "p": [0.9, 0, 0], "ry": -25, "anim": 3, "t": 1.4}], "cam": [0, 1.6, 4.4], "at": [0, 1.05, 0], "fov": 50, "w": 1000, "h": 700}]

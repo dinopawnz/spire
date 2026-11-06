@@ -1,0 +1,973 @@
+<!--
+  MUDWATER SPIRE  v__VER__  -  OtherGames event build  -  Otherside MML
+  ============================================================
+  LIVE BUILD: this document starts as a small PLACER CUBE. Open the host remote (spire_remote.html, PIN 7747 = S-P-I-R)
+  and press LIVE BUILD to raise the whole tower. Press it again to fold everything back into the cube.
+  Origin = where you place the build = the FOOT OF THE BOARDWALK (spawn side). The building stands FRONT m behind it, along -Z.
+
+  * THE BUILDING  an 85 x 60 m swamp hall on stilts, four storeys + a roof deck + the steeple. Stair towers at both ends,
+                  a bank of four glass-and-brass lifts against the back wall.
+  * Floor 1  THE LOUNGE    bar with taps that pour (Mama Silt slides you a mug), Gator Pete by the fire, framed cards everywhere
+  * HALL OF FAKES (Mud Match)  a round timber tower in the middle: 200 portraits of #62 The Founder up a Solomon stair (199 fakes + 1 real).
+                           4 rounds = 4 finalists, wrong pick = 5 s. Finals in the frosted glass vault at the top - 99 fake + 1 real #100 Black Flag.
+  * MUD ROYALE   (game 2 - next version)
+  * Floor 4  GROUP MUD        (game 3 - next version)
+  Text is pictures (glowing word models) everywhere except names on the leaderboard.
+  Frame rate: every floor is its own ZONE (the castle's trick) - effects, signs and the 200 portraits are sent only to the players
+  on that floor. LITE and REFRESH on the remote, as in the castle.
+-->
+<m-group id="root"></m-group>
+
+<script>
+(function () {
+  "use strict";
+  const BASE = "__BASE__";
+  const VER = "?v=__VER__";
+  const HOST_CODE = "7747";
+  const AUTO_BUILD_MS = 0;
+  const D = __DATA__;
+  const FRONT = D.FRONT;             // building centre is this far behind the origin (the foot of the boardwalk)
+  const VOICES = __VOICES__;         // true once the vo_<npc>_<line>.mp3 files are uploaded
+  const SHOW_PADS = false;
+
+  // ---- tweakables ---------------------------------------------------------
+  const LIFT_SPEED = 2.4;            // m/s (gentle, so riders stay on the floor going down)
+  const LIFT_DWELL = 7000;           // doors stay open this long at a stop
+  const LIFT_HOME_MS = 45000;        // an idle cage goes back down to the lounge after this
+  const LOCKOUT_MS = 5000;           // wrong portrait
+  const FINALISTS = 4;               // = rounds: each round's first finder is a finalist
+  const ROUND_GAP_MS = 10000;        // finalist found -> shuffle -> next round starts after this (if auto)
+  const MUG_LIFE = 30000;
+  // ------------------------------------------------------------------------
+
+  const rootGroup = document.getElementById("root");
+  let ROOT = rootGroup;
+  const r3 = (v) => Math.round(v * 1000) / 1000;
+  function el(tag, attrs, parent) {
+    const n = document.createElement(tag);
+    for (const k in attrs) n.setAttribute(k, typeof attrs[k] === "number" ? String(r3(attrs[k])) : String(attrs[k]));
+    (parent || ROOT).appendChild(n);
+    return n;
+  }
+  function anim(target, attr, a, b, ms, opts) {
+    const o = opts || {};
+    const x = { attr, start: a, end: b, duration: Math.round(ms), loop: "true" };
+    if (o.pingPong) x["ping-pong"] = "true";
+    if (o.easing) x.easing = o.easing;
+    if (o.delay) x["start-time"] = -Math.round(o.delay);
+    return el("m-attr-anim", x, target);
+  }
+  const model = (file, attrs, parent) => el("m-model", Object.assign({ src: BASE + file + VER, "cast-shadows": "false" }, attrs || {}), parent);
+  const PAD_LOOK = SHOW_PADS ? { color: "#ff00ff", opacity: 0.4 } : { color: "#000000", visible: "false" };
+  const HIT = SHOW_PADS ? { color: "#ff00ff", opacity: 0.5 } : { color: "#ffffff", opacity: 0, "cast-shadows": "false" };
+  const pad = (attrs, parent) => el("m-cube", Object.assign({ collide: "true", "collision-interval": 100, "cast-shadows": "false" }, PAD_LOOK, attrs), parent);
+  const hitBox = (attrs, parent) => el("m-cube", Object.assign({ collide: "false" }, HIT, attrs), parent);
+  const T0 = Date.now();
+  const now = () => { try { if (document.timeline && typeof document.timeline.currentTime === "number") return document.timeline.currentTime; } catch (e) {} return Date.now() - T0; };
+  const _setT = setTimeout, _clrT = clearTimeout, _setI = setInterval, _clrI = clearInterval;
+  const TIMERS = new Set(), INTERVALS = new Set(), LISTENERS = [];
+  function later(ms, f) { const h = _setT(() => { TIMERS.delete(h); f(); }, ms); TIMERS.add(h); return h; }
+  function cancel(h) { _clrT(h); TIMERS.delete(h); }
+  function every(ms, f) { const h = _setI(f, ms); INTERVALS.add(h); return h; }
+  function onWin(ev, f) { window.addEventListener(ev, f); LISTENERS.push([ev, f]); }
+  const _setWin = (ev, f) => window.addEventListener(ev, f);
+  function tween(target, attr, from, to, ms, easing) {
+    const a = el("m-attr-anim", { attr, start: from, end: to, duration: Math.round(ms), loop: "false", easing: easing || "easeInOutCubic", "start-time": Math.round(now()) }, target);
+    later(ms + 80, () => { target.setAttribute(attr, String(r3(to))); a.remove(); });
+  }
+  const sfx = (file, x, y, z, vol, parent) => { const a = el("m-audio", { src: BASE + file + VER, x, y, z, loop: "false", volume: vol || 0.8, "start-time": Math.round(now()) }, parent); later(12000, () => a.remove()); return a; };
+  const polar = (r, a, y) => [r * Math.sin(a * Math.PI / 180), y, r * Math.cos(a * Math.PI / 180)];
+  const faceTo = (from, to) => Math.atan2(to.x - from[0], to.z - from[2]) * 180 / Math.PI;
+
+  // ==========================================================
+  // CORE (always there): the placer cube, the host prompt and the remote board
+  // ==========================================================
+  const PARK = -500;
+  const placer = el("m-group", { y: 0 }, rootGroup);
+  el("m-cube", { y: 1.0, width: 2, height: 2, depth: 2, color: "#3a2a14", collide: "true" }, placer);
+  model("sp_logo_block.glb", { y: 2.6, collide: "false" }, placer);
+  const hostPrompt = el("m-prompt", { id: "sp-host", message: "Host code + command", placeholder: "code + command", x: 0, y: PARK, z: 0 }, rootGroup);
+  const remoteBoard = el("m-group", { id: "sp-remote", y: PARK, "visible-to": "-1" }, rootGroup);
+  const ONLINE = new Set(), REMOTES = new Set(), NAMES = new Map();
+  const ack = { n: 0, l: [] };
+  let WORLD = null, GAME = null, builtAt = 0;
+  function hostMsg(t) {
+    t = String(t); ack.n++; ack.l.push({ n: ack.n, t }); if (ack.l.length > 12) ack.l.shift();
+    remoteBoard.setAttribute("data-ack", JSON.stringify({ n: ack.n, t, l: ack.l }));
+    paintRemote();
+  }
+  function paintRemote() {
+    if (!REMOTES.size) return;
+    const tn = now();
+    const game = Object.assign({ now: tn, built: !!GAME, builtAt, lite: !!LITE, online: ONLINE.size, ev: ack.l.length ? ack.l[ack.l.length - 1].t : "" }, GAME ? GAME.game(tn) : { ph: "idle" });
+    remoteBoard.setAttribute("data-game", JSON.stringify(game));
+    remoteBoard.setAttribute("data-players", JSON.stringify(GAME ? GAME.players(tn) : []));
+  }
+  _setI(paintRemote, 1000);
+
+  // ---- ZONES: one per floor + "out" (outside the tower). Sounds are never zoned (Otherside won't play m-audio under visible-to).
+  const ZONES = {}, ZSET = {};
+  const BANDS = [["f1", 2.0, D.L.f2], ["f2", D.L.f2, D.L.f3], ["f3", D.L.f3, D.L.f4], ["f4", D.L.f4, D.L.roof]];
+  const inside = (x, z, m) => Math.abs(x) < D.L.X1 + m && Math.abs(z) < D.L.Z1 + m;
+  function zKey(x, y, z) {
+    if (!inside(x, z, 0)) return "out";
+    for (const [k, lo, hi] of BANDS) if (y >= lo && y < hi) return k;
+    return "out";
+  }
+  function zKeysFor(p) {
+    const ks = []; let deep = false;
+    for (const [k, lo, hi] of BANDS) {
+      if (inside(p.x, p.z, 3) && p.y > lo - 2.5 && p.y < hi + 2.5) ks.push(k);
+      if (inside(p.x, p.z, -6) && p.y > lo + 0.5 && p.y < hi - 0.5) deep = true;
+    }
+    if (!deep) ks.push("out");
+    return ks;
+  }
+  function zoneGroup(k, world) { if (!ZONES[k]) { ZONES[k] = el("m-group", { "visible-to": "-1" }, world || WORLD); ZSET[k] = new Set(); } return ZONES[k]; }
+  function zoneUp(world) {
+    const tg = (n) => String(n.tagName).toUpperCase();
+    const VIS = ["visible", "visible-to", "hidden-from"], T0_ = ["x", "y", "z", "rx", "ry", "rz"], T1 = ["sx", "sy", "sz"];
+    const plain = (n) => tg(n) === "M-GROUP" && !VIS.some((k) => n.hasAttribute(k)) &&
+      T0_.every((k) => !n.hasAttribute(k) || +n.getAttribute(k) === 0) && T1.every((k) => !n.hasAttribute(k) || +n.getAttribute(k) === 1);
+    const nm = (n, k, d) => { const v = n.getAttribute(k); return v === null || v === "" || isNaN(+v) ? d : +v; };
+    const pos = (n, stop) => { let p = { x: 0, y: 0, z: 0 }; for (let e = n; e && e !== stop; e = e.parentNode) {
+      const a = nm(e, "ry", 0) * Math.PI / 180, x = p.x * nm(e, "sx", 1), y = p.y * nm(e, "sy", 1), z = p.z * nm(e, "sz", 1);
+      p = { x: x * Math.cos(a) + z * Math.sin(a) + nm(e, "x", 0), y: y + nm(e, "y", 0), z: -x * Math.sin(a) + z * Math.cos(a) + nm(e, "z", 0) }; } return p; };
+    const LEAF = /^M-(MODEL|CUBE|CYLINDER|SPHERE|PLANE|LABEL|IMAGE|AUDIO)$/;
+    const zs = new Set(Object.values(ZONES));
+    let moved = 0;
+    const visit = (box) => Array.from(box.children).forEach((c) => {
+      if (zs.has(c)) return;
+      const asked = c.getAttribute && c.getAttribute("data-zone");
+      if (asked && c.getAttribute("collide") !== "true") { const g = zoneGroup(asked, world); zs.add(g); g.appendChild(c); moved++; return; }
+      const all = [c].concat(Array.from(c.querySelectorAll("*")));
+      const busy = all.some((n) => /^M-(LABEL|AUDIO|ATTR-ANIM|ATTR-LERP)$/.test(tg(n)));
+      const fixed = all.some((n) => n.getAttribute("collide") === "true" || /^M-(POSITION-PROBE|PROMPT|AUDIO)$/.test(tg(n)) || VIS.some((k) => n.hasAttribute(k)) || n._global);
+      const keys = new Set(all.filter((n) => LEAF.test(tg(n))).map((n) => { const p = pos(n, world); return zKey(p.x, p.y, p.z); }));
+      if (busy && !fixed && keys.size === 1) { const g = zoneGroup([...keys][0], world); zs.add(g); g.appendChild(c); moved++; }
+      else if (plain(c) && (busy || keys.size > 1)) visit(c);
+    });
+    visit(world);
+    return moved;
+  }
+  const SEEN = new Set();
+  function zoneSee(id, p) { if (!WORLD) return; SEEN.add(id); zoneMark(id, new Set(zKeysFor(p))); }
+  function zoneAll(id) { if (WORLD && id !== undefined && !REMOTES.has(id)) { SEEN.delete(id); zoneMark(id, new Set(Object.keys(ZONES))); } }
+  function zoneMark(id, want) {
+    for (const k in ZONES) {
+      const S = ZSET[k], on = !!(want && want.has(k));
+      if (on === S.has(id)) continue;
+      on ? S.add(id) : S.delete(id);
+      ZONES[k].setAttribute("visible-to", S.size ? Array.from(S).join(" ") : "-1");
+    }
+  }
+  const zoneDrop = (id) => { SEEN.delete(id); zoneMark(id, null); };
+  _setWin("disconnected", (e) => zoneDrop(e.detail && e.detail.connectionId));
+
+  // ---- LITE + REFRESH (as in the castle)
+  let LITE = null;
+  const DECOR = /sp_(chandelier|fx_|wisp|moonbeam)|bio_|gc_\d|mw_motes|fireflies|mist\.glb|glowplant|reeds|floatlantern|lilypads|moss_c|shelfshroom|jarlantern|cypress/;
+  function liteOn() {
+    if (LITE) return "LITE MODE IS ALREADY ON";
+    const tg = (n) => String(n.tagName).toUpperCase();
+    const out = Array.from(WORLD.querySelectorAll("m-model, m-image, m-sphere")).filter((m) => DECOR.test(m.getAttribute("src") || "") || m.hasAttribute("data-lite"));
+    LITE = { removed: out.map((n) => ({ n, parent: n.parentNode, next: n.nextSibling })), shadows: [] };
+    LITE.removed.forEach((r) => r.n.remove());
+    return "LITE MODE ON - " + LITE.removed.length + " DECORATIVE PIECES REMOVED. PROGRESS KEPT.";
+  }
+  function liteOff() {
+    if (!LITE) return "LITE MODE IS ALREADY OFF";
+    LITE.removed.slice().reverse().forEach((r) => { if (r.next && r.next.parentNode === r.parent) r.parent.insertBefore(r.n, r.next); else r.parent.appendChild(r.n); });
+    const n = LITE.removed.length; LITE = null;
+    return "LITE MODE OFF - " + n + " PIECES ARE BACK";
+  }
+  function refreshAll() {
+    const groups = Object.values(ZONES);
+    groups.forEach((g) => { const parent = g.parentNode, next = g.nextSibling; g.remove(); if (next && next.parentNode === parent) parent.insertBefore(g, next); else parent.appendChild(g); });
+    let seen = 0;
+    ONLINE.forEach((id) => { const p = GAME && GAME._P.get(id); if (p && p.pos) { zoneSee(id, p.pos); seen++; } else zoneAll(id); });
+    try { GAME && GAME.refresh(); } catch (e) {}
+    return "REFRESHED - " + groups.length + " AREAS RE-SENT (" + seen + " PLAYERS PLACED BY POSITION). PROGRESS KEPT.";
+  }
+  function build() {
+    if (GAME) return "ALREADY BUILT";
+    WORLD = el("m-group", { z: -FRONT }, rootGroup);
+    ROOT = WORLD;
+    placer.setAttribute("y", PARK);
+    try { GAME = buildWorld(); }
+    catch (e) { hostMsg("BUILD ERROR: " + (e && e.message)); }
+    try { zoneUp(WORLD); } catch (e) { hostMsg("ZONE ERROR: " + (e && e.message)); }
+    ONLINE.forEach(zoneAll);
+    builtAt = now();
+    return "LIVE BUILD ON - THE SPIRE IS UP";
+  }
+  function unbuild() {
+    if (!WORLD) return "ALREADY FOLDED";
+    LITE = null;
+    TIMERS.forEach((h) => _clrT(h)); TIMERS.clear();
+    INTERVALS.forEach((h) => _clrI(h)); INTERVALS.clear();
+    LISTENERS.forEach(([ev, f]) => window.removeEventListener(ev, f)); LISTENERS.length = 0;
+    WORLD.remove(); WORLD = null; GAME = null; ROOT = rootGroup;
+    for (const k in ZONES) { delete ZONES[k]; delete ZSET[k]; }
+    placer.setAttribute("y", 0);
+    return "LIVE BUILD OFF - BACK TO THE PLACER CUBE";
+  }
+  hostPrompt.addEventListener("prompt", (e) => {
+    const raw = String((e && e.detail && e.detail.value) || "").replace(/\s+/g, " ").trim();
+    if (raw.indexOf(HOST_CODE) !== 0) { hostMsg("WRONG CODE"); return; }
+    const rest = raw.slice(HOST_CODE.length).trim();
+    const parts = rest.split(" ").filter(Boolean);
+    const cmd = (parts[0] || "").toLowerCase();
+    const id = e.detail.connectionId;
+    if (cmd === "remote") {
+      if (id === undefined) { hostMsg("REMOTE: NO CONNECTION ID"); return; }
+      REMOTES.add(id); ONLINE.delete(id); remoteBoard.setAttribute("visible-to", Array.from(REMOTES).join(" "));
+      hostMsg("UNLOCKED"); paintRemote(); return;
+    }
+    if (cmd === "build") { hostMsg(build()); return; }
+    if (cmd === "unbuild") { hostMsg(unbuild()); return; }
+    if (!GAME) { hostMsg("NOT BUILT YET - PRESS LIVE BUILD FIRST"); return; }
+    if (cmd === "lite") { const a = (parts[1] || "").toLowerCase(); hostMsg(a === "off" ? liteOff() : a === "on" ? liteOn() : LITE ? liteOff() : liteOn()); return; }
+    if (cmd === "refresh") { hostMsg(refreshAll()); return; }
+    let reply = null;
+    try { reply = GAME.command(cmd, rest, parts); } catch (err) { reply = "ERROR: " + (err && err.message); }
+    hostMsg(reply || "UNKNOWN: " + cmd);
+  });
+  window.addEventListener("connected", (e) => { if (e.detail && !REMOTES.has(e.detail.connectionId)) { ONLINE.add(e.detail.connectionId); zoneAll(e.detail.connectionId); } });
+  window.addEventListener("disconnected", (e) => {
+    const c = e.detail.connectionId;
+    ONLINE.delete(c);
+    if (REMOTES.delete(c)) remoteBoard.setAttribute("visible-to", REMOTES.size ? Array.from(REMOTES).join(" ") : "-1");
+  });
+  if (AUTO_BUILD_MS > 0) _setT(() => { if (!GAME) hostMsg(build()); }, AUTO_BUILD_MS);
+
+  // ==========================================================
+  // THE WORLD
+  // ==========================================================
+  function buildWorld() {
+    const L = D.L;
+    const P = new Map();                       // connectionId -> player
+    const pl = (id) => { if (!P.has(id)) P.set(id, { id, name: NAMES.get(id) || "", pos: null, lock: 0, fin: false, fintime: 0 }); return P.get(id); };
+    const nameOf = (p) => (p.name ? p.name : "Player #" + p.id);
+    const everyone = () => Array.from(ONLINE);
+    const hideFrom = (n, a) => { if (!a.length) { n.removeAttribute("visible-to"); return; } const skip = new Set(a.map(String)); const keep = everyone().filter((id) => !skip.has(String(id))); n.setAttribute("visible-to", keep.length ? keep.join(" ") : "-1"); };
+    const showTo = (n, a) => n.setAttribute("visible-to", a.length ? a.join(" ") : "-1");
+    const priv = el("m-group", {});            // per-player pieces (each carries its own visible-to)
+    priv._global = true;
+
+    // ---------------------------------------------------- the tower, floors and lift shafts (static)
+    const STATIC = [["sp_shell", 1], ["sp_boardwalk", 0], ["sp_neon", 0], ["sp_f1_lounge", 1], ["sp_f2_hall", 1], ["sp_f2_vault", 1]];
+    STATIC.forEach(([f, sh]) => model(f + ".glb", { collide: "false", "cast-shadows": sh ? "true" : "false" }));
+    D.lifts.forEach((Lf) => model(Lf.shaft_model + ".glb", { x: Lf.x, z: Lf.z, collide: "false" }));      // shared shaft models, four places
+    // the swamp round the hall: the Mudwater Coliseum's own decorations (water, giant mangroves, acorn houses, cypress, reeds, lanterns...)
+    const MW = "https://raw.githubusercontent.com/dinopawnz/mudwater/main/";
+    D.deco.forEach(([f, x, y, z, ry, s]) => el("m-model", { src: MW + f + ".glb", x, y, z, ry, sx: s, sy: s, sz: s, collide: "false", "cast-shadows": "false" }));
+    // the invisible floors, walls, stair ramp and rails. They must NOT carry visible="false" (Otherside then never loads them and nothing
+    // is solid) - their material is already fully see-through, so they're loaded normally and stay invisible.
+    ["sp_shell_col", "sp_f1_col", "sp_f2_col", "sp_f2_vaultcol", "sp_lift_col"].forEach((f) => model(f + ".glb", { collide: "true" }));
+    // backup floors made the castle's way (invisible boxes) under the boardwalk, the steps and the porch / lounge, so the way in is
+    // solid even if a collision model fails to load
+    {
+      const z0 = L.walk_z0, z1 = L.walk_z1, y0 = L.porch, y1 = L.walk_y, hw = L.walk_w / 2;
+      const ln = Math.hypot(z1 - z0, y0 - y1), ang = Math.atan2(y0 - y1, z1 - z0) * 180 / Math.PI;
+      pad({ x: 0, y: (y0 + y1) / 2 - 0.15, z: (z0 + z1) / 2, width: 2 * hw + 0.2, height: 0.3, depth: ln, rx: ang });
+      const pb = L.porch_box;
+      pad({ x: 0, y: L.porch - 0.15, z: (pb.zb + pb.zf) / 2, width: 2 * pb.x, height: 0.3, depth: pb.zf - pb.zb });
+    }
+    // the lounge's wagon-wheel chandeliers, swaying a touch
+    D.chand.map((c) => [c[0], c[1], L.f2 - 0.5]).concat(D.chand2.map((c) => [c[0], c[1], L.gallery - 0.5])).forEach(([x, z, y], i) => {
+      const g = el("m-group", { x, y, z });
+      anim(g, "rz", -1.6, 1.6, 5200 + i * 700, { pingPong: true, easing: "easeInOutSine", delay: i * 900 });
+      model("sp_chandelier.glb", { collide: "false" }, g);
+    });
+
+    // ---------------------------------------------------- sprites (words as pictures)
+    const ASP = D.ms;
+    function word(key, h, attrs, parent, one) {   // a glowing word model, h metres tall. one = one-sided (for signs hung back to back)
+      return model((one ? "ms1_" : "ms_") + key + ".glb", Object.assign({ sx: h, sy: h, sz: h, collide: "false" }, attrs || {}), parent);
+    }
+    function digits(n, h, attrs, parent, red, one) {   // a centred row of digit models
+      const g = el("m-group", attrs || {}, parent);
+      const s = String(Math.max(0, Math.round(n))); const w = s.split("").map((c) => (ASP["d" + c] || 0.6) * h * 0.8);
+      let x = -w.reduce((a, b) => a + b, 0) / 2;
+      s.split("").forEach((c, i) => { word((red ? "r" : "d") + c, h, { x: x + w[i] / 2 }, g, one); x += w[i]; });
+      return g;
+    }
+    function privWords(keys, at, ry, id, ms, h) {   // one or more word lines shown only to one player, then gone
+      const g = el("m-group", { x: at[0], y: at[1], z: at[2], ry, "visible-to": String(id) }, priv);
+      keys.forEach((k, i) => word(k, h || 0.42, { y: -i * (h || 0.42) * 1.15 }, g));
+      if (ms) later(ms, () => g.remove());
+      return g;
+    }
+
+    // ---------------------------------------------------- STAIRS: a glowing sign over every stair door on every floor (the stairs always work)
+    D.stairs.forEach(([x, y, z, ry]) => { word("stairs", 0.55, { x, y, z, ry }); word("stairs", 0.55, { x, y, z, ry: ry + 180 }); });
+
+    // ---------------------------------------------------- THE GALAXY: all 120 Mudwater cards, giant glowing cards circling the hall
+    {
+      D.galaxy.forEach((ring, ri) => {
+        const tilt = el("m-group", { x: 0, y: ring.y, z: ring.z, rx: ring.rx, rz: ring.rz });
+        const spin = el("m-group", {}, tilt);
+        anim(spin, "ry", 0, ri % 2 ? -360 : 360, ring.period);
+        ring.cards.forEach(([n, a, dy, sc], k) => {
+          const c = polar(ring.r, a, dy);
+          const g = el("m-group", { x: c[0], y: c[1], z: c[2], ry: a + 180 }, spin);     // faces the building
+          anim(g, "y", dy - 1.2, dy + 1.2, 7000 + (k % 5) * 900, { pingPong: true, easing: "easeInOutSine", delay: k * 700 });
+          const turn = el("m-group", { rz: (k % 7) - 3 }, g);                              // each card slowly turns round, front then back
+          anim(turn, "ry", 0, k % 2 ? 360 : -360, 40000 + (k % 9) * 4000, { delay: k * 1300 });
+          model("gc_" + String(n).padStart(3, "0") + ".glb", { sx: sc, sy: sc, sz: sc, collide: "false" }, turn);
+        });
+      });
+    }
+
+    // ---------------------------------------------------- THE SHOW (swamp magic): the swamp night sky, the giant floating Mudwater pack,
+    // moonlight, will-o'-wisps, sky lanterns rising off the water, fireflies and a glowing rune circle round the island. All decoration.
+    {
+      const MWX = "https://raw.githubusercontent.com/dinopawnz/mudwater/main/";
+      const mw = (f, attrs, parent) => el("m-model", Object.assign({ src: MWX + f + ".glb", collide: "false", "cast-shadows": "false" }, attrs), parent);
+      const F = D.fx;
+      mw(F.sky[0], { x: F.sky[1], y: F.sky[2], z: F.sky[3], sx: F.sky[4], sy: F.sky[4], sz: F.sky[4] });
+      // the pack, turning slowly over the roof, ringed by three tilted rings, a beam of light holding it up
+      const pk = el("m-group", { x: F.pack[0], y: F.pack[1], z: F.pack[2] });
+      anim(pk, "y", F.pack[1] - 2.5, F.pack[1] + 2.5, 9000, { pingPong: true, easing: "easeInOutSine" });
+      const pks = el("m-group", {}, pk); anim(pks, "ry", 0, 360, 48000);
+      mw("mw_pack", { sx: F.pack[3], sy: F.pack[3], sz: F.pack[3] }, pks);
+      F.packRings.forEach(([f, dy, sc, rx, rz, per], i) => {
+        const t = el("m-group", { y: dy, rx, rz }, pk); const sp = el("m-group", {}, t); anim(sp, "ry", 0, i % 2 ? -360 : 360, per);
+        mw(f, { sx: sc, sy: sc, sz: sc }, sp);
+      });
+      const pb = F.packBeam; mw(pb[0], { x: pb[1], y: pb[2], z: pb[3], sx: pb[4], sy: pb[5], sz: pb[4] });
+      // faint moonlight shafts slanting down through the mist
+      F.moon.forEach(([x, y, z, rx, rz, w, h]) => { const t = el("m-group", { x, y, z, rx, rz }); model("sp_moonbeam.glb", { sx: w, sy: h, sz: w, collide: "false" }, t); });
+      // will-o'-wisps: little ghost lights wandering low over the water
+      F.wisps.forEach(([f, x, y, z, dx, dz, per, del, sc]) => {
+        const g = el("m-group", { x, y, z });
+        anim(g, "x", x - dx, x + dx, per, { pingPong: true, easing: "easeInOutSine", delay: del });
+        anim(g, "z", z - dz, z + dz, Math.round(per * 1.37), { pingPong: true, easing: "easeInOutSine", delay: del * 0.7 });
+        anim(g, "y", y - 0.6, y + 0.9, Math.round(per * 0.41), { pingPong: true, easing: "easeInOutSine", delay: del * 0.3 });
+        model(f + ".glb", { sx: sc, sy: sc, sz: sc, collide: "false" }, g);
+      });
+      // sky lanterns drifting up off the water
+      F.lanterns.forEach(([x, z, dur, del, sc]) => {
+        const m = mw("mwm_floatlantern", { x, y: 0, z, sx: sc, sy: sc, sz: sc });
+        anim(m, "y", 0, 150, dur, { delay: del });
+      });
+      F.runes.forEach(([f, x, y, z, sc, tilt, per]) => {
+        const t = el("m-group", { x, y, z, rx: tilt }); const sp = el("m-group", {}, t); anim(sp, "ry", 0, 360, per);
+        mw(f, { sx: sc, sy: sc, sz: sc }, sp);
+      });
+      F.motes.forEach(([f, x, y, z]) => mw(f, { x, y, z }));
+    }
+
+    // ---------------------------------------------------- THE LOUNGE: two indoor waterfalls (sheets of water sliding down over dark rock,
+    // into lit pools) and the shop booth signs
+    D.falls.forEach(([x, y, z, w, top]) => {
+      const h = top - y, cy = y + h / 2;
+      for (let k = 0; k < 3; k++) {
+        const m = el("m-image", { src: BASE + "water_fall.png" + VER, x, y: cy, z: z + 0.02 + k * 0.03, width: w - k * 0.4, height: h, emissive: 0.9, opacity: 0.55, collide: "false", "cast-shadows": "false" });
+        anim(m, "y", cy + 0.5, cy - 0.5, 900 + k * 230, { delay: k * 300 });
+        anim(m, "opacity", 0.35, 0.7, 700 + k * 190, { pingPong: true, easing: "easeInOutSine", delay: k * 150 });
+      }
+      const foam = el("m-image", { src: BASE + "bio_ring.png" + VER, x, y: y + 0.04, z: z + 1.0, rx: -90, width: w + 0.6, height: 1.8, emissive: 1.2, opacity: 0.6, collide: "false", "cast-shadows": "false", "data-lite": "1" });
+      anim(foam, "opacity", 0.3, 0.75, 1100, { pingPong: true, easing: "easeInOutSine" });
+    });
+    D.booths.forEach(([x, y, z, ry, key]) => word("bt_" + key, 0.55, { x, y, z, ry }));
+
+    // ---------------------------------------------------- THE LIVING SWAMP (Pandora by night): glowing veins on the floors and the stair that
+    // breathe in slow waves, glowing vines on the walls, spores drifting up. Footsteps bloom with light; the walls shimmer as you pass.
+    const BIO = D.bio, bioSrc = (f) => BASE + f + VER;
+    BIO.floor.forEach(([x, y, z, w, h, ry, del, per, gold]) => {
+      const g = el("m-group", { x, y, z, ry });
+      const m = el("m-image", { src: bioSrc(gold ? "bio_veins_gold.png" : "bio_veins.png"), rx: -90, width: w, height: h, emissive: 0.6, opacity: 0.95, collide: "false", "cast-shadows": "false" }, g);
+      anim(m, "emissive", 0.15, 2.6, per, { pingPong: true, easing: "easeInOutSine", delay: del });
+    });
+    BIO.wall.forEach(([x, y, z, w, h, ry, del, per, gold]) => {
+      const m = el("m-image", { src: bioSrc(gold ? "bio_wall_gold.png" : "bio_wall.png"), x, y, z, ry, width: w, height: h, emissive: 0.8, opacity: 0.95, collide: "false", "cast-shadows": "false" });
+      anim(m, "emissive", 0.2, 2.4, per, { pingPong: true, easing: "easeInOutSine", delay: del });
+    });
+    BIO.spores.forEach(([x, y, z, rad, dur, del, rise]) => {
+      const m = el("m-sphere", { x, y, z, radius: rad, color: "#b9ffe6", emissive: 4, collide: "false", "cast-shadows": "false", "data-lite": "1" });
+      anim(m, "y", y, y + rise, dur, { delay: del });
+    });
+    // where you're standing: the highest floor or stair surface under you (works whether the probe reports feet or head)
+    const bandRect = (r) => { const [x0, z0, , x1, z1] = r, [xi, xo, zi, zo] = BIO.band; return r[6] === "z" ? [Math.min(x0, x1), Math.max(x0, x1), Math.sign(r[7]) > 0 ? zi : -zo, Math.sign(r[7]) > 0 ? zo : -zi] : [Math.sign(r[7]) > 0 ? xi : -xo, Math.sign(r[7]) > 0 ? xo : -xi, Math.min(z0, z1), Math.max(z0, z1)]; };
+    function surfaceUnder(p) {
+      let best = null, run = null;
+      for (const f of BIO.floors) if (f <= p.y + 0.3 && (best === null || f > best)) best = f;
+      for (const r of BIO.runs) {
+        const [ax0, ax1, az0, az1] = bandRect(r); if (p.x < ax0 || p.x > ax1 || p.z < az0 || p.z > az1) continue;
+        const ln = Math.hypot(r[3] - r[0], r[4] - r[1]), t = Math.max(0, Math.min(1, ((p.x - r[0]) * (r[3] - r[0]) + (p.z - r[1]) * (r[4] - r[1])) / (ln * ln)));
+        const y = r[2] + (r[5] - r[2]) * t;
+        if (y <= p.y + 0.3 && (best === null || y > best)) { best = y; run = r; }
+      }
+      return { y: best, run };
+    }
+    let blooms = 0, sheens = 0;
+    function bioStep(p) {
+      const pos = p.pos, t = now();
+      if (LITE || !inside(pos.x, pos.z, 0.5) || pos.y > D.L.roof - 1) return;
+      const last = p.bioAt;
+      if (last && Math.hypot(pos.x - last.x, pos.z - last.z) < 1.5) return;
+      if (t - (p.bioT || 0) < 650 || blooms >= 36) return;
+      const su = surfaceUnder(pos); if (su.y === null) return;
+      p.bioAt = { x: pos.x, z: pos.z }; p.bioT = t; blooms++;
+      const zg = zoneGroup(zKey(pos.x, su.y + 0.5, pos.z));
+      const ring = el("m-image", { src: bioSrc("bio_ring.png"), x: pos.x, y: su.y + 0.07, z: pos.z, rx: -90, width: 1, height: 1, sx: 0.5, sy: 0.5, sz: 0.5, emissive: 3.5, opacity: 0.95, collide: "false", "cast-shadows": "false" }, zg);
+      tween(ring, "sx", 0.5, 3.4, 1300, "easeOutQuad"); tween(ring, "sy", 0.5, 3.4, 1300, "easeOutQuad"); tween(ring, "opacity", 0.95, 0.0, 1300, "easeInQuad");
+      later(1420, () => { ring.remove(); blooms--; });
+      // on the winding stair the wall beside you shimmers, a band of light running the way you walk
+      const r = su.run;
+      if (r && last && sheens < 24 && t - (p.sheenT || 0) > 900) {
+        p.sheenT = t; sheens++;
+        const along = r[6] === "z" ? "x" : "z", dir = Math.sign(pos[along] - last[along]) || 1;
+        const wx = r[6] === "z" ? pos.x : r[7] - Math.sign(r[7]) * 0.1, wz = r[6] === "z" ? r[7] - Math.sign(r[7]) * 0.1 : pos.z;
+        const ry = r[6] === "z" ? (r[7] > 0 ? 180 : 0) : (r[7] > 0 ? 270 : 90);
+        const sh = el("m-image", { src: bioSrc("bio_sheen.png"), x: wx, y: su.y + 2.1, z: wz, ry, width: 1.8, height: 3.8, emissive: 3, opacity: 0.9, collide: "false", "cast-shadows": "false" }, zg);
+        const a0 = along === "x" ? wx : wz;
+        tween(sh, along, a0 - dir * 0.5, a0 + dir * 3.5, 1200, "easeOutQuad"); tween(sh, "opacity", 0.9, 0.0, 1200, "easeInQuad");
+        later(1320, () => { sh.remove(); sheens--; });
+      }
+    }
+
+    // ---------------------------------------------------- NPCs
+    const NPCS = {};
+    function npc(key, x, y, z, ry, parent, sc) {
+      const g = el("m-group", Object.assign({ x, y, z, ry }, sc ? { sx: sc, sy: sc, sz: sc } : {}), parent);
+      const m = model("npc_" + key + ".glb", { collide: "false", anim: BASE + "npc_" + key + "_idle.glb" + VER, "anim-loop": "true" }, g);
+      const hb = hitBox({ y: 1.0, width: 1.0, height: 2.0, depth: 0.9 }, g);
+      const n = { key, g, m, i: 0, talking: false, cur: null, greeted: new Map(), lines: D.npc[key].lines, x, y, z, parent };
+      hb.addEventListener("click", (e) => { const id = e.detail && e.detail.connectionId; if (id === undefined) return; if (npcTalk(n, peekLine(n), id, false, "click")) n.i++; });
+      NPCS[key] = n; return n;
+    }
+    function peekLine(n) { const ts = Object.keys(n.lines).filter((k) => /^t\d+$/.test(k)); return ts[n.i % ts.length]; }   // moves on only when the line is actually said
+    function headPos(n) {
+      if (n.parent && n.parent !== WORLD) { const px = +n.parent.getAttribute("x") || 0, py = +n.parent.getAttribute("y") || 0, pz = +n.parent.getAttribute("z") || 0; return [px + n.x, py + n.y, pz + n.z]; }
+      return [n.x, n.y, n.z];
+    }
+    // NPC_MODE (host remote): "on" = click / greet / game announcements, "host" = clicks + greetings do nothing (game announcements
+    // still play), "off" = nothing talks by itself. Lines the host sends from the remote ("npc say <who> <line>") always play.
+    let NPC_MODE = "on";
+    function npcStop(n) {
+      if (!n.cur) return;
+      n.cur.timers.forEach(cancel); if (n.cur.bub) n.cur.bub.remove(); if (n.cur.audio) n.cur.audio.remove();
+      n.cur = null; n.talking = false;
+      n.m.setAttribute("anim", BASE + "npc_" + n.key + "_idle.glb" + VER);
+    }
+    // source: "click" | "greet" | "game" | "host". One line at a time: while a character talks, clicks and greetings are ignored;
+    // a game announcement or a host line cuts in (a host line is never cut off by anything but another host line).
+    function npcTalk(n, line, id, everyoneHears, source) {
+      source = source || "game";
+      const info = n.lines[line]; if (!info) return false;
+      if (source !== "host") {
+        if (NPC_MODE === "off") return false;
+        if (NPC_MODE === "host" && (source === "click" || source === "greet")) return false;
+        if (n.talking && (source === "click" || source === "greet")) return false;
+        if (n.talking && n.cur && n.cur.source === "host") return false;
+      }
+      npcStop(n);
+      const [asp, dur] = info; const ms = Math.round(dur * 1000 + 1200);
+      const hp = headPos(n), tall = (D.npcH[n.key] || 1.8) * (+n.g.getAttribute("sy") || 1);
+      const p = id !== undefined ? pl(id) : null;
+      const ry = p && p.pos ? faceTo(hp, p.pos) : (+n.g.getAttribute("ry") || 0);
+      const vis = everyoneHears || id === undefined ? {} : { "visible-to": String(id) };
+      const cap = (D.npcCap || {})[n.key];
+      const lift = (cap && cap.inCab) ? n.parent : null;               // the lift boss: bubble hangs in the middle of his cab and rides with it
+      const by = Math.min(tall + 0.75, cap && cap.y !== undefined ? cap.y : 99);
+      const fw = cap && cap.fwd ? cap.fwd : 0.0, a = ry * Math.PI / 180;    // nudge forward, out from under shelves and racks
+      const bub = lift ? el("m-group", Object.assign({ x: 0, y: by, z: 0, ry }, vis), lift)
+                       : el("m-group", Object.assign({ x: hp[0] + Math.sin(a) * fw, y: hp[1] + by, z: hp[2] + Math.cos(a) * fw, ry }, vis), priv);
+      const bs = lift ? 0.55 : 0.95;
+      model("sb_" + n.key + "_" + line + ".glb", { sx: bs, sy: bs, sz: bs, collide: "false" }, bub);
+      const audio = VOICES ? el("m-audio", { src: BASE + "vo_" + n.key + "_" + line + ".mp3" + VER, x: hp[0], y: hp[1] + 1.6, z: hp[2], loop: "false", volume: 1.0, "start-time": Math.round(now()) }) : null;
+      n.m.setAttribute("anim", BASE + "npc_" + n.key + "_talk.glb" + VER);
+      n.talking = true;
+      const cur = { source, bub, audio, timers: [] }; n.cur = cur;
+      cur.timers.push(later(ms, () => { if (n.cur === cur) npcStop(n); }));
+      return true;
+    }
+    const W = D.where;
+    npc("ferryman", ...W.ferryman);
+    npc("barkeep", ...W.barkeep, undefined, 1.3);           // a short frog behind a tall bar: a bit bigger so she shows
+    npc("gator", ...W.gator);
+    npc("appraiser", ...W.appraiser);
+    npc("skipper", ...W.skipper);
+    npc("dealer", ...W.dealer);
+    // greet: once a minute, the first time you walk up to someone
+    function greetCheck(p) {
+      const t = now();
+      for (const k in NPCS) {
+        const n = NPCS[k]; if (!n.lines.greet) continue;
+        const hp = headPos(n);
+        if (Math.abs(p.pos.y - hp[1]) > 3 || Math.hypot(p.pos.x - hp[0], p.pos.z - hp[2]) > 5) continue;
+        if (t - (n.greeted.get(p.id) || -1e9) < 60000) continue;
+        if (n.talking || NPC_MODE !== "on") continue;
+        n.greeted.set(p.id, t); npcTalk(n, "greet", p.id, false, "greet");
+      }
+    }
+
+    // ---------------------------------------------------- the bar: taps that pour, mugs that slide down to you
+    const MUGS = [];
+    D.taps.forEach(([x, y, z, ry], i) => {
+      const tg = el("m-group", { x, y, z, ry });
+      const handle = model("sp_tap.glb", { collide: "false" }, tg);
+      const hb = hitBox({ y: 0.18, width: 0.16, height: 0.42, depth: 0.16 }, tg);
+      let busy = false;
+      const [bx, bz, rOut] = D.barRound, ta = ry * Math.PI / 180;
+      hb.addEventListener("click", (e) => {
+        const id = e.detail && e.detail.connectionId; if (id === undefined || busy) return; busy = true;
+        tween(handle, "rx", 0, 38, 400, "easeOutQuad"); later(2600, () => tween(handle, "rx", 38, 0, 500, "easeInOutQuad"));
+        const sp = [x + Math.sin(ta) * 0.2, D.barTop + 0.33, z + Math.cos(ta) * 0.2];
+        const pour = model("sp_pour.glb", { x: sp[0], y: sp[1], z: sp[2], sy: 0.01, collide: "false" });
+        tween(pour, "sy", 0.01, 0.62, 300, "linear");
+        const mug = el("m-group", { x: sp[0], y: D.trayTop, z: sp[2] });
+        model("sp_mug.glb", { collide: "false" }, mug);
+        sfx("pour.mp3", sp[0], sp[1], sp[2], 0.7);
+        later(2500, () => { pour.remove(); busy = false;
+          // round bar: the mug slides out across the counter to the edge nearest you (within reach of this tap)
+          const p = pl(id); let a = ta;
+          if (p.pos) { const pa = Math.atan2(p.pos.x - bx, p.pos.z - bz); let d = Math.atan2(Math.sin(pa - ta), Math.cos(pa - ta)); d = Math.max(-0.7, Math.min(0.7, d)); a = ta + d; }
+          const tx = bx + Math.sin(a) * (rOut - 0.35), tz = bz + Math.cos(a) * (rOut - 0.35);
+          tween(mug, "y", D.trayTop, D.barTop, 400, "easeInQuad");
+          tween(mug, "x", sp[0], tx, 900, "easeOutQuart"); tween(mug, "z", sp[2], tz, 900, "easeOutQuart");
+          if (NPCS.barkeep) npcTalk(NPCS.barkeep, "pour" + (i % 4), id, false, "click");
+          // click your own beer to drink it: it lifts, tips back for a big swig (gulp gulp), and it's gone
+          const drink = hitBox({ y: 0.11, width: 0.3, height: 0.32, depth: 0.3 }, mug);
+          drink.addEventListener("click", (ev) => {
+            const who = ev.detail && ev.detail.connectionId;
+            if (who !== id || mug._drunk) return; mug._drunk = true; drink.remove();
+            const y0 = +mug.getAttribute("y") || D.barTop, mx = +mug.getAttribute("x"), mz = +mug.getAttribute("z");
+            tween(mug, "y", y0, y0 + 0.45, 500, "easeOutQuad");
+            later(350, () => tween(mug, "rx", 0, -78, 600, "easeInOutQuad"));
+            sfx("gulp.mp3", mx, y0 + 0.5, mz, 0.85);
+            later(1700, () => { ["sx", "sy", "sz"].forEach((k) => tween(mug, k, 1, 0.01, 300, "easeInBack")); later(380, () => { const k = MUGS.indexOf(mug); if (k >= 0) MUGS.splice(k, 1); mug.remove(); }); });
+          });
+          MUGS.push(mug); if (MUGS.length > 30) MUGS.shift().remove();
+          later(MUG_LIFE, () => { const k = MUGS.indexOf(mug); if (k >= 0) MUGS.splice(k, 1); mug.remove(); });
+        });
+      });
+    });
+
+    // ---------------------------------------------------- guest book (porch) - the name you sign shows on the leaderboards
+    D.books.forEach(([x, y, z, ry]) => {
+      const pr = el("m-prompt", { x, y, z, ry, message: "Sign the Mudwater Guest Book - type the name you want on the leaderboards", placeholder: "Your name (up to 18 letters)" });
+      model("sp_guestbook.glb", { collide: "true" }, pr);
+      pr.addEventListener("prompt", (e) => {
+        const id = e.detail && e.detail.connectionId; if (id === undefined) return;
+        const raw = String(e.detail.value || "").replace(/[<>\u0000-\u001f]/g, "").replace(/\s+/g, " ").trim().slice(0, 18);
+        if (!raw) return;
+        const p = pl(id); p.name = raw; NAMES.set(id, raw);
+        sfx("lift_chime.mp3", x, y + 1, z, 0.5);
+        hostMsg("PLAYER " + id + " SIGNED IN AS " + raw.toUpperCase());
+        boards();
+      });
+    });
+
+    // ==================================================== THE LIFTS
+    const LIFTS = {};
+    D.lifts.forEach((Lf) => {
+      const id = Lf.id, x = Lf.x, z = Lf.z, ci = Lf.cab;
+      const st = { id, at: 0, busy: false, open: false, req: new Set(), dir: 1, lastUse: now(), Lf };
+      const SY = D.sheaveY, HITCH = D.hitch, ROPE = D.rope;
+      const cwTop = (cy) => SY - (ROPE - (SY - (cy + HITCH)));
+      // --- the cab (everything that rides)
+      const CG = el("m-group", { x, y: Lf.stops[0], z }); CG._global = true;
+      // MOVING: the cab, ropes, counterweight and dials carry an m-attr-lerp. To move, the server just sets the new value and every
+      // player's client glides it there over the same time - one cab, the same for everybody, riders carried on its floor.
+      // (The old way played a timed animation; players whose clocks didn't match saw the cab somewhere else.)
+      const LERPS = [];
+      const glider = (n, attr) => { const l = el("m-attr-lerp", { attr, duration: 1000, easing: "easeInOutSine" }, n); LERPS.push(l); return (to, ms) => { l.setAttribute("duration", Math.round(ms)); n.setAttribute(attr, String(r3(to))); }; };
+      model("sp_lift_cab.glb", { collide: "false" }, CG);
+      const cgR = model("sp_lift_cgate.glb", { x: ci.gate_r[0], z: ci.gate_r[2], collide: "false" }, CG);
+      const cgL = model("sp_lift_cgate.glb", { x: ci.gate_l[0], z: ci.gate_l[2], ry: 180, collide: "false" }, CG);
+      const gears = [ci.gear_l, ci.gear_r].map((g) => model("sp_lift_cabgear.glb", { x: g[0], y: g[1], z: g[2], collide: "false" }, CG));
+      const lever = model("sp_lift_lever.glb", { x: ci.lever[0], y: ci.lever[1], z: ci.lever[2], ry: ci.lever_ry, collide: "false" }, CG);
+      const needleIn = model("sp_lift_needle.glb", { x: ci.needle_in[0], y: ci.needle_in[1], z: ci.needle_in[2], ry: 180, rz: Lf.dial_rz[0], collide: "false" }, CG);
+      const needleOut = model("sp_lift_needle.glb", { x: ci.needle_out[0], y: ci.needle_out[1], z: ci.needle_out[2], rz: Lf.dial_rz[0], collide: "false" }, CG);
+      const gCab = glider(CG, "y"), gNin = glider(needleIn, "rz"), gNout = glider(needleOut, "rz");
+      // floor, walls (door side open), the cab gate's collider
+      [0, 45, 90, 135].forEach((a) => pad({ y: -0.13, width: 4.05, height: 0.26, depth: 1.66, ry: a }, CG));
+      for (let i = 0; i < 7; i++) { const a = 45 + 45 * i, c = polar(D.cabApo + 0.03, a, 1.3); pad({ x: c[0], y: c[1], z: c[2], ry: a, width: 1.8, height: 2.6, depth: 0.12 }, CG); }
+      pad({ y: -0.13, z: D.cabApo + 0.13, width: 1.7, height: 0.26, depth: 0.3 }, CG);               // the sill
+      const cgatePad = pad({ y: 1.25, z: D.cabApo - 0.02, width: 1.8, height: 2.5, depth: 0.12 }, CG);
+      // elevator music, playing softly inside the cab (riders hear it; it fades a few metres outside the glass)
+      const music = el("m-audio", { src: BASE + "lift_music.mp3" + VER, y: 2.3, loop: "true", volume: 0.32, "start-time": -9000 * "ABCD".indexOf(id) }, CG);
+      st.music = music; st.musicHome = CG;
+      // the operator (the host's own ape) rides the Grand Cage
+      if (id === "A") npc("operator", ci.operator[0], ci.operator[1], ci.operator[2], ci.operator_ry, CG);
+      // floor buttons inside the cab (pictures of the floor names) on the front-left diagonal
+      {
+        const pc = polar(D.cabApo - 0.55, 315, 0);                 // a brass-edged board 0.55 m in from the front-left wall, facing the middle
+        const panel = el("m-group", { x: pc[0], y: 0, z: pc[2], ry: 135 }, CG);
+        el("m-cube", { y: 1.45, z: -0.04, width: 1.05, height: 1.75, depth: 0.04, color: "#2a1a0c", collide: "false", "cast-shadows": "false" }, panel);
+        const n = Lf.keys.length;
+        Lf.keys.forEach((key, k) => {
+          const bg = el("m-group", { y: 2.15 - k * (1.3 / Math.max(1, n - 1)), z: 0.02 }, panel);   // top floor at the top
+          word("fl_" + key, 0.17, {}, bg);
+          const hb = hitBox({ z: 0.05, width: 0.98, height: 0.24, depth: 0.12 }, bg);
+          hb.addEventListener("click", (e) => request(st, k, e.detail && e.detail.connectionId));
+        });
+      }
+      // --- the shaft: landing gates, their colliders, dials, call buttons
+      const LANDS = Lf.portals.map((po, k) => {
+        const gR = model("sp_lift_lgate.glb", { x: po.gate_r[0], y: po.gate_r[1], z: po.gate_r[2], collide: "false" });
+        const gL = model("sp_lift_lgate.glb", { x: po.gate_l[0], y: po.gate_l[1], z: po.gate_l[2], ry: 180, collide: "false" });
+        const gp = pad({ x: po.gate_col[0], y: po.gate_col[1] + 1.45, z: po.gate_col[2], width: 1.85, height: 2.9, depth: 0.15 });
+        const nd = model("sp_lift_needle.glb", { x: po.needle[0], y: po.needle[1], z: po.needle[2], rz: Lf.dial_rz[0], sx: po.needle_scale, sy: po.needle_scale, sz: po.needle_scale, collide: "false" });
+        nd._g = glider(nd, "rz");
+        const cb = el("m-group", { x: po.call[0], y: po.call[1], z: po.call[2] });
+        model("sp_lift_call.glb", { collide: "false" }, cb);
+        const glow = model("sp_lift_callglow.glb", { collide: "false" }, cb); glow.remove();
+        const hb = hitBox({ y: 0.02, width: 0.3, height: 0.42, depth: 0.16 }, cb);
+        hb.addEventListener("click", (e) => request(st, k, e.detail && e.detail.connectionId));
+        return { po, gR, gL, gp, nd, cb, glow, gpY: po.gate_col[1] + 1.45 };
+      });
+      // --- the machine head, ropes and counterweight
+      const sheave = model("sp_lift_sheave.glb", { x: Lf.sheave[0], y: Lf.sheave[1], z: Lf.sheave[2], collide: "false" });
+      const pinion = model("sp_lift_pinion.glb", { x: Lf.pinion[0], y: Lf.pinion[1], z: Lf.pinion[2], collide: "false" });
+      const gov = model("sp_lift_gov.glb", { x: Lf.governor[0], y: Lf.governor[1], z: Lf.governor[2], collide: "false" });
+      const y0 = Lf.stops[0];
+      const cabRope = model("sp_lift_cable.glb", { x: Lf.cab_rope_top[0], y: Lf.cab_rope_top[1], z: Lf.cab_rope_top[2], sy: SY - (y0 + HITCH), collide: "false" });
+      const cwRope = model("sp_lift_cable.glb", { x: Lf.cw_rope_top[0], y: Lf.cw_rope_top[1], z: Lf.cw_rope_top[2], sy: SY - cwTop(y0), collide: "false" });
+      const CW = model("sp_lift_cw.glb", { x, y: cwTop(y0), z: z + D.cwZ, collide: "false" });
+      const gCabRope = glider(cabRope, "sy"), gCwRope = glider(cwRope, "sy"), gCW = glider(CW, "y");
+      [CG, sheave, pinion, gov, cabRope, cwRope, CW].forEach((n) => (n._global = true));
+      LANDS.forEach((l) => { [l.gR, l.gL, l.nd, l.cb].forEach((n) => (n._global = true)); });
+
+      function gates(open, k) {
+        const s0 = open ? 1 : 0.15, s1 = open ? 0.15 : 1, l = LANDS[k];
+        [cgR, cgL, l.gR, l.gL].forEach((g) => tween(g, "sx", s0, s1, 1100, "easeInOutQuad"));
+        later(open ? 900 : 0, () => { cgatePad.setAttribute("y", open ? -60 : 1.25); l.gp.setAttribute("y", open ? -300 : l.gpY); });
+        sfx("lift_gate.mp3", l.po.gate_col[0], l.po.gate_col[1] + 1.4, l.po.gate_col[2], 0.7);
+        st.open = open;
+      }
+      function move(k0, k1, done) {
+        const a = Lf.stops[k0], b = Lf.stops[k1], dy = Math.abs(b - a), ms = Math.round(Math.max(4000, dy / LIFT_SPEED * 1000 + 1600));
+        const up = b > a;
+        gCab(b, ms); gCabRope(SY - (b + HITCH), ms); gCwRope(SY - cwTop(b), ms); gCW(cwTop(b), ms);
+        gNin(Lf.dial_rz[k1], ms); gNout(Lf.dial_rz[k1], ms);
+        LANDS.forEach((l) => l.nd._g(Lf.dial_rz[k1], ms));
+        tween(lever, "rx", 0, up ? -30 : 30, 500, "easeOutQuad"); later(ms - 600, () => tween(lever, "rx", up ? -30 : 30, 0, 500, "easeInOutQuad"));
+        const revSheave = Math.round(2 * Math.PI * D.sheaveR / LIFT_SPEED * 1000), sg = up ? 1 : -1;
+        const spins = [anim(sheave, "rx", 0, 360 * sg, revSheave), anim(pinion, "rx", 0, -360 * sg, Math.round(revSheave * 0.33)), anim(gov, "ry", 0, 360, 900)]
+          .concat(gears.map((g) => anim(g, "rx", 0, 360 * sg, 1400)));
+        const hum = el("m-audio", { src: BASE + "lift_hum.mp3" + VER, y: 1.5, loop: "true", volume: 0.55, "start-time": Math.round(now()) }, CG);
+        if (id === "A" && NPCS.operator) npcTalk(NPCS.operator, up ? "up" : "down", undefined, true);
+        later(ms, () => { spins.forEach((s) => s.remove()); hum.remove(); done(); });
+      }
+      function arrive(k) {
+        const l = LANDS[k]; if (l.glow.parentNode) l.glow.remove();
+        sfx("lift_chime.mp3", l.po.call[0], l.po.call[1] + 1.5, l.po.call[2], 0.9);
+        gates(true, k);
+        if (id === "A" && NPCS.operator) later(600, () => npcTalk(NPCS.operator, "s_" + Lf.keys[k], undefined, true));
+      }
+      function pump() {
+        if (st.busy) return;
+        st.req.delete(st.at);
+        if (!st.req.size) { if (!st.open) { st.busy = true; arrive(st.at); later(1200, () => { st.busy = false; }); } return; }
+        const ks = Array.from(st.req);
+        let ahead = ks.filter((k) => (k - st.at) * st.dir > 0);
+        if (!ahead.length) { st.dir = -st.dir; ahead = ks.filter((k) => (k - st.at) * st.dir > 0); }
+        if (!ahead.length) return;
+        const next = ahead.sort((a, b) => Math.abs(a - st.at) - Math.abs(b - st.at))[0];
+        st.busy = true; st.lastUse = now();
+        const go = () => move(st.at, next, () => {
+          st.at = next; st.req.delete(next); arrive(next); st.lastUse = now();
+          later(LIFT_DWELL, () => { st.busy = false; pump(); });
+        });
+        if (st.open) { if (id === "A" && NPCS.operator) npcTalk(NPCS.operator, "close", undefined, true); gates(false, st.at); later(1400, go); } else go();
+      }
+      function request(s, k, who) {
+        if (k === s.at && s.open && !s.busy) return;
+        if (!s.req.has(k) && k !== s.at) { const l = LANDS[k]; if (!l.glow.parentNode) l.cb.appendChild(l.glow); }
+        s.req.add(k); pump();
+      }
+      st.request = (k) => request(st, k);
+      st.home = () => { if (!st.busy && st.at !== 0 && now() - st.lastUse > LIFT_HOME_MS) request(st, 0); };
+      st.status = () => ({ at: Lf.keys[st.at], busy: st.busy, open: st.open, req: Array.from(st.req).map((k) => Lf.keys[k]) });
+      LIFTS[id] = st;
+      // start: cab at the lounge with its gates open
+      later(1500, () => arrive(0));
+    });
+    every(5000, () => Object.values(LIFTS).forEach((s) => s.home()));
+
+    // ==================================================== THE HALL OF FAKES
+    const HL = D.hall, VT = D.vault;
+    const fz = el("m-group", { "data-zone": "f2" });              // the 200 portraits only go to players on Floor 2
+    const H = { ph: "idle", round: 0, auto: true, nextAt: 0, tok: 0, map: [], removed: new Set(), fin: [], vmap: [], vremoved: new Set(), winner: null, t0: 0, finT0: 0 };
+    const shuffled = (n) => { const a = Array.from({ length: n }, (_, i) => i); for (let i = n - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+    H.map = D.hallImgs.slice(); H.vmap = Array.from({ length: VT.length }, (_, i) => i);
+    const HALLM = HL.map(([x, y, z, ry], s) => {
+      const m = model("portraits/pf_" + String(H.map[s]).padStart(4, "0") + ".glb", { x, y, z, ry, collide: "false" }, fz);
+      m.addEventListener("click", (e) => hallPick(s, e.detail && e.detail.connectionId));
+      return m;
+    });
+    const VAULTM = VT.map(([x, y, z, ry], s) => {
+      const m = model("portraits/pv_" + String(H.vmap[s]).padStart(3, "0") + ".glb", { x, y, z, ry, collide: "false" }, fz);
+      m.addEventListener("click", (e) => vaultPick(s, e.detail && e.detail.connectionId));
+      return m;
+    });
+    const realSlot = () => H.map.indexOf(D.realHall), vRealSlot = () => H.vmap.indexOf(D.realVault);
+    // the vault's glass door: shut for everyone but the finalists
+    const VD = D.vaultDoor;
+    const door = model("sp_vault_door.glb", { x: VD[0], y: VD[1], z: VD[2], ry: VD[3], collide: "false" });
+    const doorPad = pad({ x: VD[0], y: VD[1] + 1.8, z: VD[2], ry: VD[3], width: 3.2, height: 3.6, depth: 0.3 });
+    const doorFix = () => { const f = H.fin.map(String); hideFrom(door, f); hideFrom(doorPad, f); };
+    // signs: rules by the Hall door and by the vault, the big FIND THE REAL ... banner, the PORTRAITS LEFT counter
+    model("sg_hall_rules.glb", { x: D.signs.hall[0], y: D.signs.hall[1], z: D.signs.hall[2], ry: D.signs.hall[3], collide: "false" }, fz);
+    model("sg_vault_rules.glb", { x: D.signs.vault[0], y: D.signs.vault[1], z: D.signs.vault[2], ry: D.signs.vault[3], collide: "false" }, fz);
+    const banner = el("m-group", {}, fz), rlabel = el("m-group", {}, fz), counter = el("m-group", {}, fz);
+    const AT = D.bannerAt;      // the big FIND THE REAL ... signs hang over the front hall and over the lift lobby
+    // THE REAL ONE: the untouched #62 on all four sides of a pillar in the middle of the Hall floor, so everyone knows what to hunt for
+    D.refs.forEach(([x, y, z]) => model("sp_ref_founder.glb", { x, y, z, collide: "true" }, fz));
+    // and the real #100 Black Flag on the vault's plinth, for the finalists (it makes way for the champion's spinning portrait)
+    const refFlag = model("sp_ref_flag.glb", { x: D.refFlag[0], y: D.refFlag[1], z: D.refFlag[2], collide: "false" }, fz);
+    // frosted glass round the vault: nobody can study the Black Flags until the host starts the finals - then it sinks away
+    const frost = model("sp_vault_frost.glb", { x: 0, y: D.yv, z: 0, collide: "false" }, fz);
+    function frostOn() { if (!frost.parentNode) fz.appendChild(frost); frost.setAttribute("sy", 1); }
+    function frostOff() { if (!frost.parentNode) return; tween(frost, "sy", 1, 0.01, 2200, "easeInQuad"); later(2300, () => frost.remove()); }
+    function setBanner(key) {
+      Array.from(banner.children).forEach((c) => c.remove());
+      if (!key) return;
+      AT.forEach(([bx, bz, by, rr]) => [0, 90, 180, 270].forEach((a) => { const c = polar(rr, a, 0); word(key, 1.0, { x: bx + c[0], y: by + 2.5, z: bz + c[2], ry: a }, banner, true); }));
+    }
+    function setCounter() {
+      Array.from(counter.children).forEach((c) => c.remove());
+      const finals = H.ph === "finals" || H.ph === "done";
+      const left = finals ? VT.length - H.vremoved.size : HL.length - H.removed.size;
+      AT.forEach(([bx, bz, by, rr]) => [0, 90, 180, 270].forEach((a) => {
+        const c = polar(rr - 0.2, a, 0); const g = el("m-group", { x: bx + c[0], y: by, z: bz + c[2], ry: a }, counter);
+        digits(left, 0.8, { y: 0.6 }, g, false, true); word("remain", 0.4, { y: -0.05 }, g, true);
+      }));
+    }
+    function setRound(key) {
+      Array.from(rlabel.children).forEach((c) => c.remove());
+      if (!key) return;
+      AT.forEach(([bx, bz, by, rr]) => [0, 90, 180, 270].forEach((a) => { const c = polar(rr - 0.1, a, 0); word(key, 0.7, { x: bx + c[0], y: by + 1.4, z: bz + c[2], ry: a }, rlabel, true); }));
+    }
+    function setCountdown(secs) {   // between rounds: NEXT ROUND IN 9 ... in place of the PORTRAITS LEFT counter
+      Array.from(counter.children).forEach((c) => c.remove());
+      AT.forEach(([bx, bz, by, rr]) => [0, 90, 180, 270].forEach((a) => {
+        const c = polar(rr - 0.2, a, 0); const g = el("m-group", { x: bx + c[0], y: by, z: bz + c[2], ry: a }, counter);
+        word("nextin", 0.4, { y: 1.1 }, g, true); digits(secs, 0.8, { y: 0.45 }, g, false, true);
+      }));
+    }
+    setBanner("notyet"); setCounter();
+    function appraiser(line) { if (NPCS.appraiser) npcTalk(NPCS.appraiser, line, undefined, true); }
+    function lockMsg(p, at, ry, wrongWord) {
+      p.lock = now() + LOCKOUT_MS;
+      const g = privWords([wrongWord || "forgery", "wait"], [at[0], at[1] + 0.95, at[2]], ry, p.id, 0, 0.36);
+      const dg = el("m-group", { y: -0.95 }, g); let left = Math.round(LOCKOUT_MS / 1000);
+      const tick = () => { Array.from(dg.children).forEach((c) => c.remove()); if (left <= 0) { g.remove(); return; } digits(left, 0.42, {}, dg, true); word("secs", 0.24, { y: -0.36 }, dg); left--; later(1000, tick); };
+      tick();
+      sfx("wrong.mp3", at[0], at[1], at[2], 0.8);
+    }
+    const front = (s, list) => { const [x, y, z, ry] = list[s]; const a = ry * Math.PI / 180; return [x + Math.sin(a) * 0.25, y, z + Math.cos(a) * 0.25, ry]; };
+    function hallPick(s, id) {
+      if (id === undefined) return; const p = pl(id); const at = front(s, HL);
+      if (H.ph === "idle") { privWords(["notyet"], [at[0], at[1] + 0.95, at[2]], at[3], id, 3000, 0.36); return; }
+      if (H.ph === "between") { privWords([p.fin ? "already" : "getready"], [at[0], at[1] + 0.95, at[2]], at[3], id, 3000, 0.36); return; }
+      if (H.ph !== "hunt") { privWords([p.fin ? "already" : "roundover"], [at[0], at[1] + 0.95, at[2]], at[3], id, 3500, 0.36); return; }
+      if (p.fin) { privWords(["already"], [at[0], at[1] + 0.95, at[2]], at[3], id, 3500, 0.36); return; }
+      if (now() < p.lock) return;
+      if (H.removed.has(s)) return;
+      if (s !== realSlot()) { lockMsg(p, at, at[3]); return; }
+      if (H.fin.length >= FINALISTS) { privWords(["vaultfull"], [at[0], at[1] + 0.95, at[2]], at[3], id, 4000, 0.36); return; }
+      p.fin = true; p.fintime = now(); H.fin.push(id); doorFix();
+      privWords(["found", "finalist"], [at[0], at[1] + 1.1, at[2]], at[3], id, 9000, 0.4);
+      sfx("found.mp3", at[0], at[1], at[2], 1.0);
+      hostMsg("ROUND " + H.round + " WON - FINALIST " + H.fin.length + "/" + FINALISTS + ": " + nameOf(p).toUpperCase());
+      boards();
+      if (H.fin.length >= FINALISTS) { H.ph = "allfound"; setBanner("allfound"); setRound(""); setCounter(); appraiser("round"); hostMsg("ALL " + FINALISTS + " FINALISTS FOUND - WHEN THEY'RE ALL IN THE GLASS ROOM, PRESS START THE FINALS"); return; }
+      // round over: shuffle, then the next round starts by itself (or when the host presses NEXT ROUND)
+      H.ph = "between"; setBanner("shuffling"); setRound("round" + (H.round + 1)); appraiser("round");
+      const nm = H.round;
+      later(1500, () => { if (H.ph === "between" && H.round === nm) shuffleHall(); });
+      if (H.auto) armNext(); else setCounter();
+    }
+    // the countdown to the next round
+    let nextTimer = 0;
+    function armNext() {
+      const nm = H.round, tok = ++H.tok; H.nextAt = now() + ROUND_GAP_MS;
+      const tick = () => {
+        if (H.ph !== "between" || H.round !== nm || tok !== H.tok || !H.auto || !H.nextAt) return;
+        const left = Math.ceil((H.nextAt - now()) / 1000);
+        if (left <= 0) { nextRound(); return; }
+        setCountdown(left); nextTimer = later(1000, tick);
+      };
+      tick();
+    }
+    function shuffleHall() {
+      H.shuf = H.round; H.map = shuffled(D.hallImgs.length).map((i) => D.hallImgs[i]); H.removed.clear();
+      HALLM.forEach((m, s) => { if (!m.parentNode) fz.appendChild(m); ["sx", "sy", "sz"].forEach((k) => m.setAttribute(k, 1)); m.setAttribute("src", BASE + "portraits/pf_" + String(H.map[s]).padStart(4, "0") + ".glb" + VER); });
+    }
+    function nextRound() {
+      if (H.ph !== "between") return H.ph === "hunt" ? "ROUND " + H.round + " IS ALREADY ON" : H.ph === "allfound" ? "ALL " + FINALISTS + " FINALISTS ARE FOUND - START THE FINALS" : H.ph === "idle" ? "OPEN THE HALL FIRST" : "THE HALL ROUNDS ARE OVER";
+      if (H.shuf !== H.round) shuffleHall();
+      H.round++; H.ph = "hunt"; H.t0 = now(); H.nextAt = 0;
+      P.forEach((p) => { p.lock = 0; });
+      setBanner("findfounder"); setRound("round" + H.round); setCounter(); appraiser("next");
+      sfx("finals.mp3", 0, L.f2 + 6, 0, 0.7);
+      return "ROUND " + H.round + " OF " + FINALISTS + " - GO! (PORTRAITS SHUFFLED)";
+    }
+    function vaultPick(s, id) {
+      if (id === undefined) return; const p = pl(id); const at = front(s, VT);
+      if (!p.fin) { privWords(["finalsonly"], [at[0], at[1] + 0.95, at[2]], at[3], id, 3500, 0.36); return; }
+      if (H.ph !== "finals") { privWords([H.ph === "done" ? "roundover" : "vaultwait"], [at[0], at[1] + 0.95, at[2]], at[3], id, 3500, 0.36); return; }
+      if (now() < p.lock || H.vremoved.has(s)) return;
+      if (s !== vRealSlot()) { lockMsg(p, at, at[3]); return; }
+      H.ph = "done"; H.winner = id; if (refFlag.parentNode) refFlag.remove();
+      setBanner("winner"); appraiser("won");
+      const pg = el("m-group", { x: D.refFlag[0], y: D.refFlag[1], z: D.refFlag[2] }, fz);
+      word("champion", 0.6, { y: 3.2 }, pg); word("winner", 1.0, { y: 4.2 }, pg);
+      const v = model("portraits/pv_" + String(D.realVault).padStart(3, "0") + ".glb", { y: 1.0, sx: 1.4, sy: 1.4, sz: 1.4, collide: "false" }, pg);
+      anim(v, "ry", 0, 360, 9000);
+      sfx("winner.mp3", 0, D.yv + 2, 0, 1.0);
+      hostMsg("MUD MATCH CHAMPION: " + nameOf(p).toUpperCase());
+      boards();
+    }
+    function hallOpen() {
+      if (H.ph === "hunt" || H.ph === "between") return "THE HUNT IS ALREADY ON (ROUND " + H.round + ")";
+      shuffleHall(); H.fin = []; H.winner = null; H.ph = "hunt"; H.round = 1; H.t0 = now(); H.nextAt = 0;
+      P.forEach((p) => { p.fin = false; p.lock = 0; });
+      doorFix(); setBanner("findfounder"); setRound("round1"); setCounter(); appraiser("open"); boards();
+      return "THE HALL OF FAKES IS OPEN - ROUND 1 OF " + FINALISTS + " (PORTRAITS SHUFFLED)";
+    }
+    function startFinals() {
+      if (H.ph === "finals") return "THE FINALS ARE ALREADY ON";
+      if (!H.fin.length) return "NO FINALISTS YET";
+      H.ph = "finals"; setRound(""); H.finT0 = now(); H.vmap = shuffled(VT.length); H.vremoved.clear();
+      H.fin.forEach((id) => { pl(id).lock = 0; });
+      VAULTM.forEach((m, s) => { if (!m.parentNode) fz.appendChild(m); m.setAttribute("sx", 1); m.setAttribute("sy", 1); m.setAttribute("sz", 1); m.setAttribute("src", BASE + "portraits/pv_" + String(H.vmap[s]).padStart(3, "0") + ".glb" + VER); });
+      frostOff(); setBanner("findflag"); setCounter(); appraiser("finals");
+      sfx("finals.mp3", 0, D.yv + 3, 0, 1.0);
+      return "THE FINALS HAVE BEGUN - " + H.fin.length + " FINALISTS IN THE GLASS ROOM";
+    }
+    function thin() {
+      const finals = H.ph === "finals";
+      if (H.ph !== "hunt" && !finals) return "NOTHING TO THIN - OPEN THE HALL OR START THE FINALS FIRST";
+      const list = finals ? VAULTM : HALLM, gone = finals ? H.vremoved : H.removed, real = finals ? vRealSlot() : realSlot();
+      const fakes = list.map((_, s) => s).filter((s) => s !== real && !gone.has(s));
+      const keep = 9, cut = Math.min(fakes.length - keep, Math.ceil((fakes.length - keep) / 2));
+      if (cut <= 0) return "ONLY 10 LEFT - CAN'T THIN ANY MORE";
+      for (let i = fakes.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [fakes[i], fakes[j]] = [fakes[j], fakes[i]]; }
+      fakes.slice(0, cut).forEach((s, i) => {
+        gone.add(s); const m = list[s];
+        later(Math.random() * 2500, () => { ["sx", "sy", "sz"].forEach((k) => tween(m, k, 1, 0.01, 700, "easeInBack")); later(780, () => m.remove()); });
+      });
+      later(3300, setCounter); appraiser("thin");
+      return "THE FORGERS FLED - " + cut + " FAKES TAKEN DOWN, " + (list.length - gone.size) + " PORTRAITS LEFT";
+    }
+    function hallReset() {
+      H.ph = "idle"; H.round = 0; H.nextAt = 0; H.fin = []; H.winner = null; H.removed.clear(); H.vremoved.clear(); setRound("");
+      P.forEach((p) => { p.fin = false; p.lock = 0; });
+      HALLM.forEach((m) => { if (!m.parentNode) fz.appendChild(m); ["sx", "sy", "sz"].forEach((k) => m.setAttribute(k, 1)); });
+      VAULTM.forEach((m) => { if (!m.parentNode) fz.appendChild(m); ["sx", "sy", "sz"].forEach((k) => m.setAttribute(k, 1)); });
+      Array.from(fz.children).filter((c) => c.tagName && c.tagName.toUpperCase() === "M-GROUP" && c !== banner && c !== counter && c !== rlabel).forEach((c) => c.remove());
+      if (!refFlag.parentNode) fz.appendChild(refFlag); frostOn();
+      doorFix(); setBanner("notyet"); setCounter(); boards();
+      return "HALL OF FAKES RESET";
+    }
+
+    // ---------------------------------------------------- leaderboards (names are the one place text is allowed)
+    const LB = el("m-group", {});
+    function boards() {
+      Array.from(LB.children).forEach((c) => c.remove());
+      const lines = H.fin.map((id, i) => (i + 1) + ". " + nameOf(pl(id)) + (H.winner === id ? "  - CHAMPION" : ""));
+      if (!lines.length) return;
+      D.finalBoards.forEach(([x, y, z, ry]) => {
+        const g = el("m-group", { x, y, z, ry }, LB);
+        word("finalists", 0.5, { y: 0.55 }, g);
+        el("m-label", { content: lines.join("\n"), y: -0.9, width: 3.4, height: 2.3, "font-size": 22, alignment: "center", color: "#20140a", "font-color": "#ffe6a8", emissive: 0.35, collide: "false" }, g);
+      });
+    }
+
+    // ---------------------------------------------------- where everyone is (zones, greetings)
+    const probe = el("m-position-probe", { range: 600, interval: 400 });
+    const INSIDE = new Set();
+    const onPos = (e) => {
+      const id = e.detail && e.detail.connectionId; if (id === undefined) return;
+      const er = e.detail.elementRelative && e.detail.elementRelative.position;
+      const dr = (e.detail.documentRelative && e.detail.documentRelative.position) || e.detail.position;
+      const ok = (v) => v && typeof v.x === "number" && !isNaN(v.x);
+      const pos = ok(er) ? er : ok(dr) ? { x: dr.x, y: dr.y, z: dr.z + FRONT } : null;
+      if (!pos) return;
+      const p = pl(id); p.pos = { x: pos.x, y: pos.y, z: pos.z };
+      if (inside(pos.x, pos.z, 6) && pos.y > -5 && pos.y < 60) INSIDE.add(id); else INSIDE.delete(id);
+      zoneSee(id, p.pos);
+      greetCheck(p);
+      bioStep(p);
+    };
+    probe.addEventListener("positionenter", onPos); probe.addEventListener("positionmove", onPos);
+    probe.addEventListener("positionleave", (e) => { INSIDE.delete(e.detail && e.detail.connectionId); zoneAll(e.detail && e.detail.connectionId); });
+    onWin("disconnected", (e) => INSIDE.delete(e.detail && e.detail.connectionId));
+    onWin("connected", () => doorFix());
+
+    // ==================================================== host commands + what the remote shows
+    const zoneOf = (p) => (p.pos ? zKey(p.pos.x, p.pos.y, p.pos.z) : "?");
+    return {
+      _P: P,
+      refresh() { doorFix(); setBanner(H.ph === "hunt" ? "findfounder" : H.ph === "between" ? "shuffling" : H.ph === "allfound" ? "allfound" : H.ph === "finals" ? "findflag" : H.ph === "done" ? "winner" : "notyet");
+                  setRound(H.ph === "hunt" ? "round" + H.round : H.ph === "between" ? "round" + (H.round + 1) : ""); if (H.ph !== "between") setCounter(); boards(); },
+      game(tn) {
+        const finals = H.ph === "finals" || H.ph === "done";
+        return { ph: H.ph, left: finals ? VT.length - H.vremoved.size : HL.length - H.removed.size, fin: H.fin.length, finMax: FINALISTS,
+                 finalists: H.fin.map((id) => nameOf(pl(id))), ready: H.ph === "allfound", round: H.round, rounds: FINALISTS, auto: H.auto, nextIn: H.ph === "between" && H.nextAt ? Math.max(0, Math.ceil((H.nextAt - tn) / 1000)) : -1, inVault: H.fin.filter((id) => { const p = pl(id); return p.pos && Math.abs(p.pos.x) < D.room[0] && Math.abs(p.pos.z) < D.room[1] && Math.abs(p.pos.y - D.yv) < 3; }).length, winner: H.winner !== null ? nameOf(pl(H.winner)) : "",
+                 huntSecs: H.t0 ? Math.round((tn - H.t0) / 1000) : 0, inside: INSIDE.size, npcMode: NPC_MODE,
+                 talking: Object.values(NPCS).filter((n) => n.talking).map((n) => n.key), liftMusic: Object.values(LIFTS).some((s) => s.music.parentNode),
+                 lifts: Object.fromEntries(Object.entries(LIFTS).map(([k, s]) => [k, s.status()])) };
+      },
+      players(tn) {
+        return Array.from(ONLINE).map((id) => { const p = pl(id); return [id, nameOf(p), zoneOf(p), p.fin ? 1 : 0, Math.max(0, Math.ceil((p.lock - tn) / 1000)), H.winner === id ? 1 : 0]; });
+      },
+      command(cmd, rest, parts) {
+        const a1 = (parts[1] || "").toLowerCase();
+        if (cmd === "hall") {
+          if (a1 === "open" || a1 === "start") return hallOpen();
+          if (a1 === "thin") return thin();
+          if (a1 === "next") return nextRound();
+          if (a1 === "auto") { const v = (parts[2] || "").toLowerCase(); H.auto = v === "on" ? true : v === "off" ? false : !H.auto;
+            if (H.ph === "between") { if (H.auto && !H.nextAt) armNext(); if (!H.auto) { H.nextAt = 0; H.tok++; setCounter(); } }
+            return "NEXT ROUND: " + (H.auto ? "STARTS BY ITSELF AFTER " + ROUND_GAP_MS / 1000 + " SECONDS" : "WAITS FOR YOU (PRESS NEXT ROUND)"); }
+          if (a1 === "finals") return startFinals();
+          if (a1 === "reset") return hallReset();
+          return "HALL: open / next / auto on|off / thin / finals / reset";
+        }
+        if (cmd === "lift") {                                         // lift A lounge | lift B 3
+          const s = LIFTS[(parts[1] || "").toUpperCase()]; if (!s) return "LIFT A or LIFT B";
+          const want = (parts[2] || "").toLowerCase(); let k = s.Lf.keys.indexOf(want);
+          if (k < 0 && /^\d$/.test(want)) k = +want; if (k < 0 || k >= s.Lf.keys.length) return "LIFT " + s.id + " STOPS: " + s.Lf.keys.join(" / ");
+          s.request(k); return "LIFT " + s.id + " CALLED TO " + s.Lf.keys[k].toUpperCase();
+        }
+        if (cmd === "liftmusic") {                                    // liftmusic on|off
+          const on = a1 === "on" ? true : a1 === "off" ? false : !Object.values(LIFTS).some((s) => s.music.parentNode);
+          Object.values(LIFTS).forEach((s) => { if (on && !s.music.parentNode) s.musicHome.appendChild(s.music); if (!on && s.music.parentNode) s.music.remove(); });
+          return on ? "ELEVATOR MUSIC ON" : "ELEVATOR MUSIC OFF";
+        }
+        if (cmd === "npc") {                                          // npc mode on|host|off   |   npc say <who> <line>   |   npc hush
+          if (a1 === "mode") {
+            const m = (parts[2] || "").toLowerCase(); if (!["on", "host", "off"].includes(m)) return "NPC MODE on / host / off";
+            NPC_MODE = m; if (m === "off") Object.values(NPCS).forEach((n) => { if (!n.cur || n.cur.source !== "host") npcStop(n); });
+            return m === "on" ? "CHARACTERS: ALL ON - CLICK TO TALK, GREETINGS AND ANNOUNCEMENTS" : m === "host" ? "CHARACTERS: HOST ONLY - CLICKS AND GREETINGS OFF, ONLY YOUR BUTTONS (AND GAME ANNOUNCEMENTS)" : "CHARACTERS: ALL OFF - NOBODY TALKS BY THEMSELVES (YOUR BUTTONS STILL WORK)";
+          }
+          if (a1 === "hush") { Object.values(NPCS).forEach(npcStop); return "EVERY CHARACTER STOPPED TALKING"; }
+          if (a1 === "say") {
+            const n = NPCS[(parts[2] || "").toLowerCase()], line = parts[3] || ""; if (!n) return "NPC SAY <who> <line> - WHO: " + Object.keys(NPCS).join(" / ");
+            if (!n.lines[line]) return "NO LINE " + line.toUpperCase() + " FOR " + n.key.toUpperCase();
+            npcTalk(n, line, undefined, true, "host"); return n.key.toUpperCase() + " SAYS: " + line.toUpperCase();
+          }
+          return "NPC: mode on|host|off, say <who> <line>, hush";
+        }
+        if (cmd === "name") {                                         // name <id> <text>
+          const id = +parts[1]; const t = parts.slice(2).join(" ").slice(0, 18); if (!ONLINE.has(id) || !t) return "NAME <player id> <name>";
+          pl(id).name = t; NAMES.set(id, t); boards(); return "PLAYER " + id + " IS NOW " + t.toUpperCase();
+        }
+        if (cmd === "finalist") {                                     // host can add someone to the finals by hand
+          const id = +parts[1]; if (!ONLINE.has(id)) return "FINALIST <player id>";
+          const p = pl(id); if (!p.fin) { p.fin = true; H.fin.push(id); doorFix(); boards(); } return nameOf(p).toUpperCase() + " IS A FINALIST";
+        }
+        return null;
+      },
+    };
+  }
+})();
+</script>
