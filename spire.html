@@ -1,5 +1,5 @@
 <!--
-  MUDWATER SPIRE  v3  -  OtherGames event build  -  Otherside MML
+  MUDWATER SPIRE  v4  -  OtherGames event build  -  Otherside MML
   ============================================================
   LIVE BUILD: this document starts as a small PLACER CUBE. Open the host remote (spire_remote.html, PIN 7747 = S-P-I-R)
   and press LIVE BUILD to raise the whole tower. Press it again to fold everything back into the cube.
@@ -22,7 +22,7 @@
 (function () {
   "use strict";
   const BASE = "https://raw.githubusercontent.com/dinopawnz/spire/main/";
-  const VER = "?v=3";
+  const VER = "?v=4";
   const HOST_CODE = "7747";
   const AUTO_BUILD_MS = 0;
   const FRONT = 109;                 // tower centre is this far behind the origin (the foot of the boardwalk)
@@ -388,6 +388,17 @@
           tween(mug, "z", sp[2], tz, 600, "easeOutQuad"); tween(mug, "y", D.trayTop, D.barTop, 400, "easeInQuad");
           const dist = Math.abs(tx - sp[0]); tween(mug, "x", sp[0], tx, Math.max(700, dist * 260), "easeOutQuart");
           if (NPCS.barkeep) npcTalk(NPCS.barkeep, "pour" + (i % 4), id, false, "click");
+          // click your own beer to drink it: it lifts, tips back for a big swig (gulp gulp), and it's gone
+          const drink = hitBox({ y: 0.11, width: 0.3, height: 0.32, depth: 0.3 }, mug);
+          drink.addEventListener("click", (ev) => {
+            const who = ev.detail && ev.detail.connectionId;
+            if (who !== id || mug._drunk) return; mug._drunk = true; drink.remove();
+            const y0 = +mug.getAttribute("y") || D.barTop, mx = +mug.getAttribute("x"), mz = +mug.getAttribute("z");
+            tween(mug, "y", y0, y0 + 0.45, 500, "easeOutQuad");
+            later(350, () => tween(mug, "rx", 0, -78, 600, "easeInOutQuad"));
+            sfx("gulp.mp3", mx, y0 + 0.5, mz, 0.85);
+            later(1700, () => { ["sx", "sy", "sz"].forEach((k) => tween(mug, k, 1, 0.01, 300, "easeInBack")); later(380, () => { const k = MUGS.indexOf(mug); if (k >= 0) MUGS.splice(k, 1); mug.remove(); }); });
+          });
           MUGS.push(mug); if (MUGS.length > 30) MUGS.shift().remove();
           later(MUG_LIFE, () => { const k = MUGS.indexOf(mug); if (k >= 0) MUGS.splice(k, 1); mug.remove(); });
         });
