@@ -620,7 +620,7 @@
       function rClearHands() { RY.hands.forEach((H) => H.els.forEach((e) => e.remove())); RY.hands.clear(); }
       function rOpen() {
         RY.tok++; RY.ph = "open"; RY.winner = null; rClearBoard(); rClearHands(); rBig(null);
-        faces.forEach((F) => { F.bar.setAttribute("sx", "1"); Array.from(F.bar.children).forEach((c) => c.remove()); });
+        faces.forEach((F) => { F.bar.setAttribute("sx", "1"); F.bar.setAttribute("color", "#d9a441"); Array.from(F.bar.children).forEach((c) => c.remove()); });
         rClock(R.secs); rCounts();
         return "MUD ROYALE: TEAMS ARE OPEN - WALK ONTO A TEAM PAD";
       }
@@ -630,11 +630,28 @@
         if (!ids.length) return "NOBODY IS ON A TEAM YET";
         rClearBoard(); rClearHands(); rBig(null);
         RY.ph = "live"; RY.t0 = now(); RY.full = false; const tok = ++RY.tok;
-        ids.forEach((id) => { RY.hands.set(id, { cards: Array.from({ length: R.hand }, () => Math.floor(Math.random() * CARDS.length)), sel: 0, els: [] }); handDraw(id); handMsg(id, ["r_go"], 2500); });
+        faces.forEach((F) => F.bar.setAttribute("color", "#d9a441"));
+        ids.forEach((id) => { RY.hands.set(id, { cards: Array.from({ length: R.hand }, () => Math.floor(Math.random() * CARDS.length)), sel: 0, els: [], next: 0 }); handDraw(id); handMsg(id, ["r_go"], 2500); });
         faces.forEach((F) => tween(F.bar, "sx", 1, 0.001, R.secs * 1000, "linear"));
         sfx("finals.mp3", 0, R.y + 4, 0, 0.8);
         rClock(R.secs); rCounts();
-        const tick = () => { if (RY.tok !== tok || RY.ph !== "live") return; const left = Math.max(0, Math.ceil(R.secs - (now() - RY.t0) / 1000)); rClock(left); if (left <= 0) { rEnd(); return; } later(1000, tick); };
+        const tick = () => {
+          if (RY.tok !== tok || RY.ph !== "live") return;
+          const left = Math.max(0, Math.ceil(R.secs - (now() - RY.t0) / 1000)); rClock(left);
+          if (left <= 0) { rEnd(); return; }
+          // (v37, owner) REFILLS: a new card every 10 s into an empty slot (up to 5), so nobody runs dry and stands around
+          const t = now();
+          RY.hands.forEach((H, pid) => {
+            const k = H.cards.indexOf(null);
+            if (k < 0) { H.next = 0; return; }
+            if (!H.next) H.next = t + R.refill * 1000;
+            if (t >= H.next) { H.cards[k] = Math.floor(Math.random() * CARDS.length); if (H.cards[H.sel] === null) H.sel = k; H.next = H.cards.indexOf(null) < 0 ? 0 : t + R.refill * 1000; handDraw(pid); }
+          });
+          // (v37) the finale: at 30 s the clock bar turns red and everyone is told; the last 10 s tick at every corner sign
+          if (left === 30) { faces.forEach((F) => F.bar.setAttribute("color", "#e5533d")); RY.hands.forEach((_, pid) => handMsg(pid, ["r_30"], 2500)); R.score.forEach(([sx, sy, sz]) => sfx("lift_chime.mp3", sx, sy + 1.5, sz, 0.7)); }
+          if (left <= 10) R.score.forEach(([sx, sy, sz]) => sfx(left <= 3 ? "pool_rail.mp3" : "pool_clack_0.mp3", sx, sy + 1.5, sz, left <= 3 ? 0.9 : 0.6));
+          later(1000, tick);
+        };
         later(1000, tick);
         return "MUD ROYALE STARTED - " + ids.length + " PLAYERS, " + R.secs / 60 + " MINUTES";
       }

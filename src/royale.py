@@ -37,13 +37,35 @@ PENS = [(0.0, -29.0, 0.0), (33.0, 0.0, -90.0), (0.0, 29.0, 180.0), (-33.0, 0.0, 
 PEN_W, PEN_D = 12.0, 6.0
 
 
+BADGE_FONT = '/usr/share/fonts/opentype/inter/Inter-ExtraBold.otf'
+
+
+def badge_card(src, vals, size=(360, 500)):
+    """(v37, owner) one BIG number on each side of the card - top, left, right, bottom - so a player only reads the edge that is
+    touching the card they're battling (the printed numbers are tiny and all bunched in the top-left corner)"""
+    from PIL import ImageFont
+    W, H = size
+    im = Image.open(src).convert('RGB').resize(size, Image.LANCZOS).convert('RGBA')
+    lay = Image.new('RGBA', size, (0, 0, 0, 0)); d = ImageDraw.Draw(lay)
+    R = 46; f = ImageFont.truetype(BADGE_FONT, 74)
+    t, l, r, b = vals
+    for (cx, cy, v) in ((W / 2, R + 8, t), (R + 8, H / 2, l), (W - R - 8, H / 2, r), (W / 2, H - R - 8, b)):
+        sh = Image.new('RGBA', size, (0, 0, 0, 0)); ImageDraw.Draw(sh).ellipse([cx - R - 4, cy - R + 2, cx + R + 4, cy + R + 10], fill=(0, 0, 0, 150))
+        lay = Image.alpha_composite(lay, sh.filter(ImageFilter.GaussianBlur(5))); d = ImageDraw.Draw(lay)
+        d.ellipse([cx - R, cy - R, cx + R, cy + R], fill=(214, 168, 66, 255))                  # gold rim
+        d.ellipse([cx - R + 6, cy - R + 6, cx + R - 6, cy + R - 6], fill=(28, 18, 10, 255))      # dark centre
+        d.text((cx, cy + 2), str(v), font=f, fill=(255, 238, 196, 255), anchor='mm', stroke_width=2, stroke_fill=(0, 0, 0, 255))
+    return Image.alpha_composite(im, lay).convert('RGB')
+
+
 def card_images():
-    """small jpgs of the 120 cards (the originals are 720 x 1000, 140 kB each)"""
+    """small jpgs of the 120 cards with the big side numbers baked in (images are cheap to draw - no text elements)"""
     os.makedirs(OUT + 'royale', exist_ok=True)
+    cards = json.load(open('/home/claude/spire/cards/cards.json'))
     for k in range(1, 121):
         dst = OUT + 'royale/c_%03d.jpg' % k
-        if os.path.exists(dst): continue
-        Image.open(MW + 'mwc_%03d.jpg' % k).convert('RGB').resize((288, 400), Image.LANCZOS).save(dst, quality=82, optimize=True)
+        v = cards[str(k)]
+        badge_card(MW + 'mwc_%03d.jpg' % k, (v['t'], v['l'], v['r'], v['b'])).save(dst, quality=84, optimize=True)
     for ti, (_, _, hx, rgb) in enumerate(TEAMS):
         S = 256; im = Image.new('RGBA', (S, S), (0, 0, 0, 0)); d = ImageDraw.Draw(im)
         c = tuple(int(v * 255) for v in rgb)
@@ -192,6 +214,6 @@ def apply(D, L, FL):
         score=[[x, Y + SC_B, z, ry] for (x, z, ry) in corner_frames()],
         hands=hand_frames(),
         cards=[[cards[str(k)]['t'], cards[str(k)]['l'], cards[str(k)]['r'], cards[str(k)]['b']] for k in range(1, 121)],
-        secs=180, hand=5, signs=signs,
+        secs=180, hand=5, refill=10, signs=signs,
     )
     print('royale: board %dx%d (%.1f m squares), %d pens, scoreboard, %d hand boards, %d cards' % (N, N, TS, len(PENS), len(D['royale']['hands']), 120))

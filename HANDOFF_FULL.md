@@ -34,7 +34,7 @@
 | Where | Version | What |
 |---|---|---|
 | branch `main` | v13 | the old LIVE build. Untouched. Push to main ONLY when the owner says. |
-| branch **`handoff-v14`** | **v36** | everything from sessions 6–11. This is what the owner tests. |
+| branch **`handoff-v14`** | **v37** | everything from sessions 6–11. This is what the owner tests. |
 
 The owner's files load assets from `https://raw.githubusercontent.com/dinopawnz/spire/handoff-v14/` (baked into spire.html by `build_html.py`), so **assets must be pushed to `handoff-v14` before the owner's HTML works.** Remote PIN: **7747**, then press LIVE BUILD.
 
@@ -184,6 +184,7 @@ Raised dark-timber photo stage with steps, Meshy photo arch (8 m) with the Mudwa
 - `viewer/mmlshot.py` now takes a `js` staging script (bots join + play) - see `viewer/F3D.json` for a mid-game render.
 - **Bug fixed:** v24 scaled the Hall of Fakes banner HEIGHT by the floor-plan factor (`bannerAt`), lifting "FIND THE REAL FOUNDER" + the portraits-left counter through the hall ceiling onto floor 3. Back at 22.6.
 - Tests: `viewer/royaletest.py` (40 bots: team counts, switching, late joiner blocked, 100/100 squares match the capture rule, board-full end, winner + MVP, reopen), `viewer/royaletimer.py` (ends at 180 s). All old tests pass.
+- **v37 (owner: "those fixes were already supposed to be part of the game")**: (1) every card image has ONE BIG number on each SIDE (top centre, left middle, right middle, bottom centre; gold-rimmed dark badges baked into `royale/c_NNN.jpg` by `royale.badge_card()`, Inter ExtraBold) - owner's design: you only read the edge that touches the card you're battling; (2) REFILLS: a new card every 10 s into an empty hand slot, max 5 (`R.refill`), for the whole 3 minutes; (3) finale: at 0:30 the clock bars turn red + "30 SECONDS LEFT!" + chime, last 10 s tick at each corner sign. Test `viewer/royalerefill.py` (3.2 min).
 - NEXT for floor 3: decoration pass to lounge standard (owner: "every floor must keep the same standard as the first floor") - it's dark and bare apart from the arena: lantern rings + warm light pools, Mudwater banners, framed cards on the walls, spectator benches/bleachers, plants, moss on beams.
 
 ### Tests that pass on v32
