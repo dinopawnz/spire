@@ -206,10 +206,14 @@ D['music'] = dict(tracks=_tracks, gap=1500, vol=0.5, speakers=[[round(v, 2) for 
 # THE OWNER'S KODAS (koda_rig.py adds their animations): two in the card-room / fireside armchairs, two on bar stools with a beer,
 # two strolling round the island bar. [file, x, y, z, ry, scale, walk radius (0 = sitting), walk lap ms (+ = clockwise from above)]
 KS = 1.25
-_chairs = {(round(e[1], 1), round(e[3], 1)): e for e in F1.get('mprops', []) if e[0] == 'sp_m_armchair'}
+import tables as _tb
+_chairs = {(round(e[1], 1), round(e[3], 1)): e for e in F1.get('mprops', []) if e[0] == 'sp_m_armchair'}   # keyed by the original spots
+_tb.resize(F1.get('mprops', []))          # (v42, owner) card tables lower, the armchairs round them bigger (entries changed in place)
 _stools = [e for e in F1.get('mprops', []) if e[0] == 'sp_m_stool']
 def _seat(e, top, butt, back):
     ry = e[4]; x = e[1] - back * math.sin(math.radians(ry)); z = e[3] - back * math.cos(math.radians(ry))
+    k = e[5] / 0.6309; top *= k; back *= k                      # (v42) chairs can be scaled up (card-table chairs)
+    x = e[1] - back * math.sin(math.radians(ry)); z = e[3] - back * math.cos(math.radians(ry))
     floor = e[2] + (-0.9517) * e[5]
     return [round(x, 3), round(floor + top - butt * KS, 3), round(z, 3), ry]
 kodas = []
@@ -227,8 +231,15 @@ D['kodas'] = kodas
 # (v38) more of the owner's Kodas: 6833 strolls a loop through the open floor between the island bar and the front seating,
 # 2168 stands between the pool tables watching the games. [file, [[x, z], ...] waypoints, y, scale, walking speed m/s]
 FLY = round(FL['lounge'] + 0.005, 3)
-D['kodaPaths'] = [['sp_koda_6833', [[-7.0, 17.0], [14.0, 17.0], [14.0, 27.0], [-7.0, 27.0]], FLY, KS, 0.45]]
+# (v42, owner: "some of the koda animations end up breaking and they walk in place after a while") no more timer-driven waypoint
+# walks: every walker now rides a slowly turning group (a looping animation the clients play on their own, like the island-bar
+# walkers), so there is nothing to fall out of step. 6833 circles the open floor in front of the island bar, 6895 (new) the open
+# floor east of the bar; 554 (new) stands near the stage watching the band. [file, centre x, y, centre z, 0, scale, radius, lap ms]
+D['kodaPaths'] = []
+_lap = lambda r: int(round(2 * math.pi * r / 0.45 * 1000))
+D['kodas'] += [['sp_koda_6833', 3.0, FLY, 22.0, 0, KS, 4.5, _lap(4.5)], ['sp_koda_6895', 24.0, FLY, 2.0, 0, KS, 4.2, -_lap(4.2)]]
 D['kodas'].append(['sp_koda_2168', 45.2, FLY, 7.75, 90.0, KS, 0, 0])
+D['kodas'].append(['sp_koda_554', -6.0, FLY, -28.0, round(math.degrees(math.atan2(0 - -6.0, -36.2 - -28.0)), 1), KS, 0, 0])
 # (v38, owner) a guest ape (#6136, not one of the hosts' apes) lounging in the free fireside armchair with a cigar; the MML puffs smoke
 # from his mouth when he leans back to blow it out (clip 'cigar', 12 s: draws at 6.2-7.6 s, blows at ~9 s)
 AS = 0.9
@@ -240,7 +251,7 @@ if _e:
     D['loungers'] = [['sp_ape_6136', ax, ay, az, ary, AS, [round(ax + mx * c_ + mz * s_, 3), round(ay + my, 3), round(az - mx * s_ + mz * c_, 3)], 12000, 9000]]
 # (v30, owner) real MUDWATER cards dealt on every card table (card_spread.py), never ordinary playing cards
 for i, e in enumerate([e for e in F1.get('mprops', []) if e[0] == 'sp_m_cardtable']):
-    D['sdeco'].append(['sp_mw_deal_%d' % (i % 4), e[1], round(e[2] + 0.684 * e[5] + 0.004, 3), e[3], (i * 90) % 360, 1.0])
+    D['sdeco'].append(['sp_mw_deal_%d' % (i % 4), e[1], round(_tb.top(e) + 0.004, 3), e[3], (i * 90) % 360, 1.0])
 for i, e in enumerate([e for e in F1.get('mprops', []) if e[0] == 'sp_m_coffeetable']):     # and a Mudwater hand on each coffee table
     c, s_ = math.cos(math.radians(e[4])), math.sin(math.radians(e[4])); lx, lz = -0.03 * e[5], 0.08 * e[5]
     D['sdeco'].append(['sp_mw_fan_%d' % (i % 2), round(e[1] + lx * c + lz * s_, 3), round(e[2] + 0.134 * e[5] + 0.03, 3), round(e[3] - lx * s_ + lz * c, 3), e[4], 1.0])
@@ -279,6 +290,11 @@ D['pond'] = dict(frogs=frogs_, flies=flies_, sounds=['frog_0', 'frog_1', 'frog_2
 print('pond: %d frogs, %d dragonflies, turtle %s' % (len(frogs_), len(flies_), bool(turtle_)))
 print('kodas', [(k[0], k[1:4]) for k in kodas])
 print('deco pieces', len(D['deco']))
+
+# (v42, fps) every repeated static model on a floor baked into one file (merge.py); set NOMERGE=1 to build without it
+if not os.environ.get('NOMERGE'):
+    import merge as _mg
+    _mg.merge_all(D, L)
 
 src = open('/home/claude/spire/spire_src.html').read()
 out = src.replace('__DATA__', json.dumps(D, separators=(',', ':'))).replace('__BASE__', BASE).replace('__VER__', VER).replace('__VOICES__', VOICES)

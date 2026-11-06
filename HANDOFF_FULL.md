@@ -34,7 +34,7 @@
 | Where | Version | What |
 |---|---|---|
 | branch `main` | v13 | the old LIVE build. Untouched. Push to main ONLY when the owner says. |
-| branch **`handoff-v14`** | **v41** | everything from sessions 6–11. This is what the owner tests. |
+| branch **`handoff-v14`** | **v42** | everything from sessions 6–11. This is what the owner tests. |
 
 The owner's files load assets from `https://raw.githubusercontent.com/dinopawnz/spire/handoff-v14/` (baked into spire.html by `build_html.py`), so **assets must be pushed to `handoff-v14` before the owner's HTML works.** Remote PIN: **7747**, then press LIVE BUILD.
 
@@ -202,6 +202,16 @@ Raised dark-timber photo stage with steps, Meshy photo arch (8 m) with the Mudwa
 - **Performance audit** (`viewer/perfaudit.py`, `viewer/animaudit.py`): v40 drew ~4.5M triangles, ~3,600 mesh pieces + ~1,000 cubes/images, 1,146 running animations, all floors for everyone. v41 animation cuts: bio veins steady glow (-152), lantern rings no sway (-34), wisps 70 -> 12, sky lanterns a third, spores a quarter => 711 animations (320 in LITE). **The 120 floating cards keep spinning and bobbing (owner wants that) but in LITE MODE they hold still** (their anims carry `data-lite-anim` and LITE removes/restores just those; `gc_` is no longer in the DECOR regex so the cards stay). `viewer/litetest.py`.
 - NEXT (planned, told the owner): combine repeated static models per floor into one GLB per kind (lanterns/chains/rings/furniture/vines/windows/railings/trees: ~3,600 pieces -> a few hundred), lighter versions of the heavy Meshy models (hanglantern 2k tris x138, floatlantern 2.5k x72, armchair, trees), then floor-only drawing via standing pads (collision events, like Mud Royale) if still needed.
 - Owner also reported: "a small piece of the waterfall is getting cut off by the rock" (not yet looked at - ask for a screenshot / check the outdoor crag falls).
+### v42 (session 11): fps pass 2, Kodas, chairs
+- **Merge repeats** (`merge.py`, called at the end of `build_html.py`; `NOMERGE=1` builds without it): every copy of a static decor model (D.sdeco + the lantern rings, which are now placed through it) baked into ONE file `mg_<model>.glb` (textures stored once). Merging stores every copy's shape, so models are ranked by objects saved per extra MB and taken while >= 15/MB and within 15 MB: small lanterns a/b/c, chains, rings, dealt cards, coffee-table fans => **~780 fewer objects for +11.7 MB**. NOT merged (owner asked about chairs/vines/hanging lanterns, but they'd cost ~45 MB more download for ~300 objects - asked the owner): armchairs, sofas, vines, hanging lanterns, windows, railings, reeds, posts. LITE filter still works (merged names contain the original names).
+- **Floating cards are one piece each** (`build_cards.py`: front | back | gold strip in one picture): 360 -> 120 objects, same look.
+- `slim.py`: lighter versions (2% shape cap) of hanglantern, floatlantern, vines, cattails, window, railing, lanternpost, lantern_ring, bottles.
+- Audit now: 2,467 draw pieces (was 3,485), 4.07M triangles (was 4.40M), 718 animations (319 in LITE). Portraits NOT merged: they're clicked in the Hall of Fakes game (owner).
+- **Walking Kodas no longer "walk in place"** (owner): the timer-driven waypoint walk (6833) is gone; every walker rides a looping turn group (like the island-bar laps) and every 40 s each walker gets a fresh copy of its lap animation (same start time, added before the old one is removed) and its walk clip re-sent. 6833 now circles (3, 22) r 4.5.
+- **New Kodas**: 6895 (walks a lap round (24, 2), r 4.2), 554 (stands near the stage at (-6, -28) watching the band, idle clip). Raw files in `src/kodas_raw/`.
+- **Pack-ripping Kodas (5077, 9924)** (owner: cards farther from the face / turned to us): fan held at full stretch (a Koda's hand can't get more than ~0.16 m in front of its chest), cards bigger, and a SHOW-OFF: at 7.6-9.7 s of the 14 s clip the fan is turned round and pushed out in front of the hand, card faces to the room. The raw 5077/9924 files weren't kept, so `koda_pack.strip_props()` takes a built pack Koda back to a bare rig first (`/home/claude/kodas/raw_*.glb`).
+- **Card tables / armchairs** (owner: chairs too short for the table): the Meshy card table was 1.7 m tall. `tables.py`: card tables squashed to 68 % height (top ~1.15 m), the armchairs round them 1.25x bigger and pulled back 0.12 m (lounge + Mud Royale floor). Koda 5077 re-seated (`_seat` is scale-aware).
+- Waterfall "cut off by the rock": the lounge falls and the outdoor crag falls render fine here - waiting for the owner's screenshot with a circle.
 - Possible next looks items: the team pens read a bit like boxing rings (owner asked what the "gator ring" was) - offer a restyle (timber platform / moss-and-lantern clearing).
 - (old note) NEXT for floor 3: decoration pass to lounge standard (owner: "every floor must keep the same standard as the first floor") - it's dark and bare apart from the arena: lantern rings + warm light pools, Mudwater banners, framed cards on the walls, spectator benches/bleachers, plants, moss on beams.
 

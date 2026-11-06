@@ -272,10 +272,16 @@ def decor(D, L, FL):
                ['sp_m_coffeetable', cx, 3.71 + dy, cz, 0.0, 1.16], ['sp_mw_fan_%d' % (int(cx > 0)), cx - 0.035, 3.897 + dy, cz + 0.092, 0.0, 1.0],
                ['sp_m_barrel', cx + 4.4, 3.43 + dy, cz - 3.0, 0.0, 0.47]]
         D['pads'] += [[cx, Y + 0.45, cz, 5.4, 0.9, 6.0, 0]]
+    n0 = len(sd)
     for k, (cx, cz) in enumerate(CARDS3):
         sd += [['sp_m_cardtable', cx, 3.86 + dy, cz, 162.9, 1.21], ['sp_mw_deal_%d' % (k % 4), cx, 4.692 + dy, cz, (k * 90) % 360, 1.0]]
         for (ox, oz, ary) in ((1.17, 1.17, -135.0), (1.17, -1.17, -45.0), (-1.17, -1.17, 45.0), (-1.17, 1.17, 135.0)):
             sd.append(['sp_m_armchair', cx + ox, 3.6 + dy, cz + oz, ary, 0.63])
+    import tables as _tb                                     # (v42) lower card tables, bigger chairs (as in the lounge)
+    mine = sd[n0:]
+    for t in _tb.resize(mine):
+        for e in mine:
+            if e[0].startswith('sp_mw_deal_') and abs(e[1] - t[1]) < 0.01 and abs(e[3] - t[3]) < 0.01: e[2] = round(_tb.top(t) + 0.004, 3)
     # iron lanterns hanging from the ceiling, and the warm pools of light they (and the rings) throw on the floor
     lan = []
     for _ in range(4000):

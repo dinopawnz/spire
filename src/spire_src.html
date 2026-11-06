@@ -1061,13 +1061,25 @@
 
     // ---------------------------------------------------- THE OWNER'S KODAS: lounging in the armchairs, a beer at the bar, strolling round
     // the island bar. Each GLB carries its own looping clip (sit / bar / walk); walkers ride a slowly turning group round the bar.
+    const WALKERS = [];
     (D.kodas || []).forEach(([f, x, y, z, ry, s, r, lap], i) => {
       const a = { sx: s, sy: s, sz: s, anim: BASE + f + ".glb" + VER, "anim-loop": "true", "anim-start-time": -Math.round(1700 * i + 900), collide: "false" };
       if (!r) { model(f + ".glb", a, el("m-group", { x, y, z, ry })); return; }
       const c = el("m-group", { x, y, z, ry: (i * 97) % 360 }), turn = el("m-group", {}, c);
-      anim(turn, "ry", 0, lap > 0 ? 360 : -360, Math.abs(lap), { delay: i * 4100 });
-      model(f + ".glb", a, el("m-group", { x: r, ry: lap > 0 ? 180 : 0 }, turn));
+      const w = { turn, lap, delay: i * 4100, ast: a["anim-start-time"] };
+      w.a = anim(turn, "ry", 0, lap > 0 ? 360 : -360, Math.abs(lap), { delay: w.delay });
+      w.m = model(f + ".glb", a, el("m-group", { x: r, ry: lap > 0 ? 180 : 0 }, turn));
+      WALKERS.push(w);
     });
+    // (v42, owner: "some of the koda animations end up breaking and they walk in place after a while") every 40 s each walker gets a
+    // fresh copy of its lap animation (same start time, so it doesn't jump; the new one is added before the old one goes, so there's
+    // never a gap) and its walk clip is re-sent, so a player whose client dropped either picks it up again
+    every(40000, () => WALKERS.forEach((w) => {
+      const old = w.a;
+      w.a = anim(w.turn, "ry", 0, w.lap > 0 ? 360 : -360, Math.abs(w.lap), { delay: w.delay });
+      old.remove();
+      w.flip = !w.flip; w.m.setAttribute("anim-start-time", String(w.ast + (w.flip ? 1 : 0)));
+    }));
 
     // (v38) Kodas that stroll a loop of waypoints: turn to face the next corner, walk to it at a steady pace, repeat
     (D.kodaPaths || []).forEach(([f, pts, y, s, speed], i) => {

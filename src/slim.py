@@ -16,7 +16,11 @@ TEX_1024 = ['sp_shell', 'sp_f1_lounge', 'sp_f2_hall', 'sp_f2_vault', 'sp_lift_sh
 TARGET = {'sp_m_armchair': 2400, 'sp_m_sofa': 3200, 'sp_m_cardtable': 2600, 'sp_m_stool': 1200, 'sp_m_ivy': 2400, 'sp_mtree_1': 10000, 'sp_mtree_2': 10000,
           'sp_m_booth': 8000, 'sp_m_pond': 9000, 'sp_m_grotto': 9000, 'sp_m_coffeetable': 1800, 'sp_m_barrel': 1500, 'sp_m_bench': 2000,
           'sp_m_fireplace': 9000, 'sp_m_crag': 9000, 'sp_m_gable': 7000, 'sp_m_doorleaf': 2500, 'sp_m_signframe': 5000, 'sp_m_lectern': 3000,
-          'sp_m_bottles': 2500, 'sp_m_glassrack': 2000, 'sp_m_beermug': 1500}
+          'sp_m_bottles': 1800, 'sp_m_glassrack': 2000, 'sp_m_beermug': 1500,
+          # (v42, fps) the pieces that repeat most: hanging lanterns, vines, reeds, windows, railings, lamp posts (2% shape error cap
+          # still applies, so nothing visibly changes shape)
+          'sp_m_hanglantern': 900, 'sp_m_floatlantern': 1100, 'sp_m_vines': 1100, 'sp_m_cattails': 700, 'sp_m_window': 1100,
+          'sp_m_railing': 1000, 'sp_m_lanternpost': 1100, 'sp_lantern_ring': 3000}
 
 def tris(p):
     js, _ = read_glb(p); return sum(js['accessors'][pr['indices']]['count'] // 3 for m in js['meshes'] for pr in m['primitives'] if 'indices' in pr)
