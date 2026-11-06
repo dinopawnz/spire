@@ -637,7 +637,6 @@
         const o = el("m-group", { x: hx, y: R.y + hy, z: hz, ry: hry }); o._global = true;
         const g = el("m-group", { rx: tilt }, o);
         word("r_hand", 0.62, { y: 1.22, z: 0.04 }, g);
-        word("r_tip", 0.26, { y: -1.72, z: 0.04 }, g);                       // (v47) how to play a rock
         for (let k = 0; k < 5; k++) el("m-image", { src: BASE + "royale/back.jpg" + VER, x: -4.0 + 2.0 * k, y: -0.25, z: 0.03, width: CW * 0.92, height: CH * 0.92, emissive: 0.25, collide: "false", "cast-shadows": "false" }, g);     // card backs until you're dealt in
         return g;
       });
@@ -654,7 +653,7 @@
             el("m-image", { src: BASE + (down ? "royale/back.jpg" : "royale/c_" + String(c + 1).padStart(3, "0") + ".jpg") + VER, x: slotX(k), y: -0.25, z: 0.06, width: CW * 0.92, height: CH * 0.92, emissive: 0.35, collide: "false", "cast-shadows": "false" }, pg);
             if (down) word("r_rockon", 0.3, { x: slotX(k), y: -0.25, z: 0.08 }, pg);
             const hb = hitBox({ x: slotX(k), y: -0.25, z: 0.1, width: CW * 0.92, height: CH * 0.92, depth: 0.06 }, pg);
-            hb.addEventListener("click", (e) => { if ((e.detail && e.detail.connectionId) !== id) return; const H2 = RY.hands.get(id); if (!H2 || H2.cards[k] === null) return; if (H2.sel === k && H2.chosen) H2.rock = !H2.rock; else { H2.sel = k; H2.rock = false; H2.chosen = true; } handDraw(id); });   // (v49) a ROCK only on a 2nd click of a card YOU picked (the first card is pre-selected)
+            hb.addEventListener("click", (e) => { if ((e.detail && e.detail.connectionId) !== id) return; const H2 = RY.hands.get(id); if (!H2 || H2.cards[k] === null) return; H2.sel = k; H2.rock = false; H2.chosen = true; handDraw(id); });   // (v50, owner) no rocks in our version: a click just picks the card
           });
         });
       }
@@ -742,7 +741,9 @@
         let k = H.sel; if (H.cards[k] === null) k = H.cards.findIndex((c) => c !== null);
         if (k < 0) { handMsg(id, ["r_out"]); return; }
         const sum = (cc) => CARDS[cc][0] + CARDS[cc][1] + CARDS[cc][2] + CARDS[cc][3];
-        const old = RY.board[i], mine = H.cards[k], rock = !!H.rock, team0 = RY.roster.get(id);
+        // (v50, owner: "there should be no rocks in our version of the game. only face up cards" - if everyone played rocks nobody
+        // would ever capture anything) rocks are switched off; the rest of the official rules stand
+        const old = RY.board[i], mine = H.cards[k], rock = false, team0 = RY.roster.get(id);
         // (v47) THE OFFICIAL MUDWATER RULES (owner's rules sheet; the only change: the game runs the full clock, it doesn't end when the
         // board fills): PLACE a LEVEL I card face up in an empty square; ROCK - any card face down in an empty square (captures nothing,
         // can never be captured, counts as Level I for upgrades, only one rock per player at a time - once it's covered you can play

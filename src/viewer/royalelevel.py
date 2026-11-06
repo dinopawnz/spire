@@ -40,7 +40,7 @@ with sync_playwright() as p:
             for slot, c in enumerate(cs):
                 if c is None: continue
                 B = board(); empty = [i for i, x in enumerate(B) if x is None]
-                if rnd == 1 and empty:                                   # rocks: one is fine, a second (while the first is uncovered) is refused
+                if False and rnd == 1 and empty:          # (v50) no rocks any more                                   # rocks: one is fine, a second (while the first is uncovered) is refused
                     mine_rock = any(x and x[2] and x[3] == id for x in B)
                     r = play(id, slot, rng.choice(empty), True)
                     if mine_rock: st['rock2_ref'] += (not r); wrong += r
@@ -69,7 +69,7 @@ with sync_playwright() as p:
                 break
     # rocks are never captured: every rock is still its owner's team
     B = board(); rocks = [x for x in B if x and x[2]]
-    ok(all(x[1] == team(x[3]) for x in rocks), "%d rocks on the board, none captured" % len(rocks))
+    ok(len(rocks) == 0, "no rocks in our version (%d on the board)" % len(rocks))
     ok(wrong == 0, "  ".join("%s %d" % kv for kv in st.items()) + " | wrong %d" % wrong)
     ok(seen[0] > 0, "players are told why a play is refused (%d messages seen)" % seen[0])
     say("royale stop"); time.sleep(0.3)

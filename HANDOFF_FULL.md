@@ -34,7 +34,7 @@
 | Where | Version | What |
 |---|---|---|
 | branch `main` | v13 | the old LIVE build. Untouched. Push to main ONLY when the owner says. |
-| branch **`handoff-v14`** | **v49** | everything from sessions 6–11. This is what the owner tests. |
+| branch **`handoff-v14`** | **v50** | everything from sessions 6–11. This is what the owner tests. |
 
 The owner's files load assets from `https://raw.githubusercontent.com/dinopawnz/spire/handoff-v14/` (baked into spire.html by `build_html.py`), so **assets must be pushed to `handoff-v14` before the owner's HTML works.** Remote PIN: **7747**, then press LIVE BUILD.
 
@@ -253,6 +253,9 @@ Raised dark-timber photo stage with steps, Meshy photo arch (8 m) with the Mudwa
 - **NEW TEST - every clickable portrait: `viewer/clicktest/`**: `export.py <spire.html>` builds the world in a headless page and writes every element with its world matrix; `run.py` loads it all in three.js and casts a click ray at each of the 500 portraits from 9 spots (1.5/2.5/3.6 m out, straight and +-35 deg), listing anything in the way (colliders, visible models, invisible boxes). Now: all 400 hall portraits clear from all 9 spots; vault portraits clear from 1.5 and 2.5 m (only the 3.6 m spot hits the vault room's own walls - finalists stand inside). **Run it after any change near clickable things.**
 - `viewer/hallload.py`: 100 bots clicking portraits for 60 s (~7,500 clicks): ~0.05 ms per click, worst <2 ms, no errors, winner registered.
 - **Mud Royale**: a hand's first card is pre-selected, so a player's first click on it turned it into a ROCK - now a rock needs a second click on a card the player picked. Refills: every empty hand slot refills 3 s after it's played (was one card per 10 s for the whole hand). Sign + message updated.
+### v50 (session 11)
+- **No rocks in Mud Royale** (owner: "if every player puts down a rock, the game will end without anyone getting a point... only face up cards"): clicking a hand card only picks it; rock code kept but disabled (`rock = false`); hint under the hand boards removed; sign + message updated. Everything else = the official rules (level I on empty squares, upgrades exactly +1 on your own team's squares).
+- Escape redesign under discussion (owner: no standing-on-pads puzzles - "I doubt the game can detect how many players are standing on a lily pad"; room 1 lanterns "way too easy"; forger's desk / card battle lock too easy for ~20 players who spam-click; Warden's Riddle OK if hard enough for 20+). Proposed set (all locks + 30 s team lockout on a wrong code): harder Critter Sums, the Swamp Cipher, the Witch's Eye (perspective digits), the Warden's Riddle (5-ape logic grid).
 - Possible next looks items: the team pens read a bit like boxing rings (owner asked what the "gator ring" was) - offer a restyle (timber platform / moss-and-lantern clearing).
 - (old note) NEXT for floor 3: decoration pass to lounge standard (owner: "every floor must keep the same standard as the first floor") - it's dark and bare apart from the arena: lantern rings + warm light pools, Mudwater banners, framed cards on the walls, spectator benches/bleachers, plants, moss on beams.
 
