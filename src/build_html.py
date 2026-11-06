@@ -190,7 +190,8 @@ fx['runes'] = []
 fx['motes'] = [['mw_motes', -70.0, 0.0, -58.0], ['mw_motes', 70.0, 0.0, -58.0], ['mw_motes', -70.0, 0.0, 78.0], ['mw_motes', 70.0, 0.0, 78.0],
                ['mwx_fireflies', 0.0, 0.0, 20.0], ['mwx_fireflies', 0.0, 18.0, 20.0], ['mwx_fireflies', 30.0, 30.0, 0.0]]
 D['fx'] = fx
-import outside; outside.apply(D, L, FL, rg)          # the outside, to the owner's concept
+import outside; outside.apply(D, L, FL, rg)
+import roof; roof.apply(D, L, FL)                 # the roof: the grand finale photo terrace          # the outside, to the owner's concept
 print('deco pieces', len(D['deco']))
 
 src = open('/home/claude/spire/spire_src.html').read()

@@ -67,7 +67,18 @@ CRAG_NOTCH, CRAG_FRONT, CRAG_DX, CRAG_W = 0.80, 0.29, 0.10, 0.20     # where the
 ISLANDS = False      # Meshy floating islands + far cliffs in the sky (owner turned off in v21)
 BONSAI = False       # Meshy bonsai islets on the water (owner turned off in v21)
 
+def chain_glb():
+    """a 1 m iron chain (hook at the top, y 0 .. -1); placed with sy = its length"""
+    from kit import MATS
+    m = Mesh(); n = 9
+    for k in range(n):
+        yy = -(k + 0.5) / n
+        tube(m, 'iron', [(0.0, yy + 0.05, 0.0), (0.0, yy - 0.05, 0.0)], 0.018, 4)
+        sphere(m, 'iron', 0.03, 5, 3, m=T(0, yy, 0))
+    write(OUTG + 'sp_lantern_chain.glb', m, dict(iron=MATS['iron']))
+
 def apply(D, L, FL, rg):
+    chain_glb()
     X1, Z1 = L['X1'], L['Z1']; W = L['walk']; R = random.Random(19)
     add = D['sdeco'].append
     # ---- v25 (owner: "no hideous low quality primitive lanterns", "use Meshy for these plant things too"): every old Coliseum
@@ -77,9 +88,10 @@ def apply(D, L, FL, rg):
         f, x, y, z, ry, s = e
         if f == 'reeds':                       # flat reed cards -> Meshy cattail clumps (old card 2.75 m tall at scale 1)
             add(place('cattails', x, y - 0.1, z, ry, 1.8 * s, 'h'))
-        elif f == 'mwm_jarlantern':            # jar on a chain (hangs 2.66 m below its point) -> Meshy iron lantern hanging just under it
-            hgt = 0.95 * s / 0.85
-            add(place('hanglantern', x, y - 0.25 - hgt, z, ry, hgt, 'h'))
+        elif f == 'mwm_jarlantern':            # jar on a chain (hangs 2.66 m below its point) -> Meshy iron lantern where the jar hung, on a chain
+            hgt = 0.95 * s / 0.85; bot = y - 2.66 * s
+            add(place('hanglantern', x, bot, z, ry, hgt, 'h'))
+            add(['sp_lantern_chain', r3(x), r3(y), r3(z), 0.0, 1.0, round(y - (bot + hgt - 0.05), 3)])        # hook at the old point, down to the lantern
         elif f == 'mwm_floatlantern':          # white box on the water -> Meshy paper lantern floating on the water
             add(place('floatlantern', x, y + 0.02, z, ry, 0.84 * s, 'h'))
         else: keep.append(e)
@@ -147,13 +159,14 @@ def apply(D, L, FL, rg):
     # ---- lanterns under every balcony edge, moss clumps under the lower balconies on the front
     Dd = L['balconies']['depth']
     for li, y in enumerate(L['balconies']['lines']):
-        for side in range(4):
+        for side in (0,):           # (v26) front face only: full-detail lanterns are heavy
             ln = 2 * X1 if side % 2 == 0 else 2 * Z1
-            for t in np.arange(4.0, ln - 2, 10.5):
+            for t in np.arange(5.0, ln - 2, 14.0):
                 u = -ln / 2 + t; o = Dd - 0.35
                 x, z = [(u, Z1 + o), (X1 + o, u), (u, -Z1 - o), (-X1 - o, u)][side]
                 if side == 0 and y < 12 and abs(x) < 11: continue                  # the portico roof
-                add(place('hanglantern', x, y - 0.45 - 0.75, z, R.uniform(0, 60), 0.75, 'h'))     # Meshy iron lantern under the balcony edge (was the code-built one)
+                add(place('hanglantern', x, y - 1.7, z, R.uniform(0, 60), 0.75, 'h'))     # Meshy iron lantern on a chain under the balcony edge
+                add(['sp_lantern_chain', r3(x), r3(y - 0.2), r3(z), 0.0, 1.0, 0.8])
         if li < 3:
             for t in np.arange(5.0, 2 * X1 - 3, 15.0):
                 x = -X1 + t

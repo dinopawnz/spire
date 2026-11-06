@@ -420,6 +420,45 @@
       }
     });
     // ---------------------------------------------------- the fireplace: flickering flames, embers rising, a glow pulsing on the floor
+    // ---------------------------------------------------- THE ROOF: the grand finale terrace (stage, lights), invisible pads, fire-pit flames
+    (D.roofModels || []).forEach(([f, x, y, z]) => { const m = model(f + ".glb", { x, y, z, collide: "false" }); m._global = true; });
+    (D.pads || []).forEach(([x, y, z, w, h, d, ry]) => pad({ x, y, z, width: w, height: h, depth: d, ry: ry || 0 }));
+    (D.roofFires || []).forEach(([x, y, z], j) => {
+      const fg = el("m-group", { x, y, z });
+      [[0, 1.3, 1.0, 340, 0.95], [-0.35, 0.9, 0.8, 280, 0.85], [0.4, 1.0, 0.85, 400, 0.85], [0.05, 0.8, 1.2, 320, 0.7]].forEach(([dx, w, h, per, op], i) => {
+        const flick = el("m-group", { x: dx, ry: i * 47 }, fg);
+        const im = el("m-image", { src: BASE + "fire_flame.png" + VER, y: h / 2, width: w, height: h, emissive: 1.6, opacity: op, collide: "false", "cast-shadows": "false" }, flick);
+        anim(flick, "sy", 0.82, 1.14, per, { pingPong: true, easing: "easeInOutSine", delay: i * 97 + j * 211 });
+        anim(flick, "sx", 1.06, 0.92, Math.round(per * 1.31), { pingPong: true, easing: "easeInOutSine", delay: i * 53 });
+        anim(im, "emissive", 1.2, 2.0, Math.round(per * 0.77), { pingPong: true, easing: "easeInOutSine", delay: i * 71 });
+      });
+      for (let k = 0; k < 6; k++) {
+        const e = el("m-sphere", { x: -0.4 + 0.8 * ((k * 37) % 10) / 10, y: 0.3, z: -0.3 + 0.6 * ((k * 53) % 10) / 10, radius: 0.025, color: "#ff8a2a", emissive: 5, collide: "false", "cast-shadows": "false", "data-lite": "1" }, fg);
+        const dur = 1700 + (k * 211) % 1200; anim(e, "y", 0.3, 3.0, dur, { delay: k * 260 }); anim(e, "opacity", 1, 0, dur, { delay: k * 260 });
+      }
+    });
+    // CELEBRATE (host remote): warm firework bursts over the roof terrace for the finale photo
+    function celebrate() {
+      const Y = D.L.roof, COL = ["#ffd27a", "#ffb347", "#fff2c8", "#9fffe0", "#ffe08a"];
+      for (let b = 0; b < 14; b++) later(b * 650 + Math.random() * 300, () => {
+        const cx = (Math.random() - 0.5) * 50, cy = Y + 26 + Math.random() * 18, cz = -10 + (Math.random() - 0.5) * 40;
+        const g = el("m-group", { x: cx, y: cy, z: cz });
+        const c = COL[b % COL.length], n = 22;
+        const rocket = el("m-sphere", { y: -(cy - Y), radius: 0.12, color: "#fff2c8", emissive: 6, collide: "false", "cast-shadows": "false" }, g);
+        tween(rocket, "y", -(cy - Y), 0, 700, "easeOutQuad"); later(720, () => rocket.remove());
+        later(700, () => {
+          for (let i = 0; i < n; i++) {
+            const th = Math.acos(1 - 2 * (i + 0.5) / n), ph = Math.PI * (1 + Math.sqrt(5)) * i, R = 7 + Math.random() * 3;
+            const s = el("m-sphere", { radius: 0.22, color: c, emissive: 7, collide: "false", "cast-shadows": "false" }, g);
+            tween(s, "x", 0, R * Math.sin(th) * Math.cos(ph), 1500, "easeOutQuad"); tween(s, "z", 0, R * Math.sin(th) * Math.sin(ph), 1500, "easeOutQuad");
+            tween(s, "y", 0, R * Math.cos(th) - 2.5, 1500, "easeOutQuad"); tween(s, "opacity", 1, 0, 1500, "easeInQuad");
+          }
+          sfx("winner.mp3", cx, cy, cz, 0.35);
+        });
+        later(2600, () => g.remove());
+      });
+      return "CELEBRATION! FIREWORKS OVER THE ROOF";
+    }
     if (D.fire) {
       const [fx, fy, fz] = D.fire;
       const fg = el("m-group", { x: fx, y: fy - 0.25, z: fz + 0.2 });          // just behind the iron grate
@@ -1040,6 +1079,7 @@
       },
       command(cmd, rest, parts) {
         const a1 = (parts[1] || "").toLowerCase();
+        if (cmd === "celebrate") return celebrate();
         if (cmd === "hall") {
           if (a1 === "open" || a1 === "start") return hallOpen();
           if (a1 === "thin") return thin();

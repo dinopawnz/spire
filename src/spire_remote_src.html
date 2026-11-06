@@ -544,6 +544,11 @@ details.cheat dl { margin: 8px 0 0; } details.cheat dt { color: var(--sky); font
         p.append(d);
       });
 
+      p = R.panel(R.left, "The roof - grand finale", "the photo terrace on top of the tower");
+      g = R.grid(p);
+      R.btn(g, "CELEBRATE", "fireworks over the roof for the finale photo", () => R.say("celebrate"), { cls: "b-go big1" });
+      R.note(p, "Gather everyone on the roof terrace in front of the photo stage, then press CELEBRATE: warm fireworks burst over the tower for about 10 seconds. Press again for more.");
+
       p = R.panel(R.left, "If people lag", "nobody loses progress");
       g = R.grid(p);
       ui.liteB = R.btn(g, "LITE MODE", "drop the decorative pieces", () => R.say(ui.lite ? "lite off" : "lite on"), { cls: "b-sky big1" });

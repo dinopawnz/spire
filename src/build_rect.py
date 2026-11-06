@@ -388,7 +388,7 @@ def slabs():
     for k in range(1, NS + 1):
         y = YS[k]
         holes = holes0
-        mat = 'dark' if KEYS[k] == 'hall' else ('bartop' if KEYS[k] == 'cards' else 'plank')
+        mat = 'dark' if KEYS[k] == 'hall' else ('bartop' if KEYS[k] == 'cards' else ('wetfloor' if KEYS[k] == 'roof' else 'plank'))     # roof: dark glossy terrace deck
         flat_deck(shell, mat, RECT, y, holes=holes, uvs=3.0, under='dark', th=0.45)
         slab_collider(col, y, ('p', RECT), holes=holes, pad=0.0)
         for i in range(1, BAYX):

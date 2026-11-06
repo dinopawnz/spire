@@ -346,9 +346,12 @@ def wall_cards():
     for (sd, x, z) in blank:
         if sd == 'front' and abs(x) > 8 and abs(x - FIRE_X) > 4.0: hang_card(next(cards), M(T(x, yc, Z1), Ry(180)))
         if sd == 'back' and abs(x) > 8 and abs(abs(x) - 13.5) > 3.6: hang_card(next(cards), M(T(x, yc, -Z1), Ry(0)))
-    for z in [-14.0, 24.0, 36.0]:                                                           # the end walls, clear of the lifts and doors
-        hang_card(next(cards), M(T(-X1, yc, z), Ry(90)))
-        hang_card(next(cards), M(T(X1, yc, z), Ry(-90)))
+    # the end walls: only on plain wall panels (never over a window - owner), clear of the stair towers (|z| < 11), the side door
+    # (z ~ -15), and the back-corner lift shafts (z < -27)
+    for sd, xw, ry in (('west', -X1, 90), ('east', X1, -90)):
+        for (s_, x_, z_, kind) in LY.get('lounge_bays', []):
+            if s_ == sd and kind == '' and abs(z_) > 11.0 and z_ > -27.0 and abs(z_ + 15.0) > 3.0:
+                hang_card(next(cards), M(T(xw, yc, z_), Ry(ry)))
     for z in [-2.0, 4.0]:                                                                   # the stair-tower walls face the room too (not over the stair door)
         hang_card(next(cards), M(T(-LY['sw']['xi'] + 0.25, yc, z), Ry(90)))
         hang_card(next(cards), M(T(LY['sw']['xi'] - 0.25, yc, z), Ry(-90)))
@@ -454,12 +457,13 @@ def round_bar():
         a = k * 90
         mm = M(T(cx + (PR + 0.62) * math.sin(math.radians(a)), Y + ph - 0.08, cz + (PR + 0.62) * math.cos(math.radians(a))), Ry(a))
         bar_sign(mm)
-    lathe(L1, 'dark', [(3.2, Y + 3.15), (3.6, Y + 3.15), (3.6, Y + 3.3), (3.2, Y + 3.3)], 48, m=C())
+    RACK_Y = 4.45                        # (v26, owner: glasses hit heads) the glass ring hangs high under the canopy, glasses clear at ~3.4 m
+    lathe(L1, 'dark', [(3.2, Y + RACK_Y), (3.6, Y + RACK_Y), (3.6, Y + RACK_Y + 0.15), (3.2, Y + RACK_Y + 0.15)], 48, m=C())
     if 'glassrack' in META:              # (v24, owner) Meshy racks of hanging wine glasses all round under the canopy ring
         gm, gx_ = META['glassrack']; gw = 2.1; gh = (gx_[1] - gm[1]) * gw / (gx_[0] - gm[0])
         for k in range(9):
             a = k * 40 + 20
-            mp('glassrack', M(T(cx + 3.4 * math.sin(math.radians(a)), Y + 3.15 - gh, cz + 3.4 * math.cos(math.radians(a))), Ry(a + 90)), ('w', gw))
+            mp('glassrack', M(T(cx + 3.4 * math.sin(math.radians(a)), Y + RACK_Y - gh, cz + 3.4 * math.cos(math.radians(a))), Ry(a + 90)), ('w', gw))
     else:
         for k in range(40):
             a = math.radians(k * 9)
