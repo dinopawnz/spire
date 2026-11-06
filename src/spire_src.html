@@ -161,10 +161,13 @@
     return moved;
   }
   const SEEN = new Set();
-  function zoneSee(id, p) { if (!WORLD) return; SEEN.add(id); zoneMark(id, new Set(zKeysFor(p))); }
+  // (v25, owner: "why isn't it just loaded all the time?") floor zoning is OFF: every player gets every floor all the time.
+  // In Otherside the position probe didn't report players, so v24 left the inside empty. Set ZONING = true to try it again.
+  const ZONING = false;
+  function zoneSee(id, p) { if (!WORLD) return; if (!ZONING) { zoneAll(id); return; } SEEN.add(id); zoneMark(id, new Set(zKeysFor(p))); }
   function zoneAll(id) { if (WORLD && id !== undefined && !REMOTES.has(id)) { SEEN.delete(id); zoneMark(id, new Set(Object.keys(ZONES))); } }
   // (v24) someone whose position isn't known yet sees the outside only; their floor appears the moment the position probe reports them
-  function zoneOut(id) { if (WORLD && id !== undefined && !REMOTES.has(id)) { SEEN.delete(id); zoneMark(id, new Set(["out"])); } }
+  function zoneOut(id) { if (!ZONING) { zoneAll(id); return; } if (WORLD && id !== undefined && !REMOTES.has(id)) { SEEN.delete(id); zoneMark(id, new Set(["out"])); } }
   function zoneMark(id, want) {
     for (const k in ZONES) {
       const S = ZSET[k], on = !!(want && want.has(k));
@@ -178,7 +181,7 @@
 
   // ---- LITE + REFRESH (as in the castle)
   let LITE = null;
-  const DECOR = /sp_(chandelier|lantern_[abc]|fx_|wisp|moonbeam|m_vines|m_ivy)|bio_|gc_\d|mw_motes|fireflies|mist\.glb|glowplant|reeds|floatlantern|lilypads|moss_c|shelfshroom|jarlantern|cypress/;
+  const DECOR = /sp_(chandelier|lantern_[abc]|fx_|wisp|moonbeam|m_vines|m_ivy)|bio_|gc_\d|mw_motes|fireflies|mist\.glb|glowplant|reeds|floatlantern|lilypads|moss_c|shelfshroom|jarlantern|cypress|m_hanglantern|m_cattails/;
   function liteOn() {
     if (LITE) return "LITE MODE IS ALREADY ON";
     const tg = (n) => String(n.tagName).toUpperCase();
@@ -379,7 +382,8 @@
       });
       // sky lanterns drifting up off the water
       F.lanterns.forEach(([x, z, dur, del, sc]) => {
-        const m = mw("mwm_floatlantern", { x, y: 0, z, sx: sc, sy: sc, sz: sc });
+        const SL = F.skyLantern;
+        const m = SL ? model(SL[0] + ".glb", { x, y: 0, z, sx: sc, sy: sc, sz: sc, collide: "false" }) : mw("mwm_floatlantern", { x, y: 0, z, sx: sc, sy: sc, sz: sc });
         anim(m, "y", 0, 150, dur, { delay: del });
       });
       F.runes.forEach(([f, x, y, z, sc, tilt, per]) => {

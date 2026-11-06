@@ -70,6 +70,24 @@ BONSAI = False       # Meshy bonsai islets on the water (owner turned off in v21
 def apply(D, L, FL, rg):
     X1, Z1 = L['X1'], L['Z1']; W = L['walk']; R = random.Random(19)
     add = D['sdeco'].append
+    # ---- v25 (owner: "no hideous low quality primitive lanterns", "use Meshy for these plant things too"): every old Coliseum
+    #      reed card, jar lantern and floating box lantern becomes its Meshy model, in the same spot and size
+    keep = []
+    for e in D['deco']:
+        f, x, y, z, ry, s = e
+        if f == 'reeds':                       # flat reed cards -> Meshy cattail clumps (old card 2.75 m tall at scale 1)
+            add(place('cattails', x, y - 0.1, z, ry, 1.8 * s, 'h'))
+        elif f == 'mwm_jarlantern':            # jar on a chain (hangs 2.66 m below its point) -> Meshy iron lantern hanging just under it
+            hgt = 0.95 * s / 0.85
+            add(place('hanglantern', x, y - 0.25 - hgt, z, ry, hgt, 'h'))
+        elif f == 'mwm_floatlantern':          # white box on the water -> Meshy paper lantern floating on the water
+            add(place('floatlantern', x, y + 0.02, z, ry, 0.84 * s, 'h'))
+        else: keep.append(e)
+    D['deco'] = keep
+    mn, mx = META['floatlantern']                # the sky lanterns rising off the water use the Meshy lantern too
+    k = 0.84 / (mx[1] - mn[1])
+    D['fx']['lanterns'] = [[x, z, dur, dl, round(sc * k, 4)] for (x, z, dur, dl, sc) in D['fx']['lanterns']]
+    D['fx']['skyLantern'] = ['sp_m_floatlantern', round(-mn[1], 4)]
     # ---- out with the cartoon pieces, the moonbeam slabs and the red glow plants out on the water
     # (owner, v21: the original water GLBs stay - nothing is removed from D['deco'])
     for k in range(10):                                   # low mist drifting over the water round the boardwalk and the porch
@@ -131,11 +149,11 @@ def apply(D, L, FL, rg):
     for li, y in enumerate(L['balconies']['lines']):
         for side in range(4):
             ln = 2 * X1 if side % 2 == 0 else 2 * Z1
-            for t in np.arange(3.5, ln - 2, 7.0):
+            for t in np.arange(4.0, ln - 2, 10.5):
                 u = -ln / 2 + t; o = Dd - 0.35
                 x, z = [(u, Z1 + o), (X1 + o, u), (u, -Z1 - o), (-X1 - o, u)][side]
                 if side == 0 and y < 12 and abs(x) < 11: continue                  # the portico roof
-                add(['sp_lantern_a', r3(x), r3(y - 0.2), r3(z), round(R.uniform(0, 60), 1), 1.6])
+                add(place('hanglantern', x, y - 0.45 - 0.75, z, R.uniform(0, 60), 0.75, 'h'))     # Meshy iron lantern under the balcony edge (was the code-built one)
         if li < 3:
             for t in np.arange(5.0, 2 * X1 - 3, 15.0):
                 x = -X1 + t
