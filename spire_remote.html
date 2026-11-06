@@ -559,6 +559,15 @@ details.cheat dl { margin: 8px 0 0; } details.cheat dt { color: var(--sky); font
       g = R.grid(p);
       R.btn(g, "CELEBRATE", "fireworks over the roof for the finale photo", () => R.say("celebrate"), { cls: "b-go big1" });
       R.note(p, "Gather everyone on the roof terrace in front of the photo stage, then press CELEBRATE: warm fireworks burst over the tower for about 10 seconds. Press again for more.");
+      p = R.panel(R.left, "Mud Royale", "game 2 - floor 3, four teams on the giant card board");
+      g = R.grid(p);
+      R.btn(g, "START", "deal 5 cards to everyone on a team, 3 minutes", () => R.say("royale start"), { cls: "b-go big1" });
+      R.btn(g, "END NOW", "stop the clock and crown the winner", () => R.say("royale stop"), { cls: "b-warn", confirm: "End Mud Royale now?" });
+      R.btn(g, "NEW GAME", "clear the board, teams open again", () => R.say("royale open"), { cls: "b-sky" });
+      R.btn(g, "EMPTY TEAMS", "everyone has to pick a team again", () => R.say("royale clear"), { cls: "b-sky", confirm: "Empty all four teams?" });
+      R.btn(g, "TEAM COUNTS", "how many on each team + squares", () => R.say("royale"), { cls: "b-sky" });
+      R.note(p, "Players walk onto a team pad (Gators, Crawdads, Bullfrogs, Catfish) and can switch until you press START. The big board over the middle and each pad show how many players are on each team. After START everyone on a team gets 5 Mudwater cards on the YOUR HAND boards: click a card, then a square. A higher number beside an enemy card captures it. After 3 minutes, the most squares wins.");
+
       p = R.panel(R.left, "The art wall", "the big canvas in the roof's back-left corner");
       g = R.grid(p);
       R.btn(g, "CLEAR WALL", "wipe all the paint and names", () => R.say("art clear"), { cls: "b-warn", confirm: "Wipe the whole art wall?" });

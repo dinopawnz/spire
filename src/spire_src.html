@@ -505,6 +505,203 @@
       });
       ART.clear = () => { ART.cells.forEach((c) => c.remove()); ART.cells.clear(); ART.names = []; board.setAttribute("content", "SIGN THE ART WALL AT THE LECTERN"); };
     }
+    // ---------------------------------------------------- MUD ROYALE (v34, game 2, floor 3). The owner's rules: WALK ONTO a team pad to
+    // join (switch freely until the host presses START); at the start every player on a team gets 5 Mudwater cards (shown only to them on
+    // the four YOUR HAND boards); click a card in your hand, then an empty square, to play it. A card captures an enemy card beside it when
+    // its number on that side is higher (top/left/right/bottom). After 3 minutes (or when the board is full) the team holding the most
+    // squares wins; MVP = the player whose cards hold the most squares. Host: royale open | start | stop | clear (remote panel).
+    const RY = { on: !!D.royale, ph: "open", roster: new Map(), hands: new Map(), board: [], last: new Map(), tok: 0, t0: 0, winner: null };
+    if (D.royale) {
+      const R = D.royale, N = R.n, TS = R.ts, HB = R.half, TOP = R.top, TM = R.teams, CARDS = R.cards, NT = TM.length;
+      const CW = 1.78, CH = 2.47;                                            // a card on its square (the art is 720 x 1000)
+      const rg = el("m-group", {}); rg._global = true;
+      const tileXZ = (i) => [-HB + TS * (i % N + 0.5), -HB + TS * (Math.floor(i / N) + 0.5)];
+      const dim = (hx) => "#" + [1, 3, 5].map((k) => Math.round(parseInt(hx.substr(k, 2), 16) * 0.45).toString(16).padStart(2, "0")).join("");
+      RY.board = new Array(N * N).fill(null);
+      // ---- the board: one click target per square
+      for (let i = 0; i < N * N; i++) {
+        const [x, z] = tileXZ(i);
+        const hb = hitBox({ x, y: TOP + 0.05, z, width: TS - 0.14, height: 0.1, depth: TS - 0.14 }, rg);
+        hb.addEventListener("click", (e) => rPlace(i, e.detail && e.detail.connectionId));
+      }
+      // ---- the team pens: stand on the slab to join (the owner's Territory pads: a visible slab 6 cm proud so the collision always fires)
+      const penCount = [], penSlab = [];
+      R.pens.forEach(([px, pz, pry, pw, pd], ti) => {
+        const g = el("m-group", { x: px, y: R.y, z: pz, ry: pry }); g._global = true;
+        const slab = el("m-cube", { y: 0.07, width: pw - 0.5, height: 0.14, depth: pd - 0.5, color: dim(TM[ti][2]), collide: "true", "collision-interval": 90, "cast-shadows": "false" }, g);
+        el("m-cube", { y: 0.145, width: pw - 1.6, height: 0.01, depth: pd - 1.6, color: TM[ti][2], collide: "false", "cast-shadows": "false" }, g);
+        word("r_join", 1.9, { y: 0.16, rx: -90 }, g);
+        word(TM[ti][1], 1.35, { y: 4.42, z: -pd / 2 - 0.12 }, g);
+        penCount[ti] = el("m-group", { y: 3.55, z: -pd / 2 - 0.12 }, g);
+        word("r_players", 0.36, { x: 2.55, y: 3.25, z: -pd / 2 - 0.12 }, g);
+        const step = (e) => { const id = e.detail && e.detail.connectionId; if (typeof id === "number") rJoin(ti, id); };
+        slab.addEventListener("collisionstart", step); slab.addEventListener("collisionmove", step);
+        penSlab[ti] = slab;
+      });
+      (R.signs || []).forEach(([x, y, z, ry]) => { model("sg_royale_rules.glb", { x, y, z, ry, collide: "false" })._global = true; });
+      // ---- the four-sided scoreboard over the middle
+      const [SCY, SCH] = R.score;
+      const faces = [0, 90, 180, 270].map((a) => {
+        const f = el("m-group", { y: R.y + SCY, ry: a }); f._global = true;
+        const fg = el("m-group", { z: R.score[1] + 0.1 }, f);
+        word("royale", 0.62, { x: -2.3, y: 2.88 }, fg);
+        const clock = el("m-group", { x: 2.6, y: 2.7 }, fg);
+        const cap = el("m-group", { x: -2.3, y: 2.42 }, fg);
+        const cols = TM.map((t, k) => { word(t[1], 0.42, { x: -3.3 + 2.2 * k, y: 1.82 }, fg); return el("m-group", { x: -3.3 + 2.2 * k, y: 1.0 }, fg); });
+        const bar = el("m-cube", { y: 0.24, width: 8.2, height: 0.1, depth: 0.03, color: "#d9a441", collide: "false", "cast-shadows": "false" }, fg);
+        const big = el("m-group", {}, fg);                                    // winner / messages over the columns
+        return { fg, clock, cap, cols, bar, big, shown: {} };
+      });
+      const setNum = (g, n, h, key, cache) => { if (cache[key] === n) return; cache[key] = n; Array.from(g.children).forEach((c) => c.remove()); digits(n, h, {}, g); };
+      function rCounts() {
+        const live = RY.ph !== "open";
+        const per = TM.map((_, k) => live ? RY.board.filter((b) => b && b.team === k).length : Array.from(RY.roster.values()).filter((t) => t === k).length);
+        const players = TM.map((_, k) => Array.from(RY.roster.values()).filter((t) => t === k).length);
+        penCount.forEach((g, k) => setNum(g, players[k], 1.55, "p" + k, faces[0].shown));
+        faces.forEach((F, fi) => {
+          F.cols.forEach((g, k) => setNum(g, per[k], 1.05, "c" + k, F.shown));
+          const capKey = live ? "r_squares" : "r_players";
+          if (F.shown.cap !== capKey) { F.shown.cap = capKey; Array.from(F.cap.children).forEach((c) => c.remove()); word(capKey, 0.24, {}, F.cap); }
+        });
+        return per;
+      }
+      function rClock(secs) {
+        const m = Math.floor(secs / 60), sc = secs % 60;
+        faces.forEach((F) => {
+          if (F.shown.clock === secs) return; F.shown.clock = secs;
+          Array.from(F.clock.children).forEach((c) => c.remove());
+          digits(m, 0.85, { x: -0.62 }, F.clock); word("r_colon", 0.85, { x: -0.17 }, F.clock); digits(Math.floor(sc / 10), 0.85, { x: 0.3 }, F.clock); digits(sc % 10, 0.85, { x: 0.84 }, F.clock);
+        });
+      }
+      function rBig(keys) { faces.forEach((F) => { Array.from(F.big.children).forEach((c) => c.remove()); (keys || []).forEach(([k, h, x, y]) => word(k, h * 1.4, { x, y }, F.big)); F.cols.forEach((g) => g.setAttribute("visible", keys && keys.length ? "false" : "true")); }); }
+      // ---- the four YOUR HAND boards (each player's cards are shown only to that player)
+      const HANDS = R.hands.map(([hx, hy, hz, hry, tilt]) => {
+        const o = el("m-group", { x: hx, y: R.y + hy, z: hz, ry: hry }); o._global = true;
+        const g = el("m-group", { rx: tilt }, o);
+        word("r_hand", 0.62, { y: 1.22, z: 0.04 }, g);
+        for (let k = 0; k < 5; k++) el("m-image", { src: BASE + "royale/back.jpg" + VER, x: -4.0 + 2.0 * k, y: -0.25, z: 0.03, width: CW * 0.92, height: CH * 0.92, emissive: 0.25, collide: "false", "cast-shadows": "false" }, g);     // card backs until you're dealt in
+        return g;
+      });
+      const slotX = (k) => -4.0 + 2.0 * k;
+      function handDraw(id) {                                                 // (re)build this player's hand on all four boards
+        const H = RY.hands.get(id); if (!H) return;
+        H.els.forEach((e) => e.remove()); H.els = [];
+        HANDS.forEach((g) => {
+          const pg = el("m-group", { "visible-to": String(id) }, g); H.els.push(pg);
+          H.cards.forEach((c, k) => {
+            if (c === null) return;
+            if (k === H.sel) el("m-cube", { x: slotX(k), y: -0.25, z: 0.045, width: CW * 0.92 + 0.14, height: CH * 0.92 + 0.14, depth: 0.02, color: "#ffd257", collide: "false", "cast-shadows": "false" }, pg);
+            el("m-image", { src: BASE + "royale/c_" + String(c + 1).padStart(3, "0") + ".jpg" + VER, x: slotX(k), y: -0.25, z: 0.06, width: CW * 0.92, height: CH * 0.92, emissive: 0.35, collide: "false", "cast-shadows": "false" }, pg);
+            const hb = hitBox({ x: slotX(k), y: -0.25, z: 0.1, width: CW * 0.92, height: CH * 0.92, depth: 0.06 }, pg);
+            hb.addEventListener("click", (e) => { if ((e.detail && e.detail.connectionId) !== id) return; const H2 = RY.hands.get(id); if (!H2 || H2.cards[k] === null) return; H2.sel = k; handDraw(id); });
+          });
+        });
+      }
+      function handMsg(id, keys, ms) {                                        // a short message to one player, hung under every hand board
+        HANDS.forEach((g) => { const pg = el("m-group", { y: -2.15, z: 0.06, "visible-to": String(id) }, g); keys.forEach((k, i) => word(k, 0.34, { y: -i * 0.4 }, pg)); later(ms || 1800, () => pg.remove()); });
+      }
+      // ---- the game
+      function rJoin(ti, id) {
+        if (RY.ph !== "open" || REMOTES.has(id)) return;
+        if (RY.roster.get(id) === ti) return;
+        RY.roster.set(id, ti);
+        const s = penSlab[ti]; s.setAttribute("color", "#ffffff"); later(220, () => s.setAttribute("color", dim(TM[ti][2])));
+        const [px, pz, pry, pw, pd] = R.pens[ti]; const fwd = polar(1, pry, 0);
+        privWords(["r_youre", TM[ti][1]], [px + fwd[0] * 1.5, R.y + 2.6, pz + fwd[2] * 1.5], pry + 180, id, 2200, 0.5);
+        sfx("pool_clack_1.mp3", px, R.y + 1, pz, 0.35);
+        rCounts();
+      }
+      function rClearBoard() { RY.board.forEach((b) => { if (b) b.g.remove(); }); RY.board = new Array(N * N).fill(null); }
+      function rClearHands() { RY.hands.forEach((H) => H.els.forEach((e) => e.remove())); RY.hands.clear(); }
+      function rOpen() {
+        RY.tok++; RY.ph = "open"; RY.winner = null; rClearBoard(); rClearHands(); rBig(null);
+        faces.forEach((F) => { F.bar.setAttribute("sx", "1"); Array.from(F.bar.children).forEach((c) => c.remove()); });
+        rClock(R.secs); rCounts();
+        return "MUD ROYALE: TEAMS ARE OPEN - WALK ONTO A TEAM PAD";
+      }
+      function rStart() {
+        if (RY.ph === "live") return "MUD ROYALE IS ALREADY RUNNING";
+        const ids = Array.from(RY.roster.keys()).filter((id) => ONLINE.has(id));
+        if (!ids.length) return "NOBODY IS ON A TEAM YET";
+        rClearBoard(); rClearHands(); rBig(null);
+        RY.ph = "live"; RY.t0 = now(); const tok = ++RY.tok;
+        ids.forEach((id) => { RY.hands.set(id, { cards: Array.from({ length: R.hand }, () => Math.floor(Math.random() * CARDS.length)), sel: 0, els: [] }); handDraw(id); handMsg(id, ["r_go"], 2500); });
+        faces.forEach((F) => tween(F.bar, "sx", 1, 0.001, R.secs * 1000, "linear"));
+        sfx("finals.mp3", 0, R.y + 4, 0, 0.8);
+        rClock(R.secs); rCounts();
+        const tick = () => { if (RY.tok !== tok || RY.ph !== "live") return; const left = Math.max(0, Math.ceil(R.secs - (now() - RY.t0) / 1000)); rClock(left); if (left <= 0) { rEnd(); return; } later(1000, tick); };
+        later(1000, tick);
+        return "MUD ROYALE STARTED - " + ids.length + " PLAYERS, " + R.secs / 60 + " MINUTES";
+      }
+      function rEnd() {
+        if (RY.ph !== "live") return "MUD ROYALE ISN'T RUNNING";
+        RY.ph = "done"; RY.tok++;
+        const per = rCounts(), best = Math.max(...per), top = per.map((v, k) => v === best ? k : -1).filter((k) => k >= 0);
+        const held = new Map(); RY.board.forEach((b) => { if (b) held.set(b.by, (held.get(b.by) || 0) + 1); });
+        let mvp = null, mv = 0; held.forEach((v, id) => { if (v > mv) { mv = v; mvp = id; } });
+        RY.winner = top.length === 1 ? top[0] : null;
+        rClock(0);
+        if (best === 0) rBig([["r_time", 0.9, 0, 1.2]]);
+        else if (top.length === 1) rBig([[TM[top[0]][1], 0.85, 0, 1.45], ["r_wins", 0.6, 0, 0.7]]);
+        else rBig([["r_tie", 0.8, 0, 1.2]]);
+        if (mvp !== null) faces.forEach((F) => { word("r_mvp", 0.3, { x: -2.2, y: 0.25 }, F.big); el("m-label", { x: 0.6, y: 0.25, width: 4.6, height: 0.4, content: nameOf(pl(mvp)) + "  (" + mv + ")", "font-size": 30, alignment: "left", color: "#0d0907", "font-color": "#ffe6a8", emissive: 0.35, collide: "false" }, F.big); });
+        RY.hands.forEach((H, id) => { H.els.forEach((e) => e.remove()); H.els = []; handMsg(id, ["r_time"], 3000); });
+        sfx("winner.mp3", 0, R.y + 4, 0, 0.9);
+        hostMsg("MUD ROYALE OVER: " + TM.map((t, k) => t[0].toUpperCase() + " " + per[k]).join(", ") + (mvp !== null ? " - MVP " + nameOf(pl(mvp)) + " (" + mv + ")" : ""));
+        return "MUD ROYALE ENDED";
+      }
+      const SIDE = [[-N, 0, 3], [N, 3, 0], [-1, 1, 2], [1, 2, 1]];            // [neighbour step, my side, its side]  sides: t l r b = 0 1 2 3
+      function rPlace(i, id) {
+        if (id === undefined) return;
+        if (RY.ph !== "live") { handMsg(id, RY.ph === "open" ? ["r_wait"] : ["r_time"]); return; }
+        const H = RY.hands.get(id); if (!H) { handMsg(id, ["r_noteam"]); return; }
+        const t = now(); if (t - (RY.last.get(id) || 0) < 350) return; RY.last.set(id, t);
+        if (RY.board[i]) { handMsg(id, ["r_taken"], 1200); return; }
+        let k = H.sel; if (H.cards[k] === null) k = H.cards.findIndex((c) => c !== null);
+        if (k < 0) { handMsg(id, ["r_out"]); return; }
+        const c = H.cards[k], team = RY.roster.get(id); H.cards[k] = null;
+        const nx = H.cards.findIndex((cc) => cc !== null); H.sel = nx < 0 ? 0 : nx; handDraw(id);
+        const [x, z] = tileXZ(i);
+        const g = el("m-group", { x, y: TOP, z }, rg);
+        const glow = el("m-image", { src: BASE + "royale/t_" + team + ".png" + VER, y: 0.006, rx: -90, width: TS - 0.16, height: TS - 0.16, emissive: 0.6, collide: "false", "cast-shadows": "false" }, g);
+        const card = el("m-group", { y: 0.012 }, g);
+        el("m-image", { src: BASE + "royale/c_" + String(c + 1).padStart(3, "0") + ".jpg" + VER, rx: -90, width: CW, height: CH, emissive: 0.3, collide: "false", "cast-shadows": "false" }, card);
+        RY.board[i] = { c, team, by: id, g, glow, card };
+        tween(card, "sy", 3, 1, 260, "easeOutQuad");
+        sfx("pool_clack_" + (i % 3) + ".mp3", x, TOP + 0.5, z, 0.5);
+        // captures: my number on each side against the neighbour's facing number
+        const col = i % N; let caps = 0;
+        SIDE.forEach(([d, mine, theirs]) => {
+          const j = i + d; if (j < 0 || j >= N * N) return;
+          if ((d === -1 && col === 0) || (d === 1 && col === N - 1)) return;
+          const o = RY.board[j]; if (!o || o.team === team) return;
+          if (CARDS[c][mine] > CARDS[o.c][theirs]) {
+            o.team = team; o.by = id; caps++;
+            o.glow.setAttribute("src", BASE + "royale/t_" + team + ".png" + VER);
+            tween(o.card, "y", 0.35, 0.012, 420, "easeOutQuad");
+          }
+        });
+        if (caps) { sfx("found.mp3", x, TOP + 0.5, z, 0.45); handMsg(id, ["r_capture"], 1100); }
+        rCounts();
+        if (RY.board.every((b) => b)) later(1200, () => { if (RY.ph === "live") rEnd(); });
+      }
+      onWin("disconnected", (e) => {
+        const id = e.detail && e.detail.connectionId;
+        if (RY.roster.delete(id)) { const H = RY.hands.get(id); if (H) { H.els.forEach((x) => x.remove()); RY.hands.delete(id); } rCounts(); }
+      });
+      RY.demo = () => {                                                      // (renders/tests) a finished-looking board, nobody's cards
+        rClearBoard();
+        for (let i = 0; i < N * N; i++) { if (Math.random() < 0.18) continue; const [x, z] = tileXZ(i), team = Math.floor(Math.random() * NT), c = Math.floor(Math.random() * CARDS.length);
+          const g = el("m-group", { x, y: TOP, z }, rg), glow = el("m-image", { src: BASE + "royale/t_" + team + ".png" + VER, y: 0.006, rx: -90, width: TS - 0.16, height: TS - 0.16, emissive: 0.6, collide: "false", "cast-shadows": "false" }, g);
+          const card = el("m-group", { y: 0.012 }, g); el("m-image", { src: BASE + "royale/c_" + String(c + 1).padStart(3, "0") + ".jpg" + VER, rx: -90, width: CW, height: CH, emissive: 0.3, collide: "false", "cast-shadows": "false" }, card);
+          RY.board[i] = { c, team, by: -1, g, glow, card }; }
+        return "MUD ROYALE DEMO BOARD";
+      };
+      RY.open = rOpen; RY.start = rStart; RY.end = rEnd;
+      RY.clear = () => { RY.roster.clear(); rOpen(); return "MUD ROYALE: TEAMS EMPTIED - EVERYONE PICKS AGAIN"; };
+      RY.status = () => "MUD ROYALE " + RY.ph.toUpperCase() + ": " + TM.map((t, k) => t[0].toUpperCase() + " " + Array.from(RY.roster.values()).filter((v) => v === k).length + "p/" + RY.board.filter((b) => b && b.team === k).length + "sq").join(", ");
+      rOpen();
+    }
     // ---------------------------------------------------- THE STAGE BAND: click the drums, piano keys, harp strings or the guitar to play.
     // Each player can play one sound every 0.18 s, at most 10 sounds ring at once, and the host can switch the instruments off (trolls).
     const BAND = { on: true, last: new Map(), live: 0, gk: 0 };
@@ -1459,6 +1656,15 @@
       command(cmd, rest, parts) {
         const a1 = (parts[1] || "").toLowerCase();
         if (cmd === "celebrate") return celebrate();
+        if (cmd === "royale") {                                       // royale open | start | stop | clear | (status)
+          if (!RY.on) return "NO MUD ROYALE IN THIS BUILD";
+          if (a1 === "open" || a1 === "reset") return RY.open();
+          if (a1 === "start") return RY.start();
+          if (a1 === "stop" || a1 === "end") return RY.end();
+          if (a1 === "clear") return RY.clear();
+          if (a1 === "demo") return RY.demo();
+          return RY.status();
+        }
         if (cmd === "art") {                                          // art clear | art lock | art unlock
           if (!ART.on) return "NO ART WALL IN THIS BUILD";
           if (a1 === "clear") { ART.clear(); return "ART WALL WIPED CLEAN"; }

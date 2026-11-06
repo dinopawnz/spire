@@ -26,7 +26,7 @@
 | Lounge (1) | 3.0 | bar, fireplace, waterfalls, booths, card tables, stage band, pond, Kodas, **pool tables** | done; see §5 for open bugs |
 | Hall of Fakes (2) | 10.5 | find the real card among 400 portraits, 4 rounds, finals vault | **done, game 1** |
 | Gallery | 24.9 | ramp/balcony over the hall | done |
-| Cards (3) | 32.0 | **Mud Royale** (game 2) | **NOT BUILT** |
+| Cards (3) | 32.0 | **Mud Royale** (game 2) | **built + bot-tested in v34**; floor still needs its decoration pass |
 | Rooms (4+) | 40.0 | **Mudroom Escape** (game 3) | **NOT BUILT** |
 | Roof | 51.0 | grand finale photo terrace + light-curtain backdrop + fireworks + paintable art wall | done (v33) |
 
@@ -34,7 +34,7 @@
 | Where | Version | What |
 |---|---|---|
 | branch `main` | v13 | the old LIVE build. Untouched. Push to main ONLY when the owner says. |
-| branch **`handoff-v14`** | **v33** | everything from sessions 6–11. This is what the owner tests. |
+| branch **`handoff-v14`** | **v34** | everything from sessions 6–11. This is what the owner tests. |
 
 The owner's files load assets from `https://raw.githubusercontent.com/dinopawnz/spire/handoff-v14/` (baked into spire.html by `build_html.py`), so **assets must be pushed to `handoff-v14` before the owner's HTML works.** Remote PIN: **7747**, then press LIVE BUILD.
 
@@ -173,6 +173,17 @@ Raised dark-timber photo stage with steps, Meshy photo arch (8 m) with the Mudwa
 - **Art wall moved and made paintable** (owner: "wrong place... our art is probably going to suck, we need a beautiful backdrop and the art somewhere else on the side"): `roof.py artwall()` now builds it in a local frame and stands it on the WEST side towards the front (centre x -45.6, z 19, facing +x), out of every stage photo. 30 x 10 squares of 0.8 m (24 x 8 m). JS block "THE ART WALL" in `spire_src.html`: one big click target reads `e.detail.position` (element-local); if a client ever sends no position it switches to a grid of 300 small targets (`[GRID MODE]`). Paint stands (13 colours + pink eraser) on two tables, 70 ms per-player cooldown, painted squares are the only cubes created. Lectern prompt -> names on ONE m-label board along the top (newest 45). Remote panel "The art wall": CLEAR / LOCK / UNLOCK (`art clear|lock|unlock`, `art` = status).
 - `meshy_meta.json` was missing the session-10 models (frogs, turtle, dragonfly, pool table/cue/rack); bounds added from the processed GLBs (`src/meshy_meta.json` updated). Without them the frogs and pool tables silently vanish from a rebuild.
 - Tests on v33: simtest, roundtest, biotest, drinktest, musictest, pooltest, bandtest all pass; lifttest 40 bots / 15 min: NO PROBLEMS FOUND; art wall test (paint, erase, grid mode, sign, clear) passes.
+
+### v34 (session 11): MUD ROYALE (game 2) is playable
+**Owner's rules (they said these were agreed long ago; don't re-ask):** players WALK ONTO an area to join a team and can switch until the host clicks START. Then every player gets 5 cards and places them on squares of a 100-square board. After 3 minutes the team holding the most squares wins. (Earlier the owner asked for 4 teams with player counters.) Capturing follows the Mudwater card numbers (Triple-Triad style, like the owner's `reference/territory_v12.html` "giant-board card capture" idea): a placed card flips an enemy card next to it when its number on that side is higher.
+- `royale.py` (called from build_html after roof.py): one model `sp_royale.glb` (board on a 12 cm dais with ramps: 10 x 10 squares of 2.6 m, green felt + gold inlay; 4 pens with rope fences, flag + name board; 4-sided scoreboard on chains; 4 tilted YOUR HAND boards over the board edges; rules signs on posts at the 4 corners). `out/royale/c_001..120.jpg` small card images, `t_0..3.png` team glow, `back.jpg` card back - committed in repo `royale/` (copy by hand, sync_to_repo doesn't see runtime images). `D.royale` = layout + card numbers.
+- Teams: GATORS (green), CRAWDADS (red), BULLFROGS (gold), CATFISH (teal). Pads are the owner's Territory method: a VISIBLE `m-cube` slab 14 cm tall with `collide=true` + `collision-interval 90`, listening to `collisionstart`/`collisionmove` (connectionId) - NOT the position probe (which doesn't report in Otherside).
+- JS block "MUD ROYALE" in spire_src.html: `rJoin` (only while open), `rStart` (deal 5 random cards to everyone on a team; hands drawn per player with `visible-to` on all 4 hand boards; click a hand card to select, gold frame shows it), `rPlace` (click a square: 350 ms cooldown, taken/no team/out of cards messages hang under the hand boards, captures, pop animation, sounds), `rEnd` (at 3:00 or when the board is full: winner/tie on the scoreboard, MVP = player whose cards hold most squares, shown in one m-label; host gets a summary), scoreboard digits only re-drawn when a number changes, timer bar is one m-attr-anim. Disconnects leave the team.
+- Host: `royale start | stop | open | clear | demo` (+ status); remote panel "Mud Royale": START, END NOW, NEW GAME, EMPTY TEAMS, TEAM COUNTS. `royale demo` fills the board for renders.
+- Gameplay note told to the owner: with many players (more than 20 x 5 cards) the board fills before 3 minutes and the game ends early. If they want longer games, options: refill hands, or let a stronger card cover an enemy card.
+- **Bug fixed:** v24 scaled the Hall of Fakes banner HEIGHT by the floor-plan factor (`bannerAt`), lifting "FIND THE REAL FOUNDER" + the portraits-left counter through the hall ceiling onto floor 3. Back at 22.6.
+- Tests: `viewer/royaletest.py` (40 bots: team counts, switching, late joiner blocked, 100/100 squares match the capture rule, board-full end, winner + MVP, reopen), `viewer/royaletimer.py` (ends at 180 s). All old tests pass.
+- NEXT for floor 3: decoration pass to lounge standard (owner: "every floor must keep the same standard as the first floor") - it's dark and bare apart from the arena: lantern rings + warm light pools, Mudwater banners, framed cards on the walls, spectator benches/bleachers, plants, moss on beams.
 
 ### Tests that pass on v32
 `chrometest.py simtest.js` → ERRORS none · `bandtest.js` (instruments off blocks sounds) · `musictest.js` (13 speakers in sync, next/off/on, 6 Kodas animated, frogs croak on click) · `pooltest.js` (break shot works).

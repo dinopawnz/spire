@@ -33,7 +33,7 @@ D = {
   'realHall': real_hall, 'realVault': real_vault, 'hallImgs': F2['imgs'],
   'vaultDoor': F2['door'],
   'refs': [[r(-24.0 * KX_), Y2, r(12.0 * KZ_)], [r(24.0 * KX_), Y2, r(-12.0 * KZ_)], [r(-12.0 * KX_), Y2, r(-20.0 * KZ_)], [r(12.0 * KX_), Y2, r(20.0 * KZ_)]], 'refFlag': F2['plinth'],
-  'bannerAt': [[0.0, 0.0, r(22.6 * KZ_), 2.2]],
+  'bannerAt': [[0.0, 0.0, 22.6, 2.2]],      # [x, z, HEIGHT, radius] (v34 fix: v24 scaled the height by mistake and lifted the signs through the hall ceiling onto floor 3)
   'signs': {'hall': [r(L['band']['xo'] - 0.4), r(Y2 + 3.0), 1.5, 270], 'vault': [-6.6, r(YV + 2.6), r(RXZ[1] + 0.3), 0]},
   'finalBoards': [[6.6, r(YV + 2.6), r(RXZ[1] + 0.3), 0], [-7.6, r(Y1 + 3.0), r(L['Z1'] - 0.55), 180]],
   'stairs': [[s_ * (L['sw']['xi'] - 0.35), r(FL[k] + 3.6), (L['sw']['zl'] + L['sw']['z0']) / 2, 90 if s_ < 0 else 270] for k in L['keys'] for s_ in (1, -1)],
@@ -192,6 +192,7 @@ fx['motes'] = [['mw_motes', -70.0, 0.0, -58.0], ['mw_motes', 70.0, 0.0, -58.0], 
 D['fx'] = fx
 import outside; outside.apply(D, L, FL, rg)
 import roof; roof.apply(D, L, FL)
+import royale; royale.apply(D, L, FL)      # (v34) MUD ROYALE on floor 3
 import band; band.apply(D, F1)
 # the Mudwater Swamp Blues (swamp_jazz.py): speakers round every floor, the roof and out on the water
 X1_, Z1_ = L['X1'], L['Z1']

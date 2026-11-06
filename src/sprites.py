@@ -146,6 +146,16 @@ SPRITES = {
     'signup': (['MUDWATER', 'SIGN-UP BOOK'], 'gold'), 'signup_sub': (['SIGN YOUR NAME HERE'], 'cream'),
     'bt_cardshop': (['CARD SHOP'], 'gold'), 'bt_merch': (['MUDWATER MERCH'], 'gold'), 'bt_trophies': (['TROPHY ROOM'], 'gold'), 'bt_photos': (['PHOTO BOOTH'], 'gold'),
 }
+# MUD ROYALE (v34)
+SPRITES.update({
+    'rt_0': (['GATORS'], 'green'), 'rt_1': (['CRAWDADS'], 'red'), 'rt_2': (['BULLFROGS'], 'gold'), 'rt_3': (['CATFISH'], 'teal'),
+    'royale': (['MUD ROYALE'], 'gold'), 'r_hand': (['YOUR HAND'], 'cream'), 'r_join': (['STAND HERE', 'TO JOIN'], 'cream'),
+    'r_players': (['PLAYERS'], 'cream'), 'r_squares': (['SQUARES'], 'cream'), 'r_wins': (['WINS!'], 'gold'), 'r_tie': (["IT'S A TIE!"], 'gold'),
+    'r_mvp': (['MVP'], 'gold'), 'r_colon': ([':'], 'gold'), 'r_go': (['GO!', 'PLACE YOUR CARDS'], 'gold'), 'r_out': (['OUT OF CARDS'], 'red'),
+    'r_noteam': (['STAND ON A TEAM PAD', 'BEFORE THE START'], 'cream'), 'r_taken': (['THAT SQUARE', 'IS TAKEN'], 'red'),
+    'r_youre': (["YOU'RE ON"], 'cream'), 'r_wait': (['WAIT FOR THE', 'HOST TO START'], 'cream'), 'r_time': (['TIME!'], 'red'),
+    'r_pick': (['PICK A TEAM'], 'gold'), 'r_capture': (['CAPTURED!'], 'gold'), 'r_ready': (['GET READY'], 'teal'),
+})
 for k in range(10): SPRITES['d%d' % k] = ([str(k)], 'gold')
 for k in range(10): SPRITES['r%d' % k] = ([str(k)], 'red')
 for k in range(1, 5): SPRITES['round%d' % k] = (['ROUND %d OF 4' % k], 'teal')
@@ -154,6 +164,7 @@ SIGNS = {
     'hall_rules': ('THE HALL OF FAKES', 'Four hundred portraits of The Founder hang along the ramp that climbs round this hall.\nThree hundred and ninety-nine are FORGERIES - an earring, a number, a colour, a letter wrong.\nONE is real - it looks exactly like THE REAL ONE on the pillars.\nClick the real one. Guess wrong and you wait 5 seconds.\nFOUR ROUNDS: the first to find it each round goes to the glass FINALS HALL in the middle.\nThen the portraits are shuffled and the next round begins.', 6.0),
     'vault_rules': ('THE FINALS VAULT', 'Four finalists. A hundred portraits of BLACK FLAG. One is real.\nThe glass unfrosts when the host starts the finals.\nWrong click = 5 seconds out. First to find it wins.', 5.0),
     'gallery': ('THE GALLERY', 'Watch the finals through the glass.', 3.6),
+    'royale_rules': ('MUD ROYALE', 'Four teams: Gators, Crawdads, Bullfrogs, Catfish.\nWALK ONTO a team pad to join. You can switch until the host starts.\nAt the start everyone gets 5 Mudwater cards (they show on the YOUR HAND boards).\nClick a card in your hand, then click an empty square on the board to play it.\nYour card CAPTURES an enemy card next to it if your number on that side is higher.\nAfter 3 minutes the team holding the most squares wins.', 6.0),
     'lifts': ('THE LIFTS', 'Every floor: Lounge - Hall of Fakes - Gallery - Mud Royale - Group Mud - Roof Deck', 3.6),
 }
 
