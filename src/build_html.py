@@ -116,7 +116,7 @@ for k in range(14):
     if side == 0 and abs(x) < 2.5: continue
     dz('lilypads', x, Y2 + 0.1, z, rg.uniform(0, 360), 0.22)
 dz('mw_motes', 0.0, Y2, 0.0, 0, 0.55); dz('mist', 0.0, Y2 - 0.1, 14.0, 0, 0.7)
-pc = L['portico']; dz('mw_logo', 0, r(pc['y'] + 0.25), r(pc['z'] + 0.3), 0, 2.0)
+pc = L['portico']; dz('mw_logo', 0, r(pc['y'] + 1.15), r(pc['z'] + 0.45), 0, 2.55)        # big, inside the gold Meshy frame
 # ---- THE LIVING SWAMP: glowing veins on every floor and stair run (they breathe in slow waves), glowing vines on the walls, rising spores
 bio = dict(floor=[], wall=[], spores=[], runs=F2['runs'], band=F2['band'], floors=[FL[k] for k in L['keys']])
 def wave(x, z): return int(math.hypot(x, z) * 260) % 9000
@@ -183,7 +183,8 @@ fx['runes'] = []
 fx['motes'] = [['mw_motes', -45.0, 0.0, -40.0], ['mw_motes', 45.0, 0.0, -40.0], ['mw_motes', -45.0, 0.0, 60.0], ['mw_motes', 45.0, 0.0, 60.0],
                ['mwx_fireflies', 0.0, 0.0, 20.0], ['mwx_fireflies', 0.0, 18.0, 20.0], ['mwx_fireflies', 30.0, 30.0, 0.0]]
 D['fx'] = fx
-print('deco pieces', len(DECO))
+import outside; outside.apply(D, L, FL, rg)          # the outside, to the owner's concept
+print('deco pieces', len(D['deco']))
 
 src = open('/home/claude/spire/spire_src.html').read()
 out = src.replace('__DATA__', json.dumps(D, separators=(',', ':'))).replace('__BASE__', BASE).replace('__VER__', VER).replace('__VOICES__', VOICES)

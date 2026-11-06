@@ -5,6 +5,7 @@ import sys, io, json, struct
 import numpy as np
 from PIL import Image, ImageFilter
 from glb import read_glb
+MODE = 'warm'
 
 def pack(js, b, dst):
     b = bytearray(b)
@@ -23,7 +24,9 @@ def glow(src, dst, strength=0.9, preview=None):
     a = np.asarray(im).astype(np.float32) / 255
     r, g, bl = a[..., 0], a[..., 1], a[..., 2]
     lum = a.mean(-1)
-    m = (r > 0.55) & (r > g * 1.08) & (g > bl * 1.12) & (lum > 0.45) & (g > 0.38)     # light peach / orange caps
+    if MODE == 'teal': m = (g > 0.45) & (bl > 0.4) & (g > r * 1.25) & (bl > r * 1.2)        # cyan / teal crystals
+    elif MODE == 'gold': m = (r > 0.6) & (g > 0.42) & (r > bl * 1.6) & (lum > 0.42)           # gold leaf, glowing edges
+    else: m = (r > 0.55) & (r > g * 1.08) & (g > bl * 1.12) & (lum > 0.45) & (g > 0.38)     # light peach / orange caps
     mask = Image.fromarray((m * 255).astype(np.uint8)).filter(ImageFilter.MaxFilter(3)).filter(ImageFilter.GaussianBlur(1.5))
     mk = np.asarray(mask).astype(np.float32)[..., None] / 255
     em = np.clip(a * mk * 1.15, 0, 1)                      # glow in the cap's own colour
@@ -33,7 +36,7 @@ def glow(src, dst, strength=0.9, preview=None):
     js['images'].append({'bufferView': len(js['bufferViews']) - 1, 'mimeType': 'image/jpeg'})
     js['textures'].append({'source': len(js['images']) - 1, **({'sampler': js['textures'][bi]['sampler']} if 'sampler' in js['textures'][bi] else {})})
     mat['emissiveTexture'] = {'index': len(js['textures']) - 1}
-    mat['emissiveFactor'] = [1.0, 0.55, 0.18]
+    mat['emissiveFactor'] = [0.4, 1.0, 0.9] if MODE == 'teal' else [1.0, 0.55, 0.18]
     mat.setdefault('extensions', {})['KHR_materials_emissive_strength'] = {'emissiveStrength': strength}
     js.setdefault('extensionsUsed', [])
     if 'KHR_materials_emissive_strength' not in js['extensionsUsed']: js['extensionsUsed'].append('KHR_materials_emissive_strength')

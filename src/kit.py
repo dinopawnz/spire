@@ -27,6 +27,7 @@ MATS = {
     'glow':    dict(color=(1.0, 0.8, 0.45, 1), emis=(1.0, 0.72, 0.3), emis_strength=2.0, rough=0.5),
     'mudglow': dict(tex=TEX + 'mudglow.jpg', emis_tex=TEX + 'mudglow.jpg', emis=(1.0, 0.8, 0.5), rough=0.4),
     'black':   dict(color=(0.03, 0.03, 0.03, 1), rough=0.6),
+    'plank_ext': dict(tex=TEX + 'wood_planks.jpg', nrm=TEX + 'wood_planks_n.jpg', color=(0.34, 0.26, 0.21, 1), rough=0.55, emis_tex=TEX + 'wood_planks.jpg', emis=(0.04, 0.028, 0.017)),   # outside: deep warm brown (owner's outside concept)
     'wetfloor': dict(tex=TEX + 'wetfloor.jpg', nrm=TEX + 'wetfloor_n.jpg', mr=TEX + 'wetfloor_mr.png', rough=1.0, metal=0.0),   # lounge: wet muddy planks, shiny where soaked
     'col':     dict(color=(1, 1, 1, 0.0), alpha='BLEND', rough=1.0),        # invisible collider
 }
@@ -171,9 +172,23 @@ def railing(m, pts, y, rng, h=1.1, post_every=2.0, closed=True, mat='dark', top=
             sag = [(mm @ np.array([L * t, 0.6 - 0.12 * math.sin(math.pi * t), 0.09, 1]))[:3] for t in np.linspace(0, 1, 8)]
             tube(m, rope_mat, sag, 0.025, 5, twist=3)
 
-def window(m, w, h, mm, rng, frame='pale', shutters=True, lit=True, mull=(2, 3)):
-    """window set into a wall, centred at local origin, facing +z and -z (both sides)"""
+def window(m, w, h, mm, rng, frame='pale', shutters=True, lit=True, mull=(2, 3), arch=None):
+    """window set into a wall, centred at local origin, facing +z and -z (both sides). Tall windows get an arched top
+    (carved spandrels fill the upper corners and a moulded trim follows the arch), as in the owner's outside concept."""
     t = 0.12
+    if arch is None: arch = h >= w * 1.15
+    if arch:
+        R_ = w / 2; cy = h / 2 - R_
+        for sx in (-1, 1):
+            arc = [(sx * R_ * math.cos(math.radians(a)), cy + R_ * math.sin(math.radians(a))) for a in np.linspace(0, 90, 10)]
+            poly = [(sx * R_, cy)] + arc[1:] + [(sx * (R_ + 0.0), h / 2)]
+            poly = [(sx * R_, cy)] + [p for p in arc[1:]] + [(sx * R_, h / 2)]
+            if sx < 0: poly = poly[::-1]
+            extrude(m, 'dark', poly, 0.3, m=M(mm, T(0, 0, -0.15)))
+        trim = [(R_ * math.cos(math.radians(a)), cy + R_ * math.sin(math.radians(a))) for a in np.linspace(0, 180, 19)]
+        for zz in (-0.16, 0.16):
+            tube(m, frame, [(p[0], p[1], zz) for p in trim], 0.055, 6, m=mm)
+        box(m, 'gold', 0.18, 0.26, 0.36, m=M(mm, T(0, h / 2 - 0.1, 0)))           # a little gilt keystone
     for sx in (-1, 1): box(m, frame, t, h + 2 * t, 0.36, m=M(mm, T(sx * (w / 2 + t / 2), 0, 0)), uvs=1.5)
     box(m, frame, w + 2 * t, t, 0.36, m=M(mm, T(0, h / 2 + t / 2, 0)), uvs=1.5)
     bevel_box(m, frame, w + 0.5, 0.1, 0.5, 0.02, m=M(mm, T(0, -h / 2 - 0.05, 0.05)), uvs=1.5)       # sill

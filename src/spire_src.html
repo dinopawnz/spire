@@ -326,6 +326,7 @@
           anim(turn, "ry", 0, k % 2 ? 360 : -360, 40000 + (k % 9) * 4000, { delay: k * 1300 });
           model("gc_" + String(n).padStart(3, "0") + ".glb", { sx: sc, sy: sc, sz: sc, collide: "false" }, turn);
         });
+        if (ring.strand) model(ring.strand + ".glb", { collide: "false" }, spin);            // gold light strings between the cards
       });
     }
 
@@ -340,12 +341,19 @@
       const pk = el("m-group", { x: F.pack[0], y: F.pack[1], z: F.pack[2] });
       anim(pk, "y", F.pack[1] - 2.5, F.pack[1] + 2.5, 9000, { pingPong: true, easing: "easeInOutSine" });
       const pks = el("m-group", {}, pk); anim(pks, "ry", 0, 360, 48000);
-      mw("mw_pack", { sx: F.pack[3], sy: F.pack[3], sz: F.pack[3] }, pks);
+      if (F.packModel) model(F.packModel + ".glb", { sx: F.pack[3], sy: F.pack[3], sz: F.pack[3], collide: "false" }, pks);      // the giant Mudwater book
+      else mw("mw_pack", { sx: F.pack[3], sy: F.pack[3], sz: F.pack[3] }, pks);
       F.packRings.forEach(([f, dy, sc, rx, rz, per], i) => {
         const t = el("m-group", { y: dy, rx, rz }, pk); const sp = el("m-group", {}, t); anim(sp, "ry", 0, i % 2 ? -360 : 360, per);
         mw(f, { sx: sc, sy: sc, sz: sc }, sp);
       });
       const pb = F.packBeam; mw(pb[0], { x: pb[1], y: pb[2], z: pb[3], sx: pb[4], sy: pb[5], sz: pb[4] });
+      // floating rock islands and far cliffs, bobbing slowly in the night sky
+      (F.islands || []).forEach(([f, x, y, z, ry, s, amp, per], i) => {
+        const g = el("m-group", { x, y, z });
+        anim(g, "y", y - amp, y + amp, per, { pingPong: true, easing: "easeInOutSine", delay: i * 1700 });
+        model(f + ".glb", { ry, sx: s, sy: s, sz: s, collide: "false" }, g);
+      });
       // faint moonlight shafts slanting down through the mist
       F.moon.forEach(([x, y, z, rx, rz, w, h]) => { const t = el("m-group", { x, y, z, rx, rz }); model("sp_moonbeam.glb", { sx: w, sy: h, sz: w, collide: "false" }, t); });
       // will-o'-wisps: little ghost lights wandering low over the water
@@ -413,6 +421,8 @@
       anim(glow, "opacity", 0.55, 0.9, 470, { pingPong: true, easing: "easeInOutSine" });
       anim(glow, "emissive", 0.7, 1.15, 610, { pingPong: true, easing: "easeInOutSine" });
     }
+    // the two tall green banners down the front of the building
+    (D.frontBanners || []).forEach(([x, y, z]) => model("sp_frontbanner.glb", { x, y, z, collide: "false" }));
     D.booths.forEach(([x, y, z, ry, key]) => word("bt_" + key, 0.55, { x, y, z, ry }));
 
     // ---------------------------------------------------- THE LIVING SWAMP (Pandora by night): glowing veins on the floors and the stair that

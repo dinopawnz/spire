@@ -9,8 +9,8 @@ from shrink_glb import shrink
 from glow_mask import glow
 
 SRC = '/home/claude/meshy/models/'; OUT = '/home/claude/spire/out/glb/'
-BIG = {'grotto': 2048, 'pond': 2048, 'booth': 2048, 'fireplace': 2048}
-GLOW = {'pond': 0.9, 'fireplace': 1.2}
+BIG = {'grotto': 2048, 'pond': 2048, 'booth': 2048, 'fireplace': 2048, 'tome': 2048, 'island': 2048, 'cliff': 2048, 'bonsai': 2048}
+GLOW = {'pond': 0.9, 'fireplace': 1.2, 'lanternpost': 1.4, 'crystals': ('teal', 2.2), 'tome': ('gold', 1.6), 'signframe': ('gold', 0.5)}
 
 def bounds(path):
     js, _ = read_glb(path)
@@ -47,7 +47,9 @@ for f in sorted(glob.glob(SRC + '*.glb')):
     dst = OUT + 'sp_m_' + name + '.glb'
     if os.path.exists(dst) and name in meta and os.path.getmtime(dst) > os.path.getmtime(f) and not only: continue
     shrink(f, dst, BIG.get(name, 1024))
-    if name in GLOW: glow(dst, dst, GLOW[name])
+    if name in GLOW:
+        import glow_mask; g = GLOW[name]; glow_mask.MODE, st = (g[0], g[1]) if isinstance(g, tuple) else ('warm', g)
+        glow_mask.glow(dst, dst, st)
     meta[name] = bounds(dst)
     print(name, os.path.getsize(dst) // 1024, 'KB', [round(v, 2) for v in meta[name][0]], [round(v, 2) for v in meta[name][1]])
 json.dump(meta, open(meta_p, 'w'))

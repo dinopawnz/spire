@@ -137,9 +137,9 @@ def bay_spec(side, k, p0, p1, bi):
     if (bi + k) % 4 == 0: return ('brace',)
     if k == 1: return ('win', 2.4, 3.0, 17.0, kind) if side in ('front', 'back') else ('brace',)   # the Hall of Fakes: high windows above the stair
     if k == 3: return ('win', 2.4, 3.0, 5.5, kind)            # the heist warehouse: high windows
-    return ('win', 2.2, 2.4, 1.8, kind)
+    return ('win', 2.0, 2.9, 1.4, kind)             # taller, so it gets the arched top
 
-def rustic_wall(p0, p1, y0, h, holes, battens=True, plates=True):
+def rustic_wall(p0, p1, y0, h, holes, battens=True, plates=True, ext=False):
     """weathered vertical boards of uneven width and colour, a ragged bottom edge, two battens; holes = [(x, y, w, h)]"""
     mm, ln = place(p0, p1, y0)
     x = 0.0
@@ -159,7 +159,9 @@ def rustic_wall(p0, p1, y0, h, holes, battens=True, plates=True):
         c = tint(rng, 0.24, rng.choice([0.78, 0.9, 1.0, 1.05]))
         for a, b in spans:
             if b - a > 0.04:
-                box(shell, 'plank', bw - 0.015, b - a, 0.08, m=M(mm, T(xc, (a + b) / 2, rng.uniform(-0.02, 0.02))), col=c, uvs=3.0, uvoff=(rng.random(), rng.random()), faces='zZ')
+                bm = M(mm, T(xc, (a + b) / 2, rng.uniform(-0.02, 0.02))); uo = (rng.random(), rng.random())
+                box(shell, 'plank_ext' if ext else 'plank', bw - 0.015, b - a, 0.08, m=bm, col=c, uvs=3.0, uvoff=uo, faces='Z')      # outer face: deep brown
+                box(shell, 'plank', bw - 0.015, b - a, 0.08, m=bm, col=c, uvs=3.0, uvoff=uo, faces='z')
         x += bw
     for yy in ((h * 0.33, h * 0.66) if battens else ()):
         segs = [(0.0, ln)]
@@ -190,7 +192,7 @@ def walls():
                 holes = []; door = None
                 if sp and sp[0] == 'win': holes = [(ln / 2, sp[3] + sp[2] / 2, sp[1], sp[2])]
                 if sp and sp[0] == 'door': door = (ln / 2, sp[1], sp[2]); holes = [(ln / 2, sp[2] / 2, sp[1], sp[2])]
-                rustic_wall(p0, p1, y0, h, holes, battens=(k != 1))      # no battens across the Hall of Fakes portraits
+                rustic_wall(p0, p1, y0, h, holes, battens=(k != 1), ext=True)      # no battens across the Hall of Fakes portraits; outer face deep brown
                 if sp and sp[0] == 'win':
                     hx, hy, hw, hh = holes[0]; wm = M(mm0, T(hx, hy, 0))
                     if sp[4] == 'boarded': boarded(wm, hw, hh)
@@ -223,6 +225,7 @@ def walls():
     for side in ('front', 'back', 'east', 'west'):
         for (p0, p1) in side_bays(side):
             x, z = p0
+            if side == 'front' and abs(x) < 6.0: continue          # never a pole in the grand doorway (owner: keep the entrance clear)
             out = np.array([np.sign(x) if abs(abs(x) - X1) < 1e-6 else 0, np.sign(z) if abs(abs(z) - Z1) < 1e-6 else 0]) * 0.45
             H = FL['roof'] - FL['lounge'] + 1.2
             prof = [(0.36 + 0.05 * math.sin(t * 11 + x * 0.7) + 0.08 * math.exp(-t * 8), t * H) for t in np.linspace(0, 1, 9)]
