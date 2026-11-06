@@ -124,7 +124,7 @@ def apply(D, L, FL, rg):
     pc = L['portico']
     for sx in (-1, 1):                                     # the great double doors, swung wide open against the front wall
         add(place('doorleaf', sx * (4.5 + 1.45), FL['lounge'], Z1 + 0.42, 0, 5.4, 'h'))
-    add(place('signframe', 0.0, pc['y'] - 2.6, pc['z'] + 0.05, 0, 11.0, 'w'))
+    add(place('signframe', 0.0, pc['y'] - 1.1, pc['z'] + 0.05, 0, 11.0, 'w'))      # 1.5 m higher, clear of heads (owner, v22)
     # ---- lanterns under every balcony edge, moss clumps under the lower balconies on the front
     Dd = L['balconies']['depth']
     for li, y in enumerate(L['balconies']['lines']):

@@ -116,7 +116,7 @@ for k in range(14):
     if side == 0 and abs(x) < 2.5: continue
     dz('lilypads', x, Y2 + 0.1, z, rg.uniform(0, 360), 0.22)
 dz('mw_motes', 0.0, Y2, 0.0, 0, 0.55); dz('mist', 0.0, Y2 - 0.1, 14.0, 0, 0.7)
-pc = L['portico']; dz('mw_logo', 0, r(pc['y'] + 1.15), r(pc['z'] + 0.45), 0, 2.55)        # big, inside the gold Meshy frame
+pc = L['portico']; dz('mw_logo', 0, r(pc['y'] + 2.65), r(pc['z'] + 0.45), 0, 2.55)        # big, inside the gold Meshy frame
 # ---- THE LIVING SWAMP: glowing veins on every floor and stair run (they breathe in slow waves), glowing vines on the walls, rising spores
 bio = dict(floor=[], wall=[], spores=[], runs=F2['runs'], band=F2['band'], floors=[FL[k] for k in L['keys']])
 def wave(x, z): return int(math.hypot(x, z) * 260) % 9000

@@ -605,7 +605,7 @@
     D.books.forEach(([x, y, z, ry]) => {
       // THE MUDWATER SIGN-UP BOOK: a carved lectern with the big open book, between two lantern posts holding a gold-framed sign
       const sg = el("m-group", { x, y, z: z - 1.0, ry });
-      [-1.75, 1.75].forEach((dx) => { model("sp_m_lanternpost.glb", { x: dx, y: 1.700, sx: 1.789, sy: 1.789, sz: 1.789, collide: "false" }, sg); pad({ x: dx, y: 1.7, width: 0.45, height: 3.4, depth: 0.45 }, sg); });
+      [-1.75, 1.75].forEach((dx) => { model("sp_m_lanternpost.glb", { x: dx, y: 1.700, sx: 1.789, sy: 1.789, sz: 1.789, collide: "false" }, sg); });   // walk-through (owner, v22)
       model("sp_m_signframe.glb", { y: 1.55 + 1.249, sx: 1.317, sy: 1.317, sz: 1.317, collide: "false" }, sg);
       word("signup", 0.95, { y: 3.0, z: 0.14 }, sg);
       word("signup_sub", 0.26, { y: 2.22, z: 0.14 }, sg);
