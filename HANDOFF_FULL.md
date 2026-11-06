@@ -1,45 +1,44 @@
 # MUDWATER SPIRE — FULL HANDOFF (read this first)
 
-> Written 6 Nov 2026, end of **session 8**, for the next AI picking this project up. Supersedes the session-7 handoff (still in git history).
-> The owner is **Dinopawnz** (GitHub `dinopawnz`). The owner ran out of credits mid-session, so this handoff is meant to be complete.
+> Written 6 Nov 2026, end of **sessions 9–10**, for the next AI picking this project up. It supersedes the session-8 handoff (that one is in git history).
+> The owner is **Dinopawnz** (GitHub `dinopawnz`). The owner ran out of usage credits at the end of this session, so this handoff is meant to be complete.
 >
 > **How to work with the owner (important):**
 > - Plain, simple, non-technical words. Short messages. The simplest possible steps.
-> - **Deliver files as chat attachments. Never save anything to their computer.** They put `spire.html` in their "Otherside MMLs" folder and `spire_remote.html` in their "remotes" folder.
+> - **Deliver files as chat attachments. Never save anything to their computer.** `spire.html` goes in their "Otherside MMLs" folder and `spire_remote.html` in their "remotes" folder. After EVERY push, attach both files.
 > - Show renders before and after big visual changes. When they're unhappy, change ONE thing at a time.
 > - They send screenshots with yellow circles: fix exactly what is circled.
-> - **Use Meshy for anything that has to look high quality.** They said this many times. They hate "primitive", "low quality", "cartoony" or "floating" things.
+> - **Use Meshy for anything that has to look high quality.** They hate "primitive", "low quality", "cartoony" and "floating" things.
+> - **Mudwater theme everywhere.** Session 10 lesson: ordinary playing cards on the card tables were a "HUGE MISSTEP". Anything card-like must be the real Mudwater cards (`mudwater_repo/mwc_001..120.jpg`, back `mwc_back.jpg`, pack `mw_pack.glb`).
 > - They care about frame rate in Otherside (100+ players): **text costs frame rate, images don't.** Prefer images and GLBs over m-label text.
+> - They often send several messages in a row while you work, and interrupt tool calls. Read each one; keep going on the rest.
 
 ---
 
 ## 0. The 60-second version
 
-**What it is.** **Mudwater Spire**: a giant swamp-timber tower in MML for Otherside, for an **OtherGames event with 100+ players**. Goal: "the unquestionable greatest build ever". Theme: rustic bayou / Mudwater card game, NOT a castle, NOT neon or cosmic.
+**What it is.** **Mudwater Spire**: a giant swamp-timber tower in MML for Otherside, for an **OtherGames event with 100+ players**. Goal: "the unquestionable greatest build ever". Theme: rustic bayou / Mudwater card game. NOT a castle, NOT neon or cosmic.
 
-**The games inside (by floor):**
+**The games and places, by floor:**
 | Floor | y | Game / place | State |
 |---|---|---|---|
-| Lounge (1) | 3.0 | bar, fireplace, waterfalls, booths, card tables | done (2x bigger in v24) |
+| Outside | 0 | bridge, waterfalls, lanterns, cattails, sign-up book | done (Meshy lanterns + cattails placed in v25) |
+| Lounge (1) | 3.0 | bar, fireplace, waterfalls, booths, card tables, stage band, pond, Kodas, **pool tables** | done; see §5 for open bugs |
 | Hall of Fakes (2) | 10.5 | find the real card among 400 portraits, 4 rounds, finals vault | **done, game 1** |
 | Gallery | 24.9 | ramp/balcony over the hall | done |
 | Cards (3) | 32.0 | **Mud Royale** (game 2) | **NOT BUILT** |
 | Rooms (4+) | 40.0 | **Mudroom Escape** (game 3) | **NOT BUILT** |
-| Roof | 51.0 | **grand finale photo spot** | **NOT BUILT** (only lift houses + gables) |
+| Roof | 51.0 | grand finale photo terrace + fireworks + art wall | built; **art wall painting NOT wired yet** |
 
 **Versions:**
 | Where | Version | What |
 |---|---|---|
-| branch `main` | v13 | the old LIVE build. Untouched since session 6. |
-| branch **`handoff-v14`** | **v24** (this commit) | all the work from sessions 6–8. This is what the owner tests. |
+| branch `main` | v13 | the old LIVE build. Untouched. Push to main ONLY when the owner says. |
+| branch **`handoff-v14`** | **v32** | everything from sessions 6–10. This is what the owner tests. |
 
-The owner's files load their assets from `https://raw.githubusercontent.com/dinopawnz/spire/handoff-v14/` (baked into spire.html by `build_html.py`). So **assets must be pushed to `handoff-v14` before the owner's HTML works.**
+The owner's files load assets from `https://raw.githubusercontent.com/dinopawnz/spire/handoff-v14/` (baked into spire.html by `build_html.py`), so **assets must be pushed to `handoff-v14` before the owner's HTML works.** Remote PIN: **7747**, then press LIVE BUILD.
 
-Remote PIN: **7747**, press LIVE BUILD.
-
-**Commits on handoff-v14:** `40ff1a7` v22 · `8b11e5c` v23 · **v24 = this commit** (plus a possible follow-up commit with three new Meshy models, see §5.1).
-
----
+**Commits on handoff-v14 this session:** v25 … v32 (latest = "v32: playable pool tables …"), plus this handoff commit.
 
 ## 1. Setting up a fresh environment
 
@@ -69,6 +68,15 @@ echo '{"real": 63}'  > /home/claude/spire/out/vault/answer.json     # real #100 
 - **SECURITY:** API keys go ONLY in `/home/claude/.meshy_key` and `/home/claude/.eleven_key` (umask 077). **Never** in the repo (it is PUBLIC), builds, deliverables, memory or chat output. **Grep the repo for the key value before every push.** The owner pasted their Meshy key into chat in session 7; recommend they regenerate it on meshy.ai.
 - **Meshy balance:** about **2,400 credits** at the end of session 8 (2,526 before the last three models).
 
+### 1b. Session 9–10 environment notes (read with §1)
+- Workspace layout used: `/home/claude/spire` (= repo `src/`, flat), `/home/claude/spire_repo` (clone of handoff-v14), `/home/claude/viewer` (tests + renderer), `/home/claude/meshy` (gen.py, batch3d.py, `*_items.json`, `models/` raw Meshy downloads), `/home/claude/mudwater_repo` (card art, Coliseum decor), `/home/claude/castle_repo` (sparse clone of `dinopawnz/castle`: `citadel_toy_piano.glb`, `citadel_pool_harp.glb`, `citadel_fx_keyglow.glb`, `citadel_fx_string.glb`, `piano_48..83.mp3`, `harp_*.mp3`), `/home/claude/kodas` (raw Koda GLBs + rendered previews).
+- **npm and pip were BLOCKED** in sessions 9–10 (gltfpack unavailable). Texture shrinking uses `shrink_glb.shrink` (python). The already-slimmed GLBs in the repo root are fine to reuse: after running builders do `cp /home/claude/spire_repo/*.glb out/glb/` and then put back only the GLBs you intentionally rebuilt.
+- **Network allowlist (owner added):** `upload.wikimedia.org`, `commons.wikimedia.org`, `archive.org` (but NOT archive.org's data nodes `*.us.archive.org`/`dn*.ca.archive.org`, so archive downloads fail), `storage.googleapis.com` (Koda GLBs). Wikimedia ORIGINAL files often return **429 rate-limited**; the **transcoded** copies work: `https://upload.wikimedia.org/wikipedia/commons/transcoded/<h0>/<h0h1>/<Name>/<Name>.mp3` (or `.ogg`), `h = md5(Name with spaces→underscores)`. Use a User-Agent like `MudwaterSpireBuilder/1.0 (https://github.com/dinopawnz/spire)`, sleep a few seconds between requests.
+- **Koda GLBs:** `https://storage.googleapis.com/ruukeibkumeeicgbwypcrwbxwizoehnt/fhsdjurbfbwruyoqwrsaf/M04TLO5GkVDivsyzkBCrQKvdcWQN6od5/a/<number>.glb`. The owner said "stick to my kodas": **5077, 119, 9372, 9929, 9923, 9924**. They will give more numbers later. Only use numbers the owner approves (each Koda belongs to its holder).
+- `meshy_meta.json` (bounds of every Meshy model, needed by build_lounge/outside/band/roof/pool): `out/glb/meshy_meta.json`, copy committed at `src/meshy_meta.json`. Copy it to `out/glb/` before building.
+- Meshy balance: about **1,950 credits** left (session 10 spent ~13 models × 39).
+- Renders: `viewer/mmlshot.py <json>`. **mmlrender.js now poses animated models** (SkeletonUtils clone + AnimationMixer at `opts.animT`, default 6.8 s). Use the skip list from `viewer/KODA.json` / `POND.json` / `CARDS.json` or Chrome runs out of memory. A quick single-model viewer: `python3 -m http.server 8765 -d /home/claude` and `/home/claude/kodas/view/k.html?f=<glb,...>&ts=<anim times>&side=1&top=1&cy=&d=&sp=` with `shot.py url out.png`.
+
 ## 2. Build → test → render → push (exact order)
 
 ```
@@ -78,8 +86,8 @@ python3 build_lift.py  > /tmp/bli.log    # lifts (cab, shaft, gates, gear)
 python3 build_fakes.py > /tmp/bf.log     # Hall of Fakes (400 portraits + finals vault)
 python3 build_lounge.py > /tmp/bl.log    # lounge (needs out/glb/meshy_meta.json)
 python3 npc.py; python3 sprites.py       # speech bubbles (sb_*.glb) / glowing words (sg_*, ms_*)
-python3 slim.py                          # (v24) shrink textures to 1024 + gltfpack-simplify the heavy Meshy models (from out/glb/hi). RUN AFTER THE BUILDERS.
-python3 build_html.py 25 https://raw.githubusercontent.com/dinopawnz/spire/handoff-v14/ > /tmp/bh.log   # ALWAYS bump the version number
+python3 slim.py                          # (v24) shrink textures + gltfpack-simplify (needs npm gltfpack; if blocked, SKIP and reuse the repo-root GLBs) the heavy Meshy models (from out/glb/hi). RUN AFTER THE BUILDERS.
+python3 build_html.py 33 https://raw.githubusercontent.com/dinopawnz/spire/handoff-v14/ > /tmp/bh.log   # ALWAYS bump the version number
 cd /home/claude/viewer
 node simtest.js   /home/claude/spire/out/spire.html    # remote, lifts, hall flow -> "ERRORS: none"
 node roundtest.js /home/claude/spire/out/spire.html    # 4 rounds -> finals -> winner
@@ -108,89 +116,91 @@ cd /home/claude/spire && python3 sync_to_repo.py "v25: ..." --branch handoff-v14
 - Galaxy of floating cards: radii 106/132/158 (owner said keep).
 - Outside: Meshy crags with waterfalls at x ±33, z ≈ 84.5 (either side of the bridge); mist; vines/ivy; lodge windows; front banners ±20; braziers with animated fire.
 
-## 4. What was done in sessions 7–8 (v22 → v24)
+## 4. What was done in sessions 9–10 (v25 → v32)
 
-**v22:** lantern posts by the sign-up book walk-through; MUDWATER sign raised 1.5 m.
+(Sessions 7–8 work, v22–v24, is described in the session-8 handoff in git history: 2x floor plan, lifts, zoning, slim.py, bar mug, gables, sky, waterfalls.)
 
-**v23** (pushed, owner tested):
-- Night sky: Meshy panorama stitched by `build_sky.py` → `tex/sky_pano.jpg` on `sp_sky.glb` (dome r 480), bayou colour grading (owner asked "does that fit our Mudwater theme?" → graded warmer/olive), **golden crescent moon** (`sky_moon.png`, from the owner's reference image; dark side navy, no glow ring).
-- Waterfalls left and right of the entrance pouring from Meshy mossy crags (water sheets follow the measured groove in the crag model; owner complained twice that water came "out of thin air" — fixed by segmented tilted sheets).
-- Animated swamp fire in the goblet braziers.
-- Skirt + pilings close the gap under the bridge.
-- Front: rustic Meshy bayou gables (owner REJECTED castle turrets/spires), fewer but grander Meshy lodge windows, hanging vines + ivy.
-- Portraits: nothing covers or z-fights any of them (moved 10 cm proud of the wall; wall vines/shimmer off in the hall; high windows raised). The owner called z-fighting a "MASSIVE problem".
-- Stair towers walled at the back; rails can be jumped over.
-- Lift Boss bubble moved out of the way; lifts don't go home by themselves.
-- Beer mug slides to the bar edge in front of the person; jukebox removed; rules sign says 400 portraits; sign-up book clickable (needs an invisible opacity-0 hitbox — `visible=false` cubes aren't clickable).
+### v25 – v27: fixes
+- **Inside not loading** in Otherside: the v24 floor zoning relied on `m-position-probe`, which did not report players in Otherside → nothing indoors loaded. **`const ZONING = false`** in `spire_src.html`: everyone sees everything (`zoneSee/zoneOut` call `zoneAll`). Re-enable only after proving the probe works in Otherside.
+- **Meshy lanterns + cattails placed** (`outside.py`): reeds → `cattails` (remeshed 4.9k → 1.3k triangles), jar lanterns → full-detail `hanglantern` hung on chains (`sp_lantern_chain.glb`) at the OLD jar height (owner: the remeshed ones looked deformed and too high), floating lanterns → `floatlantern`; sky lanterns use `F.skyLantern`. Balcony lanterns on the front face only (243 → 138 lanterns).
+- **Lift doors**: `tween()` now sets the FINAL attribute value immediately and draws the `m-attr-anim` on top (doors were stuck open / one leaf open on clients that missed the end). 30-bot lifttest: no problems.
+- Glass racks raised (`RACK_Y = 4.45`), end-wall cards only on plain wall bays (not over windows).
 
-**v24** (this commit):
-- **Building 2x floor plan** (X1 60, Z1 42.5) and everything spread to match: lounge furniture (+3 groups), card tables, trees, lantern rings, 100 lanterns, wet floor, 12 trusses, stage/dance floor, booths, Hall of Fakes (`build_fakes.py`: `RX, RZ = 15.5, 12`, exactly 200 portraits per row, screens and chandeliers moved), outdoor decor radii.
-- **Lifts wider and taller** for tall avatars (sizes above). lifttest passes.
-- **Performance** (owner: "make sure we aren't crashing people"):
-  - `zoneUp` puts every still indoor model AND outdoor dressing into floor zones by position, so players only load what's on their floor; building models are `_global`; players at unknown positions see only "out".
-  - Staged build: building first, decor/furniture at 2.5 s, sky + galaxy at 5.5 s.
-  - `slim.py`: textures to 1024 and gltfpack simplify (`-noq -kn -km -si R -sp -se 0.02`); COLOR_0 stored as uint8; cheaper railings.
-  - Before: ~4.06M triangles all visible, ~150 MB. After: outside ~1.4–1.6M visible, lounge zone ~0.97M, hall ~0.23M; shell 52 → ~30 MB.
-  - Idea not done yet: the shell still has ~690k vertices (rustic boards); could be merged/simplified more.
-- Objects left and right of the sign-up book removed (sign stands on two slim iron rods).
-- **Bar:** Meshy high-quality beer mug (`sp_mug.glb` from `sp_m_beermug`), bottles on the shelves (`sp_m_bottles`), hanging glass racks (`sp_m_glassrack`).
-- **The mug tips and pours toward the player who clicked it** (inner `tip` group turns to face the drinker, then tips).
-- Wall on the stair landings facing the lift (no falling off).
-- Roof lift houses: doorway so you can walk out of the lift onto the roof.
-- **Roof gables no longer float**: timber knee walls with glowing windows under each gable (`gable_spots()` in `build_rect.py`). NOT render-checked yet.
-- **Bridge kept clear of fog**: `outside.py` tests each mist piece's real footprint (the mist GLB is ~82×59 m at scale 1!) and slides it off the bridge/porch. NOT render-checked yet.
-- **Old Coliseum hook-post lanterns removed from the bridge** (`build_html.py`, the `lantern_post` loop). The Meshy lantern posts on the rails stay.
-- Tests: simtest, roundtest, biotest, drinktest: ERRORS none. lifttest 40 bots / 15 min: NO PROBLEMS FOUND (689 rides, max wait 61 s).
+### v28: the roof grand finale (`roof.py`)
+Raised dark-timber photo stage with steps, Meshy photo arch (8 m) with the Mudwater logo, 16 Meshy cypress planters, 12 benches facing the stage, 2 Meshy stone fire pits with animated flames (`D.roofFires`), 9 Meshy lantern posts with festival-light strands to the steeple eave (`sp_roof_lights.glb`), the Old Skipper by the stage. Invisible collider pads (`D.pads`). Remote: **CELEBRATE** (command `celebrate`) = 14 firework bursts + `winner.mp3`.
+
+### v28–v32: the lounge stage band (`band.py`, `spire_src.html` BAND)
+- Stage at `F1['stage']` = (0, 3.705, -36.2), front z -30.5.
+- **Grand piano and harp copied from the owner's castle build** (`dippys_lost_crown.html`), recoloured mahogany, piano stool removed (stand to play). Every key / string is clickable and plays its own recorded note (`piano_48..83.mp3`, `harp_*.mp3` from the castle). Layouts in `castle_instruments.json`. Piano turned to face the crowd (`PA 115`); **harp turned round in v32 (`HA 160`)**.
+- **Drum kit (Meshy) turned to face the audience in v32 (`DK 180`)**, one click zone per piece (hi-hat, 2 crashes, snare, 2 toms, floor tom, kick) at positions read from a top view of the model. **Real recorded drum hits** (Wikimedia Commons, CC BY-SA 3.0, by Clngre: Bass drum, Snare drum unmuffled, Hi hat closed, Tom 12 inch, Floor tom; crash = CrashCymbalSample.ogg, public domain) → `band_drum_<kick|snare|hihat|tom_hi|tom_lo|crash>.mp3`. **CREDIT NEEDED** somewhere (e.g. the handoff/README or a small credits plaque): "Drum samples by Clngre, CC BY-SA 3.0, Wikimedia Commons".
+- **Guitar**: Meshy guitar, tilted so a player standing behind it looks like they're playing; **made bigger in v32** (1.6 m) with a bigger click zone; each click strums the next chord: **real acoustic guitar chords** (Commons `G-major.ogg`, `C-major.ogg`, `D-major.ogg`, `E-major.ogg`, public domain, by WBOSITG) → `band_guitar_0..3.mp3`.
+- Microphone prop on stage (decor only; Otherside can't amplify voices from MML).
+- Remote: **INSTRUMENTS ON/OFF** (against trolls).
+- **v32 sound fixes:** each instrument has its OWN voice limit (`CAP = {drum 4, guitar 2, piano 5, harp 5}`); before, one shared limit let one fast player silence every other instrument. Instruments are quieter (0.45–0.5) because loud overlapping instrument sounds made Otherside turn the jazz down (owner: "after we started playing the instruments, the jazz music became very low"). The owner said **do NOT make the music louder**.
+
+### v29–v32: background music (the "swamp radio")
+- 13 speakers (lounge ×5, hall ×2, cards, rooms, roof ×2, bridge, outside) all play the same record with the same `start-time` so they stay in sync. Tracks are shuffled at load and loop as a playlist. Remote: **MUSIC ON/OFF**, **NEXT SONG**, and "Now playing" (commands `music on|off|next`).
+- v29 used 1920s public-domain 78s (`radio_00..10.mp3`); the owner wanted better → **v30: clean modern jazz** (`jazz_00..10.mp3`, list in `src/music_tracks.json`, made by `music_prep.py`): U.S. Air Force Heritage of America Dixie Players (Panama, That Da-Da Strain, Tiger Rag), U.S. Coast Guard Band (After You've Gone, Way Down Yonder in New Orleans), U.S. Army Jazz Ambassadors (Sweet Georgia Brown), USAF Airmen of Note (Blues for Mundy) = US government works, public domain; **Kevin MacLeod** (Whiskey on the Mississippi, Porch Blues, Night on the Docks (Sax), Slow Burn) = **CC BY 3.0, credit shown on the remote's "Now playing"**. ~42 min.
+- **v32: music watchdog** (owner: "the jazz music ended on its own"): `every(4000)` restarts the next record if the timer that should start it was lost/late. NOT yet confirmed in Otherside.
+- The old original song (`swamp_jazz.py`, `swamp_jazz_00/01.mp3`) is the fallback if `music_tracks.json` is missing.
+
+### v29–v31: the owner's Kodas in the lounge (`koda_rig.py`, `koda_pack.py`)
+- Koda GLBs are rigged (UE5 mannequin skeleton, T-pose, no animation). `koda_rig.py` adds ONE looping glTF clip per Koda (posed with world-axis rotations per bone in the T-pose frame; later entries for the same bone apply after earlier ones) and shrinks textures to 512. In MML: `m-model anim = the same file, anim-loop true` (the castle's method).
+- Placement (`build_html.py`, `D.kodas` = `[file, x, y, z, ry, scale 1.25, walk radius, lap ms]`): **5077** in the card-table armchair at (13.2, -8.8), **9924** in the fireside armchair at (21.8, 37.5) — both now **rip Mudwater packs** (koda_pack.py: holds the real `mw_pack` art, tears the strip off, fans out 5 real Mudwater cards, leans in to look, wiggles, a new pack appears; 14 s loop); **119** and **9929** on bar stools 0 and 2 with **beer steins**, sipping every 13 s; **9372** and **9923** walking laps round the island bar (radius 9.5 and 12.5, opposite directions, ~0.45 m/s).
+- **v31 fix (owner: "i dont see the kodas holding a glass of beer")**: Otherside only draws SKINNED meshes of an animated model, so props are merged in as their own skinned mesh bound 100 % to a new joint `prop_N` under the hand bone (`Rig.attach`). Show/hide = animating that joint's scale. Steins made bigger. **Not yet confirmed in Otherside** — ask the owner.
+
+### v29: the pond (bayou garden, lounge west, centre (-25, 4))
+5 Meshy frogs (3 bullfrogs, 2 green treefrogs) on Meshy lily pads, a Meshy red-eared slider turtle on a log, 4 Meshy dragonflies darting over the water, a tea-dark water surface (`sp_pond_water.glb`). One random frog croaks every 2.6–7.8 s (real Everglades pig-frog recording, NPS, public domain → `frog_0..3.mp3`, pitch variants) with a throat puff; clicking a frog makes it croak, hop and turn. Fish were deliberately not added (shallow walk-through pond).
+
+### v30: Mudwater cards, never playing cards
+- The Meshy card table and coffee table had ordinary playing cards painted in their textures. `fix_cardtable.py <cardtable|coffeetable>` paints them out of the texture (originals kept as `meshy/models/*_orig.glb`), then `meshy_props.py cardtable coffeetable`.
+- `card_spread.py`: real Mudwater cards dealt on every card table (`sp_mw_deal_0..3.glb`: a two-card hand facing each seat + a Mudwater deck + one card turned up) and a fanned hand + deck on every coffee table (`sp_mw_fan_0..1.glb`).
+
+### v32: playable POOL TABLES (`pool.py`, `pool_balls.py`, `pool_assets.py`, `spire_src.html` POOL)
+- Two Meshy pool tables at (49, 2.5) and (49, 13) on the open east side, turned 90°, 3.4 m long, felt 1.03 m high, playing area 3.01 × 1.58 m. Meshy cue rack on the east wall (z 7.75), "how to play" plaques on the wall at z -2.66 and 18.59 (plain bays, not windows).
+- Balls: `sp_ball_0..15.glb`, painted textures (solids, stripes, numbers), radius 0.048.
+- **How to play:** click the glowing ring on your side of the white ball (16 sectors) → the Meshy cue swings round; `<` `>` nudge 3°; **SOFT / MEDIUM / HARD** shoots; **NEW RACK** at both ends; clicking the cue ball itself also aims if the client sends a click position. Remote command `pool` racks both tables.
+- Physics: the whole shot is simulated at once on the server (2D, 240 Hz, rolling friction, ball–ball and cushion collisions, pockets), then each ball is animated piece by piece (one `m-attr-anim` per straight piece between collisions). Sounds: `pool_cue`, `pool_clack_0..2`, `pool_rail`, `pool_pocket` (synthesised). Scratch → white ball back on the head spot. Cleared table → re-racks.
+- `viewer/pooltest.js`: a HARD break moves 15/16 balls with 9 sounds. **Not yet tried in Otherside.**
+
+### Roof art wall (started, NOT finished)
+`roof.py artwall()` builds the 38.4 × 8 m canvas with timber frame (`sp_artwall.glb`) in front of the steeple house, 2 paint stands, a signing lectern, and writes `D.artwall` = `{cols 48, rows 10, cell 0.8, x0, y0, z, palette (13 colours + 'erase'), stands, sign, board}`. **The JS is not written yet**: the canvas is visible but blank and not paintable.
+
+### Tests that pass on v32
+`chrometest.py simtest.js` → ERRORS none · `bandtest.js` (instruments off blocks sounds) · `musictest.js` (13 speakers in sync, next/off/on, 6 Kodas animated, frogs croak on click) · `pooltest.js` (break shot works).
 
 ## 5. TO DO — in this order
 
-### 5.1 Finish the owner's last requests (started, not finished)
-The owner's last messages (with screenshots):
-1. *"we cannot have hideous looking low quality primitive looking lanterns like those in the front of the house. please replace those with higher quality models. use meshy if you have to."*
-2. *"if you have to use meshy for these plant things too, do it"* (the flat cattail reeds in the water by the bridge).
+### 5.1 Open bugs the owner reported at the very end (fix first)
+1. **Frogs stop animating after being clicked** (owner: "after clicking on the toads, their animation stopped working"). Look at `frogHop()` / `frogCroak()` in `spire_src.html` (POND block). Likely causes: (a) `fr.busy` stays true if the `later(700)` that clears it is lost — make busy time-based (`fr.until = now() + 700`) instead of a flag; (b) `tween()` on `fr.body` `y` and `sy` plus `fr.g` `ry` leaves stale `m-attr-anim` children that Otherside keeps applying — after the hop, remove leftover anims and set plain attributes (`y 0`, `sy 1`). Test with a quick chrometest that clicks a frog twice and checks the next chorus croak still tweens.
+2. **Confirm in Otherside**: beer steins visible (v31 skinned props), pack-opening Kodas show the pack and cards, music never stops (v32 watchdog), music no longer ducks when instruments play (v32 quieter instruments), drums sound different per piece, pool tables playable. Ask the owner to check each.
+3. **Drum/guitar credit**: add "Drum samples by Clngre (CC BY-SA 3.0, Wikimedia Commons)" and "Music by Kevin MacLeod (incompetech.com), CC BY 3.0" to a small credits plaque (image, not text) or the README.
 
-What's been done: three Meshy models were ordered (item list `src/meshy_items/items_v24b.json`, reference pictures in `src/meshy_refs/`):
-| name | Meshy image-to-3D task id | use |
-|---|---|---|
-| `floatlantern` | `01a1b00d-f03b-7016-bb39-319968b14615` | replaces `mwm_floatlantern` (30 on the water in `build_html.py` + the sky lanterns rising in `spire_src.html` "sky lanterns drifting up off the water", which use `mw("mwm_floatlantern")`) — these are the floating white boxes the owner circled |
-| `hanglantern` | `01a1b00d-f7c9-75de-a00b-4eea06f28213` | replaces `mwm_jarlantern` (Floor-2 eave lanterns all round the outside, `build_html.py` "jar lanterns"; and the hall's `F2['lanterns']`), and could replace `sp_lantern_a` under the balconies (`outside.py`) |
-| `cattails` | `01a1b00e-1db8-724a-85ff-f4c51777a1e9` | replaces every `reeds` (Coliseum flat cards) in `build_html.py` (bridge, porch edge, lounge pond, hall moat) |
+### 5.2 Finish the roof ART WALL (owner: "a wall where players can draw, sign their names and create a massive art piece")
+Data is ready in `D.artwall` (§4). Write the JS:
+- 480 cells (48 × 10, 0.8 m) as thin `m-cube`s on the canvas, opacity 0 until painted; clicking one sets that player's chosen colour (opacity 1, slight emissive). Per-player colour map; 70 ms cooldown per player. Consider 2 × 2 "brush" cells if too fiddly.
+- Palette swatches (13 colours + eraser) on the two stands at `D.artwall.stands` (small Meshy-looking paint pots or image swatches).
+- Signing: an `m-prompt` at the lectern (`D.artwall.sign`); names go onto ONE name board image/label at `D.artwall.board` (text costs frame rate: one board, not hundreds of labels).
+- Remote buttons: **CLEAR WALL**, **LOCK WALL** (commands `art clear|lock|unlock`).
+- Test (chrometest), render, push.
 
-**All three are DONE and processed**: `sp_m_floatlantern.glb`, `sp_m_hanglantern.glb`, `sp_m_cattails.glb` are in the repo root, raw Meshy files in `src/meshy_raw/`, bounds in `src/meshy_meta.json`, GLOW entries already in `meshy_props.py`. Only the PLACING (below) is left. Note: hanglantern got only 2.75 % glowing texels - check it glows; raise its GLOW strength or use mode `pane` if not. If you ever need to redo them: download each finished task with `GET https://api.meshy.ai/openapi/v1/image-to-3d/<task id>` → `model_urls.glb` into `/home/claude/meshy/models/<name>.glb` (Meshy keeps tasks for a while; otherwise re-run `python3 batch3d.py src/meshy_items/items_v24b.json`, ~39 credits each). Then:
-- add to `meshy_props.py`: `GLOW['floatlantern'] = ('warm', 1.8)`, `GLOW['hanglantern'] = ('warm', 1.6)`; run `python3 meshy_props.py floatlantern hanglantern cattails`; add them to `slim.py` TARGET if heavy (cattails will be placed ~100 times: keep it ≤ 3k triangles).
-- placing: Meshy models go in `D['sdeco']` via `place(name, x, y, z, ry, size, axis)` in `outside.py` (`size` along axis `'h'` height, `'w'` width, `'l'` longest). Convert the deco entries there, e.g. after the falls filter: for each `e` in `D['deco']` with `e[0] == 'reeds'` → `add(place('cattails', e[1], e[2], e[3], e[4], 1.8 * e[5], 'h'))` and drop it from deco; same for `mwm_jarlantern` → `place('hanglantern', x, y - 0.9, z, ry, 0.8, 'h')` (check the hang height in a render); `mwm_floatlantern` → `place('floatlantern', x, 0.05, z, ry, 0.9*s, 'h')`.
-- sky lanterns in `spire_src.html`: replace `mw("mwm_floatlantern", {...})` with `model("sp_m_floatlantern.glb", {...})` (keep the rising tween). `sdeco` models are zoned by `zoneUp`; the decor regex `DECOR` in `spire_src.html` (LITE mode removes those) should include `m_floatlantern|m_hanglantern|m_cattails`.
-- Render the bridge (V24O.json, camera on the bridge looking at the house) and send the owner before/after.
-
-### 5.2 Render-check and send (not done for v24)
-Render and look at: the roof (gable knee walls, lift-house doorways), the lift cab inside (taller), the bridge (no fog, no hook posts), the bar (bottles, glass racks, mug), the sign-up book, the lounge at 2x size, the Hall of Fakes (`portrait_scan.py` must be clean). Send the owner renders.
-
-### 5.3 The roof = GRAND FINALE photo spot
-Owner: *"the roof of the building should be the grand finale… very awesome looking picturesque place"* and *"players can celebrate the end of the build and take pictures together in the most scenic part of the tower and there better not be floating structures that look unrealistic up here."*
-- Everything must sit on something (no floating pieces). The deck is y 51; it's big (120 × 85 m).
-- Ideas to propose (show a render first): a timber rooftop terrace around the steeple with railings, Meshy string lights, lanterns, potted cypress/moss planters, benches, a photo stage/arch with the Mudwater logo (as an IMAGE, not text), the floating Mudwater pack and rings above as the backdrop, the golden moon framed behind; firework/sparkle FX for the finale; a host-triggered "celebration" from the remote.
-- Remember the owner's "no castle" rule and the bayou-lodge look.
-
-### 5.4 Mud Royale (game 2, floor 3, y 32)
+### 5.3 Mud Royale (game 2, floor "cards" y 32)
 Owner: *"we probably need 4 teams for the mud royale… areas where we can separate the teams and then have a counter that shows how many players on a team."*
-- 4 team pens (colours), each with a **live player counter** (use `m-position-probe` or zone checks; show numbers with pre-made digit GLBs/images like the `ms_d0..9` sprites — NOT m-label text) so hosts can even out teams.
-- Spec from old notes: territory card game, giant board, Mudwater rules, 2-minute timer, most squares wins, MVP. Host panel in the remote (start, reset, timer, scores). Ask the owner for the rules details if unclear.
+- 4 coloured team pens, each with a **live player counter** (digits as images/GLBs like `ms_d0..9`, NOT m-label). Counting needs player positions: the position probe did NOT work in Otherside (see v25). Alternatives: a big walk-in pad per pen with an `m-position-probe` of small range placed IN the pen (test if small-range probes work), or players click a "JOIN RED/BLUE/…" plaque (counts by click, with a LEAVE). Ask the owner which.
+- Game rules were never fully defined. Old notes: territory card game on a giant board using Mudwater rules (cards have top/left/right/bottom values in `src/cards/cards.json`, Triple-Triad style), 2-minute timer, most squares wins, MVP. **Ask the owner for the rules before building**; propose a simple version (e.g. teams claim tiles of a giant Mudwater board by clicking; stronger card values steal neighbouring tiles; 2-minute rounds).
+- Host panel on the remote: start, reset, timer, scores, team counts.
 
-### 5.5 Mudroom Escape (game 3, floor 4 up)
-Notes in `src/ESCAPE_TOWER_NOTES.md`. Agreed so far:
-- 6 teams; 6 coloured team doors on floor 4 with a START; 6 escape floors × 6 rooms; each room a puzzle that unlocks the door to the next floor; first team out reaches the **Victory Hall**; raffle. No guard, no stealing.
-- **Hosts take a NORMAL slow lift like the existing ones** (owner: "hosts dont need a fast lift straight up"). A glass lift was REJECTED.
-- Hosts watch via a **stair with landings around a glass core** (rooms' inner glass walls kept clear) + a watch wall. I said I'd go with this unless the owner said no; they didn't object.
-- The tower must get taller to fit 6 floors (the roof moves up: `FL['roof']` and everything that reads it).
+### 5.4 Mudroom Escape (game 3, floor 4 "rooms" y 40 and up)
+See `src/ESCAPE_TOWER_NOTES.md`. Agreed: 6 teams pick one of 6 coloured doors on floor 4, host presses START; 6 escape floors × 6 rooms, one room per team per floor, each a puzzle unlocking the door to the next floor; first team out reaches the Victory Hall; raffle. No guard, no stealing. Hosts ride a NORMAL slow lift (glass/express lift REJECTED) and watch via a stair with landings round a glass core + a watch wall. **The tower must get taller** (raise `FL['roof']` in `build_rect.py` and everything that reads it: lifts `stops`, roof.py, outside.py, music speakers, sky/galaxy heights). Puzzle ideas (not yet approved): hidden keys in a shack, lily-pad pressure plates (4 people), Mudwater card code keypad, lights-out lanterns, valve order, frog-choir pattern.
 
-### 5.6 NPCs (LAST, owner said so)
-Maybe resembling the Mudwater card characters (owner: "but that may be too hard"). Pipeline `meshy_npcs.py` (text/image → 3D → rig → animations), `split_clips.py`. Keep the owner's ape #5413 as the lift operator.
+### 5.5 Ideas offered to the owner, no answer yet
+Interactive lounge items: firefly jars, wishing well, arm-wrestling, fortune-teller, photo booth, darts, cauldron, rocking chairs. More Kodas (owner will send numbers). NPCs LAST (owner said so; keep the owner's ape #5413 as the lift operator; pipeline `meshy_npcs.py`).
 
-### 5.7 Then
-A real multi-player test in Otherside; update this handoff; push to `main` only when the owner approves.
+### 5.6 Then
+Full multi-player test in Otherside (100+ players: check frame rate; the lounge is now heavy: Kodas ~2 MB each, pool, pond, band). Update this handoff. Push to `main` only when the owner approves (rebuild without the branch URL, `sync_to_repo.py` without `--branch`).
 
 ## 6. Things the owner REJECTED (never bring back)
-neon/cosmic looks · pop-out holograms · blue card backs · rune circles · entrance columns · finals dome · **any wood or object crossing/covering portraits** · cards over lift/stair doors · plain/empty floors · guard + stealing in the heist · secret room below floor · unrealistic animals · mud splats with boot prints (wanted real puddles) · round pipe-like ceiling logs · thick green moss cones · the floating book on top (keep the Mudwater pack) · Meshy floating islands / bonsai near the walkway · removing the original water GLBs · a glass/express lift for hosts · lifts that teleport or open one door · **castle turrets/spires/"castle look"** · too many windows · purple Milky Way sky · waterfalls coming out of nowhere · **floating structures** · **fog over the bridge** · **primitive low-quality lanterns/plants** · the jukebox.
+neon/cosmic looks · **ordinary playing cards (use Mudwater cards)** · making the jazz louder · pop-out holograms · blue card backs · rune circles · entrance columns · finals dome · **any wood or object crossing/covering portraits** · cards over lift/stair doors · plain/empty floors · guard + stealing in the heist · secret room below floor · unrealistic animals · mud splats with boot prints (wanted real puddles) · round pipe-like ceiling logs · thick green moss cones · the floating book on top (keep the Mudwater pack) · Meshy floating islands / bonsai near the walkway · removing the original water GLBs · a glass/express lift for hosts · lifts that teleport or open one door · **castle turrets/spires/"castle look"** · too many windows · purple Milky Way sky · waterfalls coming out of nowhere · **floating structures** · **fog over the bridge** · **primitive low-quality lanterns/plants** · the jukebox.
 
 ## 7. Meshy pipeline
 - `gen.py out.png "prompt" [aspect]`: text-to-image (nano-banana-pro, 9 credits).
@@ -219,3 +229,21 @@ neon/cosmic looks · pop-out holograms · blue card backs · rune circles · ent
 | `src/viewer/*` | tests (simtest, roundtest, biotest, drinktest, lifttest, portrait_scan) + renderer (mmlshot) |
 | `src/sync_to_repo.py` | push changed assets + HTML |
 | `src/hi_models/` | full-detail Meshy originals for slim.py |
+
+### 8b. Files added in sessions 9–10
+| File | What it does |
+|---|---|
+| `src/roof.py` | roof finale terrace + art wall canvas/data |
+| `src/band.py`, `src/castle_instruments.json` | stage band layout, click zones, castle piano/harp key maps |
+| `src/band_sounds.py` | (old) synthesised band sounds; drums/guitar now replaced by real recordings (see §4) |
+| `src/swamp_jazz.py` | the original fallback song |
+| `src/music_prep.py`, `src/music_tracks.json` | cleans/levels the playlist → `jazz_NN.mp3`; track list read by build_html.py |
+| `src/koda_rig.py` | Koda animation clips (sit / bar / walk), skinned props (`Rig.attach`) |
+| `src/koda_pack.py` | pack-opening Koda clip |
+| `src/fix_cardtable.py`, `src/card_spread.py` | paint playing cards out of Meshy tables; deal real Mudwater cards |
+| `src/pool.py`, `src/pool_balls.py`, `src/pool_assets.py` | pool tables placement, balls, sounds + button plaques |
+| `src/pond_items.json`, `src/pool_items.json` | Meshy item lists (frogs, turtle, dragonfly; pool table, cue, rack) |
+| `src/viewer/musictest.js`, `src/viewer/pooltest.js`, `src/viewer/bandtest.js` | tests (run with `python3 chrometest.py <test> /home/claude/spire/out/spire.html`) |
+| `HANDOFF_FULL.md` | this file |
+
+Key JS blocks in `src/spire_src.html` (search for these): `const ZONING = false`, `function tween(`, `const BAND =`, `const CAP =` (per-instrument voice limits), `const MUSIC =` + the watchdog `every(4000`, `(D.kodas || [])`, `const POND =`, `const POOL = []`, `function celebrate(`. Remote (`src/spire_remote_src.html`): panels "Music", "The stage band", "The roof - grand finale".
