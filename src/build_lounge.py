@@ -319,14 +319,16 @@ def hang_card(n, mm, w=1.3):
     box(L1, 'brass', 0.5, 0.04, 0.16, m=M(mm, T(0, h / 2 + 0.3, 0.05)))
     sphere(L1, 'glow', 0.06, 8, 6, m=M(mm, T(0, h / 2 + 0.36, 0.12)))
 
+FIRE_X = 24.0                                   # the fireplace on the front wall (world x)
 def wall_cards():
     """framed Mudwater cards all round the lounge walls (the user loves these)"""
     cards = iter([4, 7, 10, 13, 15, 18, 20, 23, 8, 9, 19, 22, 34, 41, 49, 59, 61, 67, 76, 82, 85, 90, 100, 106, 118, 120, 21, 1, 3, 11, 16, 25, 30, 38, 46, 52, 57, 69, 73, 79, 94, 102, 110, 115, 2, 6, 12, 17, 24, 29, 33, 36, 40, 45])
     yc = Y + 3.0
-    for x in [-36.0, -31.0, -26.0, -21.0, -16.0, -11.0, 11.0, 16.0, 31.0, 36.0]:            # front wall, either side of the doors (not behind the fire)
-        hang_card(next(cards), M(T(x, yc, Z1), Ry(180)))
-    for x in [-37.0, -32.0, -27.0, -22.0, -17.0, -12.0, 12.0, 17.0, 22.0, 27.0, 32.0, 37.0]:  # back wall either side of the stage
-        hang_card(next(cards), M(T(x, yc, -Z1), Ry(0)))
+    # (v23) on the plain wall sections between the big windows (from the building's bay plan)
+    blank = [(sd, x, z) for (sd, x, z, kind) in LY.get('lounge_bays', []) if kind in ('', 'brace')]
+    for (sd, x, z) in blank:
+        if sd == 'front' and abs(x) > 8 and abs(x - FIRE_X) > 4.0: hang_card(next(cards), M(T(x, yc, Z1), Ry(180)))
+        if sd == 'back' and abs(x) > 8 and abs(abs(x) - 13.5) > 3.6: hang_card(next(cards), M(T(x, yc, -Z1), Ry(0)))
     for z in [-27.0, 24.0, 27.0]:                                                           # the end walls, clear of the lifts and doors
         hang_card(next(cards), M(T(-X1, yc, z), Ry(90)))
         hang_card(next(cards), M(T(X1, yc, z), Ry(-90)))
@@ -845,7 +847,7 @@ if __name__ == '__main__':
     M_['logo'] = dict(tex=LOGO, emis_tex=LOGO, emis=(0.6, 0.5, 0.35), alpha='MASK', cutoff=0.4, double=True)
     M_['logo_hot'] = dict(tex=LOGO, emis_tex=LOGO, emis=(1.0, 0.78, 0.42), emis_strength=1.8, alpha='MASK', cutoff=0.4)   # the big bar signs
     M_['logo_floor'] = dict(tex=LOGO, emis_tex=LOGO, emis=(0.75, 0.55, 0.25), alpha='MASK', cutoff=0.4, rough=0.25, metal=0.4)
-    floor_and_rugs(); bar = round_bar(); fire = fireplace(); lounge_seating(); card_tables(); jb = jukebox(); wall_cards(); ceiling_hardware()
+    floor_and_rugs(); bar = round_bar(); fire = fireplace(); lounge_seating(); card_tables(); jb = dict(jukebox=[0, 0, 0]); wall_cards()      # (v23) the old jukebox is gone - it did nothing; ceiling_hardware()
     gd = garden(); st = stage(); ceiling_lights(); swamp_moss(); giant_trees(); wet_floor(); banners(); trusses(); wf = waterfalls(); bt = booths()
     LANT = place_lanterns(); light_pools(LANT)
     print('lounge', write(OUT + 'sp_f1_lounge.glb', L1, M_))

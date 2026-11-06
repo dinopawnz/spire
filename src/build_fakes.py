@@ -124,7 +124,7 @@ def band():
             for dy in ROW_Y:            # two rows of portraits (owner: at least 400 on the walls)
                 py = y0 + (y1 - y0) * t + dy
                 frame(hall, PWH, PHH, M(T(x, py, z), Ry(ry)))
-                slots.append(dict(x=round(x - math.sin(math.radians(ry)) * -0.03, 3), y=round(py, 3), z=round(z - math.cos(math.radians(ry)) * -0.03, 3), ry=ry))
+                slots.append(dict(x=round(x - math.sin(math.radians(ry)) * -0.10, 3), y=round(py, 3), z=round(z - math.cos(math.radians(ry)) * -0.10, 3), ry=ry))   # 10 cm proud of the backing: no z-fighting from far away (v23)
             if k < n - 1:
                 t2 = (k + 1) / n
                 sx = a[0] + (b[0] - a[0]) * t2; sz = a[1] + (b[1] - a[1]) * t2; sy = y0 + (y1 - y0) * t2 + ROW_Y[-1] + 1.15
@@ -271,7 +271,7 @@ def finals_hall():
                     zz = z0 + 1.0 + c_ * 1.75 + (0.9 if row else 0); yy = Y0 + (1.3 if row == 0 else 3.25)
                     ry = 90 if side > 0 else 270; px = xr + side * 0.17
                     frame(vm, PW, PH, M(T(px, yy, zz), Ry(ry)), bw=0.09)
-                    slots.append(dict(x=round(px + side * 0.03, 3), y=round(yy, 3), z=round(zz, 3), ry=ry))
+                    slots.append(dict(x=round(px + side * 0.10, 3), y=round(yy, 3), z=round(zz, 3), ry=ry))
     lathe(vm, 'dark', [(0.0, Y0), (1.1, Y0), (1.1, Y0 + 0.25), (0.8, Y0 + 0.4), (0.6, Y0 + 1.1), (0.85, Y0 + 1.25), (0.0, Y0 + 1.25)], 24)
     lathe(vm, 'gold', [(0.85, Y0 + 1.25), (0.9, Y0 + 1.32), (0.0, Y0 + 1.34)], 24)
     collider_box(vc, 1.8, 1.3, 1.8, T(0, Y0 + 0.65, 0))

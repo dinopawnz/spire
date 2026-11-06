@@ -63,6 +63,7 @@ def front_banner():
     write(OUTG + 'sp_frontbanner.glb', m, mats)
     return h + tip
 
+CRAG_NOTCH, CRAG_FRONT, CRAG_DX, CRAG_W = 0.80, 0.29, 0.10, 0.20     # where the crag's notch + channel are (fractions of its size)
 ISLANDS = False      # Meshy floating islands + far cliffs in the sky (owner turned off in v21)
 BONSAI = False       # Meshy bonsai islets on the water (owner turned off in v21)
 
@@ -140,6 +141,93 @@ def apply(D, L, FL, rg):
                 x = -X1 + t
                 if y < 12 and abs(x) < 11: continue
                 add(place('mossclump', x, y - 1.5, Z1 + Dd - 0.1, R.choice([0, 180]), 1.8, 'w'))
+    # ---- (v23, owner) two great waterfalls either side of the entrance: tall mossy rock grottos out in the water, turned a little
+    # toward the boardwalk, the water (animated by the game, like the lounge falls) pouring down into the swamp in a cloud of mist
+    # (owner: the water must come from somewhere) a tall dark mossy crag on each side, made for this (Meshy): a notch in its top edge and
+    # a water-worn channel down its face - the water spills out of the notch, down the channel and into the swamp
+    HC = 30.0
+    cmn, cmx = META['crag']; c_s = (HC + 1.5) / (cmx[1] - cmn[1]); c_w = (cmx[0] - cmn[0]) * c_s; c_d = (cmx[2] - cmn[2]) * c_s
+    big = []
+    for sx in (-1, 1):
+        fx, fz, ry = sx * 33.0, 72.0, -sx * 45.0
+        c, sn = math.cos(math.radians(ry)), math.sin(math.radians(ry))
+        fwd = lambda dz, dx=0.0: (fx + sn * dz + c * dx, fz + c * dz - sn * dx)   # dz in front of the crag's centre, dx to its right
+        add(place('crag', fx, -1.5, fz, ry, HC + 1.5, 'h'))
+        # measured on the model (model units): the groove runs at x +0.07; the notch's lip is at y +0.50; from there down to y 0.0 the groove
+        # face is at z ~0.02; below that the rock bulges out to z 0.62 at the waterline (y -0.9). The water follows it in two sheets.
+        y_of = lambda ym: -1.5 + (ym - cmn[1]) * c_s; z_of = lambda zm: zm * c_s
+        gx_ = 0.07 * c_s; wW = 0.24 * c_s
+        y_lip, y_bend, z_up, z_base = y_of(0.50), y_of(0.0), z_of(0.04), z_of(0.64)
+        # the face profile under the groove (model y, front-most z), measured; the water runs a hand's width in front of it, segment by segment
+        prof = [(0.40, 0.05), (0.02, 0.08), (-0.30, 0.45), (-0.60, 0.57), (-0.93, 0.70)]
+        pad = 0.035
+        for k in range(len(prof) - 1):
+            (ya_, za_), (yb_, zb_) = prof[k + 1], prof[k]            # foot (lower) -> head (upper)
+            Ya, Yb = (0.12 if k == len(prof) - 2 else y_of(ya_)), y_of(yb_) + (0.0 if k == 0 else 0.6)
+            Za, Zb = z_of(za_ + pad), z_of(zb_ + pad)
+            fx_, fz_ = fwd(Za, gx_); ln = math.hypot(Yb - Ya, Za - Zb); tilt = -math.degrees(math.atan2(Za - Zb, Yb - Ya))
+            last = (k == len(prof) - 2)
+            D['falls'].append([r3(fx_), r3(Ya), r3(fz_), round(wW * (1.0 + 0.08 * k), 2), r3(Ya + ln), ry, 1 if last else 2, round(tilt, 1) or 0.01])
+        z_base = z_of(prof[-1][1])
+        top = y_lip
+        for k in range(3):                                  # mist rolling off the foot of the falls
+            mx_, mz_ = fwd(z_base + 3.0 + k * 2.6, gx_)
+            D['deco'].append(['mist', r3(mx_ + R.uniform(-2, 2)), 0.0, r3(mz_), round(R.uniform(0, 360), 1), round(R.uniform(0.4, 0.55), 2)])
+        big.append((fx, fz, max(c_w, c_d) / 2 + 3.0))
+        print('falls', sx, 'crag', round(fx, 1), round(fz, 1), 'size', round(c_w, 1), round(c_d, 1), 'lip', round(y_lip, 1), 'bend', round(y_bend, 1), 'tilt', round(tilt, 1))
+    # keep the water round the falls clear of the smaller pieces
+    keep = lambda e: all(math.hypot(e[1] - bx, e[3] - bz) > br for (bx, bz, br) in big)
+    D['sdeco'][:] = [e for e in D['sdeco'] if e[0] in ('sp_m_crag',) or keep(e)]
+    D['deco'][:] = [e for e in D['deco'] if e[0] == 'mist' or keep(e)]
+    # ---- (v23, owner's concept) swampy vines everywhere: curtains of hanging vines + Spanish moss off the balcony edges, ivy climbing the walls
+    vm, vx = META['vines']; v_asp = (vx[1] - vm[1]) / (vx[0] - vm[0])
+    Dd = L['balconies']['depth']; lines = sorted(L['balconies']['lines']); ban_low = max(lines) - 13.0
+    def clear_front(x, ytop, ybot):
+        if abs(x) < 11.5 and ybot < 21.0: return False                             # the portico, the MUDWATER sign, the door
+        if abs(abs(x) - 14.0) < 3.4 and ytop > ban_low: return False               # the two big front banners
+        return True
+    nv = 0
+    for y in lines:
+        for side in ('front', 'east', 'west'):
+            ln = 2 * X1 if side == 'front' else 2 * Z1
+            for t in np.arange(2.0, ln - 2.0, 3.4):
+                if R.random() > (0.5 if side == 'front' else 0.22): continue
+                w_ = R.uniform(4.0, 5.6); h_ = w_ * v_asp * R.uniform(1.0, 1.35)
+                u = -ln / 2 + t + R.uniform(-0.6, 0.6)
+                if side == 'front':
+                    if not clear_front(u, y, y - h_): continue
+                    x, z, ry = u, Z1 + Dd - 0.05, 0
+                else:
+                    sg = 1 if side == 'east' else -1; x, z, ry = sg * (X1 + Dd - 0.05), u, 90 * sg
+                e = place('vines', x, y - 0.05 - h_, z, ry, w_, 'w')
+                add(e); nv += 1
+    ni = 0
+    for k in range(40):                                                            # ivy patches climbing the front wall
+        x = R.uniform(-X1 + 2, X1 - 2); y = R.uniform(5.0, max(lines) - 2.0); w_ = R.uniform(3.0, 5.2)
+        if not clear_front(x, y + w_, y): continue
+        add(place('ivy', x, y, Z1 + 0.16, 0, w_, 'w')); ni += 1
+        if ni >= 16: break
+    for sx in (-1, 1):                                                             # thick ivy up both front corners
+        for y in np.arange(4.0, max(lines) - 3.0, 5.5):
+            add(place('ivy', sx * (X1 - 1.2), y, Z1 + 0.16, 0, R.uniform(3.4, 4.4), 'w')); ni += 1
+    print('outside: vines', nv, 'ivy', ni)
+    # ---- (v23, owner) the windows: Meshy rustic lodge windows (weathered timber frame, mullions, warm glowing panes, mossy sill, shutters)
+    # set over each outside window, sized to it
+    if 'window' in META:
+        wmn, wmx = META['window']; ww0, wh0, wd0 = wmx[0] - wmn[0], wmx[1] - wmn[1], wmx[2] - wmn[2]
+        nw = 0
+        for (x, y, z, fr, w_, h_) in L.get('ext_windows', []):
+            s_ = (w_ + 0.5) / ww0; syr = (h_ + 0.5) / (wh0 * s_)
+            ox, oz = math.sin(math.radians(fr)), math.cos(math.radians(fr))
+            yb = y - (h_ + 0.5) / 2
+            e = place('window', x + ox * (wd0 * s_ / 2 + 0.02), yb, z + oz * (wd0 * s_ / 2 + 0.02), fr, w_ + 0.5, 'w')
+            e[2] = round(yb - wmn[1] * s_ * syr, 3); e.append(round(syr, 3)); add(e); nw += 1
+        print('outside: lodge windows', nw)
+    # ---- (v23) three rustic swamp-timber gables on the front roof edge (Meshy), with a warm glowing window each - a bayou lodge, not a castle
+    if 'gable' in META:
+        for (gx, gy, gz, gw) in L.get('gables', []):
+            gm, gM = META['gable']; d_ = (gM[2] - gm[2]) * gw / (gM[0] - gm[0])
+            add(place('gable', gx, gy - 0.3, gz - d_ / 2 + 0.6, 0, gw, 'w'))
     # (owner, v21: the original floating Mudwater pack, gold + teal rings and beam stay on top - no book)
     # (the floating cards stay exactly as they are - owner)
     print('outside: placed', len(D['sdeco']), 'spire models;', len(isl), 'sky islands/cliffs')

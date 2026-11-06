@@ -151,7 +151,7 @@ for k in range(10): SPRITES['r%d' % k] = ([str(k)], 'red')
 for k in range(1, 5): SPRITES['round%d' % k] = (['ROUND %d OF 4' % k], 'teal')
 
 SIGNS = {
-    'hall_rules': ('THE HALL OF FAKES', 'Two hundred portraits of The Founder hang up the spiral stair inside this tower.\nOne hundred and ninety-nine are FORGERIES - an earring, a number, a colour, a letter wrong.\nONE is real - it looks exactly like THE REAL ONE on the pillar.\nClick the real one. Guess wrong and you wait 5 seconds.\nFOUR ROUNDS: the first to find it each round goes up to the glass VAULT at the top.\nThen the portraits are shuffled and the next round begins.', 6.0),
+    'hall_rules': ('THE HALL OF FAKES', 'Four hundred portraits of The Founder hang along the ramp that climbs round this hall.\nThree hundred and ninety-nine are FORGERIES - an earring, a number, a colour, a letter wrong.\nONE is real - it looks exactly like THE REAL ONE on the pillars.\nClick the real one. Guess wrong and you wait 5 seconds.\nFOUR ROUNDS: the first to find it each round goes to the glass FINALS HALL in the middle.\nThen the portraits are shuffled and the next round begins.', 6.0),
     'vault_rules': ('THE FINALS VAULT', 'Four finalists. A hundred portraits of BLACK FLAG. One is real.\nThe glass unfrosts when the host starts the finals.\nWrong click = 5 seconds out. First to find it wins.', 5.0),
     'gallery': ('THE GALLERY', 'Watch the finals through the glass.', 3.6),
     'lifts': ('THE LIFTS', 'Every floor: Lounge - Hall of Fakes - Gallery - Mud Royale - Group Mud - Roof Deck', 3.6),

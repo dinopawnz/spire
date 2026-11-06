@@ -512,7 +512,7 @@ details.cheat dl { margin: 8px 0 0; } details.cheat dt { color: var(--sky); font
       R.btn(g, "THIN THE FAKES", "take half the forgeries down (never below 10)", () => R.say("hall thin"), { cls: "b-warn big1" });
       ui.finB = R.btn(g, "START THE FINALS", "unfrost the vault - find the real Black Flag", () => R.say("hall finals"), { cls: "b-sky big1", confirm: () => (ui.inV < ui.nFin ? "Only " + ui.inV + " of the " + ui.nFin + " finalists are inside the glass room. Start anyway?" : "Unfrost the glass room and start the finals?") });
       R.btn(g, "Reset Mud Match", "back to closed", () => R.say("hall reset"), { cls: "b-stop", confirm: "Reset Mud Match? Finalists and the champion are cleared." });
-      R.note(p, [{ b: "4 rounds." }, " Each round, the first player to click the real #62 Founder becomes a finalist. Then the 200 portraits are shuffled and the next round starts by itself 10 seconds later (turn AUTO off to start each round yourself with NEXT ROUND NOW). A wrong pick costs that player ", { b: "5 seconds" }, ". The vault's glass door opens for the finalists only. ",
+      R.note(p, [{ b: "4 rounds." }, " Each round, the first player to click the real #62 Founder becomes a finalist. Then the 400 portraits are shuffled and the next round starts by itself 10 seconds later (turn AUTO off to start each round yourself with NEXT ROUND NOW). A wrong pick costs that player ", { b: "5 seconds" }, ". The vault's glass door opens for the finalists only. ",
         "The vault glass stays ", { b: "frosted" }, " until you press START THE FINALS - wait until the finalists are all inside (the count shows below). ", { b: "THIN" }, " works on whichever round is running (the walls, or the glass room)."]);
       ui.finList = R.note(p, "");
 
@@ -551,9 +551,9 @@ details.cheat dl { margin: 8px 0 0; } details.cheat dt { color: var(--sky); font
 
       p = R.panel(R.left, "The answers", "for you only");
       p.append(h("details", { class: "cheat" }, h("summary", { text: "How the games work" }), h("dl", null,
-        h("dt", { text: "Mud Match" }), h("dd", { text: "200 portraits of #62 The Founder up the spiral stair in the Hall of Fakes tower. 199 are forgeries: a number, a colour, a letter, the year, the earring... One is real. 4 rounds - the first finder each round is a finalist, and the portraits are reshuffled before every round, so nobody can learn the spot." }),
-        h("dt", { text: "The vault" }), h("dd", { text: "100 portraits of #100 Black Flag on ten screens. Only finalists can click them. First correct click wins. Everyone else watches from the gallery ring." }),
-        h("dt", { text: "The lifts" }), h("dd", { text: "Players call a cage with the glowing button beside its door, and pick a floor on the brass panel inside. Idle cages go home to the lounge after 45 s." }))));
+        h("dt", { text: "Mud Match" }), h("dd", { text: "400 portraits of #62 The Founder along the ramp round the Hall of Fakes. 399 are forgeries: a number, a colour, a letter, the year, the earring... One is real. 4 rounds - the first finder each round is a finalist, and the portraits are reshuffled before every round, so nobody can learn the spot." }),
+        h("dt", { text: "The vault" }), h("dd", { text: "100 portraits of #100 Black Flag on ten screens. Only finalists can click them. First correct click wins. Everyone else watches through the glass." }),
+        h("dt", { text: "The lifts" }), h("dd", { text: "Players call a cage with the glowing button beside its door, and pick a floor on the brass panel inside. A cage only moves when somebody calls it or presses a floor." }))));
 
       p = R.panel(R.right, "Players"); ui.pp = p;
       ui.pl = R.table(p, ["#", "Player", "Where", "Hall", "Wait"], "Nobody here yet.");

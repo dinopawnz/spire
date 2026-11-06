@@ -29,7 +29,7 @@ subprocess.run(['python3', VIEW + '/chrometest.py', VIEW + '/refcheck2.js', SP +
 import re
 refs = [re.sub(r'^https://raw\.githubusercontent\.com/dinopawnz/spire/[^/]+/', '', r) for r in json.load(open('/tmp/refs.json')) if '/dinopawnz/spire/' in r]
 refs = [r.split('?')[0] for r in refs]
-refs += [os.path.relpath(p, SP + '/out/bio') for p in glob.glob(SP + '/out/bio/*.png')] + ['water_fall.png', 'water_fall2.png', 'fall_glow.png', 'foam.png', 'fire_flame.png', 'fire_glow.png']
+refs += [os.path.relpath(p, SP + '/out/bio') for p in glob.glob(SP + '/out/bio/*.png')] + ['water_fall.png', 'water_fall2.png', 'fall_glow.png', 'foam.png', 'fire_flame.png', 'fire_glow.png', 'fire_teal.png', 'sky_moon.png', 'sky_moonglow.png']
 
 todo = {}
 for f in sorted(set(refs)):

@@ -8,7 +8,7 @@
   * THE BUILDING  an 85 x 60 m swamp hall on stilts, four storeys + a roof deck + the steeple. Stair towers at both ends,
                   a bank of four glass-and-brass lifts against the back wall.
   * Floor 1  THE LOUNGE    bar with taps that pour (Mama Silt slides you a mug), Gator Pete by the fire, framed cards everywhere
-  * HALL OF FAKES (Mud Match)  a round timber tower in the middle: 200 portraits of #62 The Founder up a Solomon stair (199 fakes + 1 real).
+  * HALL OF FAKES (Mud Match)  400 portraits of #62 The Founder along a ramp round the whole hall (399 fakes + 1 real).
                            4 rounds = 4 finalists, wrong pick = 5 s. Finals in the frosted glass vault at the top - 99 fake + 1 real #100 Black Flag.
   * MUD ROYALE   (game 2 - next version)
   * Floor 4  GROUP MUD        (game 3 - next version)
@@ -173,7 +173,7 @@
 
   // ---- LITE + REFRESH (as in the castle)
   let LITE = null;
-  const DECOR = /sp_(chandelier|lantern_[abc]|fx_|wisp|moonbeam)|bio_|gc_\d|mw_motes|fireflies|mist\.glb|glowplant|reeds|floatlantern|lilypads|moss_c|shelfshroom|jarlantern|cypress/;
+  const DECOR = /sp_(chandelier|lantern_[abc]|fx_|wisp|moonbeam|m_vines|m_ivy)|bio_|gc_\d|mw_motes|fireflies|mist\.glb|glowplant|reeds|floatlantern|lilypads|moss_c|shelfshroom|jarlantern|cypress/;
   function liteOn() {
     if (LITE) return "LITE MODE IS ALREADY ON";
     const tg = (n) => String(n.tagName).toUpperCase();
@@ -288,7 +288,7 @@
       model("sp_lantern_ring.glb", { collide: "false", sx: s, sy: s, sz: s }, g);
     });
     // single iron lanterns hanging from the lounge ceiling at different heights
-    (D.sdeco || []).forEach(([f, x, y, z, ry, s]) => model(f + ".glb", { x, y, z, ry, sx: s, sy: s, sz: s, collide: "false" }));
+    (D.sdeco || []).forEach(([f, x, y, z, ry, s, syr]) => model(f + ".glb", { x, y, z, ry, sx: s, sy: s * (syr || 1), sz: s, collide: "false" }));      // syr: stretch to fit (windows)
 
     // ---------------------------------------------------- sprites (words as pictures)
     const ASP = D.ms;
@@ -336,7 +336,12 @@
       const MWX = "https://raw.githubusercontent.com/dinopawnz/mudwater/main/";
       const mw = (f, attrs, parent) => el("m-model", Object.assign({ src: MWX + f + ".glb", collide: "false", "cast-shadows": "false" }, attrs), parent);
       const F = D.fx;
-      mw(F.sky[0], { x: F.sky[1], y: F.sky[2], z: F.sky[3], sx: F.sky[4], sy: F.sky[4], sz: F.sky[4] });
+      model(F.sky[0] + ".glb", { x: F.sky[1], y: F.sky[2], z: F.sky[3], sx: F.sky[4], sy: F.sky[4], sz: F.sky[4], collide: "false", "cast-shadows": "false" });
+      if (F.moonDisc) {        // the golden crescent moon, its own picture so it is always perfectly round, with a soft warm glow behind it
+        const [mx, my, mz, mry, mrx, ms] = F.moonDisc;
+        const tilt = el("m-group", { rx: mrx }, el("m-group", { x: mx, y: my, z: mz, ry: mry }));
+        el("m-image", { src: BASE + "sky_moon.png" + VER, width: ms, height: ms, emissive: 1.25, collide: "false", "cast-shadows": "false" }, tilt);
+      }
       // the pack, turning slowly over the roof, ringed by three tilted rings, a beam of light holding it up
       const pk = el("m-group", { x: F.pack[0], y: F.pack[1], z: F.pack[2] });
       anim(pk, "y", F.pack[1] - 2.5, F.pack[1] + 2.5, 9000, { pingPong: true, easing: "easeInOutSine" });
@@ -378,22 +383,25 @@
 
     // ---------------------------------------------------- THE LOUNGE: two indoor waterfalls (sheets of water sliding down over dark rock,
     // into lit pools) and the shop booth signs
-    D.falls.forEach(([x, y, z, w, top]) => {
-      const h = top - y, cy = y + h / 2, P = 1.2;
+    D.falls.forEach(([fx, y, fz, w, top, fry, big, frx]) => {
+      // big = 1: an outdoor fall, 2: an outdoor fall's upper sheet (no foam, no glow). frx leans the sheet back (it pivots at its foot)
+      const fallO = el("m-group", { x: fx, y: frx ? y : 0, z: fz, ry: fry || 0 }), fallG = el("m-group", { rx: frx || 0 }, fallO); const x = 0, z = 0;
+      if (frx) { top -= y; y = 0; }
+      const h = top - y, cy = y + h / 2, P = big ? 3.0 : 1.2;
       // a soft glow behind the water, like light coming through the falls
-      const glow = el("m-image", { src: BASE + "fall_glow.png" + VER, x, y: cy, z: z - 0.05, width: w + 0.6, height: h, emissive: 0.7, opacity: 0.55, collide: "false", "cast-shadows": "false" });
-      anim(glow, "emissive", 0.45, 0.85, 3200, { pingPong: true, easing: "easeInOutSine" });
+      const glow = big ? null : el("m-image", { src: BASE + "fall_glow.png" + VER, x, y: cy, z: z - 0.05, width: w + 0.6, height: h, emissive: 0.7, opacity: 0.55, collide: "false", "cast-shadows": "false" }, fallG);
+      if (glow) anim(glow, "emissive", 0.45, 0.85, 3200, { pingPong: true, easing: "easeInOutSine" });
       // four sheets of falling water: each slides down P metres while fading in and out, a quarter-cycle apart,
       // so the water pours continuously with no visible jump (the sheets are taller than the fall; the rock lip and the pool hide the ends)
       for (let k = 0; k < 4; k++) {
-        const dur = 1000 + (k % 2) * 160, op = 0.75 - 0.08 * k;
-        const m = el("m-image", { src: BASE + "water_fall2.png" + VER, x: x + (k - 1.5) * 0.08, y: cy, z: z + 0.03 + k * 0.025, width: w - (k % 2) * 0.35, height: h + P, emissive: 0.85, opacity: op, collide: "false", "cast-shadows": "false" });
+        const dur = (big ? 1500 : 1000) + (k % 2) * 160, op = 0.75 - 0.08 * k;
+        const m = el("m-image", { src: BASE + "water_fall2.png" + VER, x: x + (k - 1.5) * 0.08, y: cy, z: z + 0.03 + k * 0.025, width: w - (k % 2) * 0.35, height: h + P, emissive: 0.85, opacity: op, collide: "false", "cast-shadows": "false" }, fallG);
         anim(m, "y", cy + P / 2, cy - P / 2, dur, { delay: (dur * k) / 4 });
         anim(m, "opacity", 0.0, op, dur / 2, { pingPong: true, easing: "easeInOutSine", delay: (dur * k) / 4 });
       }
       // white churning foam where it lands, in two layers turning slowly against each other
-      for (let k = 0; k < 2; k++) {
-        const fg = el("m-group", { x, y: y + 0.03 + k * 0.02, z: z + 0.9 });
+      for (let k = 0; k < (big === 2 ? 0 : 2); k++) {
+        const fg = el("m-group", { x, y: y + 0.03 + k * 0.02, z: z + (big ? 3.5 : 0.9), sx: big ? 1.35 : 1, sz: big ? 2.6 : 1 }, frx ? fallO : fallG);
         const foam = el("m-image", { src: BASE + "foam.png" + VER, rx: -90, width: w + 0.8, height: 2.0, emissive: 0.8, opacity: 0.8, collide: "false", "cast-shadows": "false", "data-lite": "1" }, fg);
         anim(fg, "ry", k ? 8 : -8, k ? -8 : 8, 2600 + k * 700, { pingPong: true, easing: "easeInOutSine" });
         anim(foam, "opacity", 0.45, 0.85, 900 + k * 300, { pingPong: true, easing: "easeInOutSine" });
@@ -421,6 +429,34 @@
       anim(glow, "opacity", 0.55, 0.9, 470, { pingPong: true, easing: "easeInOutSine" });
       anim(glow, "emissive", 0.7, 1.15, 610, { pingPong: true, easing: "easeInOutSine" });
     }
+    // ---------------------------------------------------- (v23) the goblet braziers: a roaring swamp fire in every bowl. Warm flames in
+    // three crossed sheets (so they look round from every side), green-teal swamp-fire tongues licking up through the middle,
+    // a glowing coal bed, a heat glow above, sparks and embers spiralling up into the night.
+    (D.fireBowls || []).forEach(([x, y, z, r], b) => {
+      const g = el("m-group", { x, y: y - 0.15 * r, z });
+      const glowBed = el("m-image", { src: BASE + "fire_glow.png" + VER, y: 0.12 * r, rx: -90, width: 1.9 * r, height: 1.9 * r, emissive: 1.4, opacity: 0.95, collide: "false", "cast-shadows": "false" }, g);
+      anim(glowBed, "emissive", 1.0, 1.8, 530 + b * 37, { pingPong: true, easing: "easeInOutSine" });
+      const sheets = [[0, 1.5, 1.9, 380, 0.95, "fire_flame.png"], [60, 1.3, 1.6, 300, 0.9, "fire_flame.png"], [120, 1.4, 1.75, 430, 0.9, "fire_flame.png"],
+                      [30, 0.75, 1.5, 260, 0.85, "fire_teal.png"], [150, 0.65, 1.25, 340, 0.8, "fire_teal.png"]];
+      sheets.forEach(([ry, w, h, per, op, tex], i) => {
+        const turn = el("m-group", { ry: ry + b * 17 }, g);
+        const flick = el("m-group", {}, turn);
+        const im = el("m-image", { src: BASE + tex + VER, y: h * r / 2, width: w * r, height: h * r, emissive: 1.8, opacity: op, collide: "false", "cast-shadows": "false" }, flick);
+        anim(flick, "sy", 0.8, 1.18, per, { pingPong: true, easing: "easeInOutSine", delay: i * 89 + b * 41 });
+        anim(flick, "sx", 1.08, 0.9, Math.round(per * 1.37), { pingPong: true, easing: "easeInOutSine", delay: i * 61 });
+        anim(flick, "rz", -4, 4, Math.round(per * 1.9), { pingPong: true, easing: "easeInOutSine", delay: i * 113 });
+        anim(im, "emissive", 1.4, 2.4, Math.round(per * 0.71), { pingPong: true, easing: "easeInOutSine", delay: i * 67 });
+      });
+      anim(g, "ry", 0, 360, 24000 + b * 3000, {});                      // the whole fire slowly churns round
+      for (let k = 0; k < 9; k++) {                                       // sparks and embers spiralling up (every third one swamp-green)
+        const sp = el("m-group", { ry: k * 40 }, g);
+        const e = el("m-sphere", { x: 0.25 * r + 0.06 * k, y: 0.4 * r, radius: 0.03 + 0.012 * (k % 3), color: k % 3 ? "#ff9a3a" : "#7dffc8", emissive: 6, collide: "false", "cast-shadows": "false", "data-lite": "1" }, sp);
+        const dur = 1800 + (k * 263) % 1400;
+        anim(e, "y", 0.4 * r, 3.6 * r, dur, { delay: k * 210 });
+        anim(e, "opacity", 1, 0, dur, { delay: k * 210 });
+        anim(sp, "ry", k * 40, k * 40 + 220, dur, { delay: k * 210 });
+      }
+    });
     // the two tall green banners down the front of the building
     (D.frontBanners || []).forEach(([x, y, z]) => model("sp_frontbanner.glb", { x, y, z, collide: "false" }));
     D.booths.forEach(([x, y, z, ry, key]) => word("bt_" + key, 0.55, { x, y, z, ry }));
@@ -470,7 +506,7 @@
       later(1420, () => { ring.remove(); blooms--; });
       // on the winding stair the wall beside you shimmers, a band of light running the way you walk
       const r = su.run;
-      if (r && last && sheens < 24 && t - (p.sheenT || 0) > 900) {
+      if (false && r && last && sheens < 24 && t - (p.sheenT || 0) > 900) {   // OFF (v23): it swept over the portraits - nothing may cover them
         p.sheenT = t; sheens++;
         const along = r[6] === "z" ? "x" : "z", dir = Math.sign(pos[along] - last[along]) || 1;
         const wx = r[6] === "z" ? pos.x : r[7] - Math.sign(r[7]) * 0.1, wz = r[6] === "z" ? r[7] - Math.sign(r[7]) * 0.1 : pos.z;
@@ -525,10 +561,10 @@
       const ry = p && p.pos ? faceTo(hp, p.pos) : (+n.g.getAttribute("ry") || 0);
       const vis = everyoneHears || id === undefined ? {} : { "visible-to": String(id) };
       const cap = (D.npcCap || {})[n.key];
-      const lift = (cap && cap.inCab) ? n.parent : null;               // the lift boss: bubble hangs in the middle of his cab and rides with it
+      const lift = (cap && cap.inCab) ? n.parent : null;               // the lift boss: his bubble sits on the cab's back wall and rides with it
       const by = Math.min(tall + 0.75, cap && cap.y !== undefined ? cap.y : 99);
       const fw = cap && cap.fwd ? cap.fwd : 0.0, a = ry * Math.PI / 180;    // nudge forward, out from under shelves and racks
-      const bub = lift ? el("m-group", Object.assign({ x: 0, y: by, z: 0, ry }, vis), lift)
+      const bub = lift ? el("m-group", Object.assign({ x: 0, y: by, z: -(D.cabApo - 0.14), ry: 0 }, vis), lift)   // flat on the back wall of the cab, out of the way (owner, v23)
                        : el("m-group", Object.assign({ x: hp[0] + Math.sin(a) * fw, y: hp[1] + by, z: hp[2] + Math.cos(a) * fw, ry }, vis), priv);
       const bs = lift ? 0.55 : 0.95;
       model("sb_" + n.key + "_" + line + ".glb", { sx: bs, sy: bs, sz: bs, collide: "false" }, bub);
@@ -579,10 +615,11 @@
         later(2500, () => { pour.remove(); busy = false;
           // round bar: the mug slides out across the counter to the edge nearest you (within reach of this tap)
           const p = pl(id); let a = ta;
-          if (p.pos) { const pa = Math.atan2(p.pos.x - bx, p.pos.z - bz); let d = Math.atan2(Math.sin(pa - ta), Math.cos(pa - ta)); d = Math.max(-0.7, Math.min(0.7, d)); a = ta + d; }
-          const tx = bx + Math.sin(a) * (rOut - 0.35), tz = bz + Math.cos(a) * (rOut - 0.35);
+          if (p.pos) { const pa = Math.atan2(p.pos.x - bx, p.pos.z - bz); let d = Math.atan2(Math.sin(pa - ta), Math.cos(pa - ta)); d = Math.max(-1.2, Math.min(1.2, d)); a = ta + d; }
+          // (v23, owner: it stopped in the middle of the counter) all the way out to the front edge, right in front of you
+          const tx = bx + Math.sin(a) * (rOut + 0.05), tz = bz + Math.cos(a) * (rOut + 0.05);
           tween(mug, "y", D.trayTop, D.barTop, 400, "easeInQuad");
-          tween(mug, "x", sp[0], tx, 900, "easeOutQuart"); tween(mug, "z", sp[2], tz, 900, "easeOutQuart");
+          tween(mug, "x", sp[0], tx, 1100, "easeOutQuart"); tween(mug, "z", sp[2], tz, 1100, "easeOutQuart");
           if (NPCS.barkeep) npcTalk(NPCS.barkeep, "pour" + (i % 4), id, false, "click");
           // click your own beer to drink it: it lifts, tips back for a big swig (gulp gulp), and it's gone
           const drink = hitBox({ y: 0.11, width: 0.3, height: 0.32, depth: 0.3 }, mug);
@@ -612,6 +649,7 @@
       const pr = el("m-prompt", { x, y, z, ry, message: "Sign the Mudwater Sign-Up Book - type the name you want on the leaderboards", placeholder: "Your name (up to 18 letters)" });
       model("sp_m_lectern.glb", { y: 0.675, sx: 0.710, sy: 0.710, sz: 0.710, collide: "false" }, pr);
       pad({ y: 0.65, width: 1.1, height: 1.3, depth: 0.9 }, pr);
+      hitBox({ y: 0.8, width: 1.4, height: 1.7, depth: 1.2 }, pr);      // (v23) the click target - the same kind of box the beer taps use (the solid pad is invisible and invisible things can't be clicked)
       pr.addEventListener("prompt", (e) => {
         const id = e.detail && e.detail.connectionId; if (id === undefined) return;
         const raw = String(e.detail.value || "").replace(/[<>\u0000-\u001f]/g, "").replace(/\s+/g, " ").trim().slice(0, 18);
@@ -752,7 +790,7 @@
       // start: cab at the lounge with its gates open
       later(1500, () => arrive(0));
     });
-    every(5000, () => Object.values(LIFTS).forEach((s) => s.home()));
+    // (v23, owner: a cage only moves when somebody presses a button - no more going home to the lounge by itself)
 
     // ==================================================== THE HALL OF FAKES
     const HL = D.hall, VT = D.vault;

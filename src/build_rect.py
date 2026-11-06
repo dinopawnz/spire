@@ -90,6 +90,24 @@ def boardwalk():
         walkm.add('dark', P - np.array([0, 0.12, 0]), [[0, -1, 0]] * 4, U, [0, 1, 2, 0, 2, 3])
         for s in (-1, 1):
             bevel_box(walkm, 'dark', 0.14, 0.4, zb - za, 0.02, m=M(T(s * (w / 2 + 0.07), (y0 + y1) / 2 - 0.2, (za + zb) / 2), Rx(-math.degrees(math.atan2(y1 - y0, zb - za)))), uvs=3.0)
+    # (v23, owner: a gap under the bridge) solid plank skirts from the deck down into the water on both sides and across the far end,
+    # with thick bark pilings every 6 m, so the boardwalk reads as built on the swamp, not floating over it
+    for i in range(n):
+        za = z0 + (z1 - z0) * i / n; zb = z0 + (z1 - z0) * (i + 1) / n
+        y0 = ya + (yb - ya) * i / n; y1 = ya + (yb - ya) * (i + 1) / n
+        for s in (-1, 1):
+            x = s * (w / 2 + 0.03)
+            P = np.array([[x, y0 - 0.1, za], [x, y1 - 0.1, zb], [x, -0.6, zb], [x, -0.6, za]])
+            Uv = np.c_[P[:, 2] / 0.35, P[:, 1] / 3.0]                 # boards running up and down
+            walkm.add('dark', P, [[s, 0, 0]] * 4, Uv, [0, 1, 2, 0, 2, 3] if s > 0 else [0, 2, 1, 0, 3, 2], col=tint(rng, 0.1, 0.7))
+    x0_, x1_ = -w / 2 - 0.05, w / 2 + 0.05
+    P = np.array([[x0_, yb - 0.1, z1 + 0.02], [x1_, yb - 0.1, z1 + 0.02], [x1_, -0.6, z1 + 0.02], [x0_, -0.6, z1 + 0.02]])
+    walkm.add('dark', P, [[0, 0, 1]] * 4, np.c_[P[:, 0] / 0.35, P[:, 1] / 3.0], [0, 2, 1, 0, 3, 2], col=tint(rng, 0.1, 0.7))
+    bevel_box(walkm, 'dark', w + 0.3, 0.22, 0.16, 0.02, m=T(0, yb - 0.2, z1 + 0.08), uvs=3.0)          # a fascia beam across the end
+    for z in np.arange(z0 + 3.0, z1 + 0.1, 6.0):
+        t = (z - z0) / (z1 - z0); y = ya + (yb - ya) * t
+        for s in (-1, 1):
+            lathe(walkm, 'bark', [(0.24, -1.2), (0.22, y - 0.15), (0.0, y - 0.1)], 10, m=T(s * (w / 2 + 0.2), 0, min(z, z1 - 0.2)), uv_v=2.0)
     # collider: one long sloped slab + side rails
     ln = math.hypot(z1 - z0, ya - yb); ang = math.degrees(math.atan2(ya - yb, z1 - z0))
     collider_box(col, w + 0.4, 0.4, ln + 0.4, M(T(0, (ya + yb) / 2 - 0.2, (z0 + z1) / 2), Rx(ang)))
@@ -124,20 +142,24 @@ def side_bays(side):
     return list(zip(pts[:-1], pts[1:]))
 
 def bay_spec(side, k, p0, p1, bi):
-    """what goes in bay bi on storey k: ('door', w, h) | ('win', w, h, y, kind) | ('brace',) | None"""
+    """what goes in bay bi on storey k: ('door', w, h) | ('win', w, h, y, kind) | ('brace',) | None
+    (v23, owner: fewer but grander windows) - a big arched window on every other bay, plain timber between (vines + ivy outside,
+    framed cards inside); the Hall of Fakes level only every third bay, high up above the portraits"""
     cx = (p0[0] + p1[0]) / 2; cz = (p0[1] + p1[1]) / 2
     if side in ('east', 'west') and abs(cz) < 10 and k < NS: return ('brace',) if bi % 2 else None   # stair towers behind
-    kinds = ['win', 'win', 'win', 'boarded', 'win', 'crooked', 'win', 'win']
+    kinds = ['win', 'win', 'win', 'boarded', 'win', 'win', 'win', 'win']
     kind = kinds[(bi * 7 + k * 3 + len(side)) % len(kinds)]
+    if kind == 'crooked': kind = 'win'
     if k == 0:
         if side == 'front' and abs(cx) < 6: return ('door', 4.6, 4.6)
         if side in ('east', 'west') and abs(cz + 15) < 2.6: return ('door', 3.0, 3.6)
-        if bi % 5 == 2: return ('brace',)
-        return ('win', 2.5, 4.6, 1.1, 'win' if kind in ('boarded', 'crooked') else kind)     # tall glowing lounge windows (owner's concepts)
-    if (bi + k) % 4 == 0: return ('brace',)
-    if k == 1: return ('win', 2.4, 3.0, 17.0, kind) if side in ('front', 'back') else ('brace',)   # the Hall of Fakes: high windows above the stair
-    if k == 3: return ('win', 2.4, 3.0, 5.5, kind)            # the heist warehouse: high windows
-    return ('win', 2.0, 2.9, 1.4, kind)             # taller, so it gets the arched top
+        return ('win', 3.1, 5.6, 0.9, 'win') if bi % 2 == 1 else None          # tall glowing lounge windows
+    if k == 1:
+        if side in ('front', 'back') and bi % 3 == 1: return ('win', 3.0, 2.2, 19.0, kind)   # high, ABOVE the highest portraits
+        return ('brace',) if bi % 3 == 2 and side in ('front', 'back') else None
+    if bi % 2 == 1: return ('brace',) if bi % 4 == 3 else None
+    if k == 3: return ('win', 3.0, 4.6, 3.6, kind)
+    return ('win', 3.0, 4.4, 1.3, kind)
 
 def rustic_wall(p0, p1, y0, h, holes, battens=True, plates=True, ext=False):
     """weathered vertical boards of uneven width and colour, a ragged bottom edge, two battens; holes = [(x, y, w, h)]"""
@@ -189,6 +211,7 @@ def walls():
                 if side == 'front' and k == 0 and abs((p0[0] + p1[0]) / 2) < 6: continue    # the grand doorway is built below
                 sp = bay_spec(side, k, p0, p1, bi)
                 mm0, ln = place(p0, p1, y0)
+                if k == 0: L.setdefault('lounge_bays', []).append([side, round((p0[0] + p1[0]) / 2, 3), round((p0[1] + p1[1]) / 2, 3), sp[0] if sp else ''])
                 holes = []; door = None
                 if sp and sp[0] == 'win': holes = [(ln / 2, sp[3] + sp[2] / 2, sp[1], sp[2])]
                 if sp and sp[0] == 'door': door = (ln / 2, sp[1], sp[2]); holes = [(ln / 2, sp[2] / 2, sp[1], sp[2])]
@@ -196,7 +219,11 @@ def walls():
                 if sp and sp[0] == 'win':
                     hx, hy, hw, hh = holes[0]; wm = M(mm0, T(hx, hy, 0))
                     if sp[4] == 'boarded': boarded(wm, hw, hh)
-                    else: window(shell, hw, hh, wm, rng, shutters=True, mull=(2, 4 if hh > 4 else 3))
+                    else:
+                        window(shell, hw, hh, wm, rng, shutters=True, mull=(2, 4 if hh > 4 else 3))
+                        if side != 'back':           # (v23) where the Meshy lodge windows go on the outside: [x, y centre, z, facing, w, h]
+                            c_ = (wm @ np.array([0, 0, 0, 1]))[:3]; o_ = {'front': (0, 1, 0), 'east': (1, 0, 90), 'west': (-1, 0, 270)}[side]
+                            L.setdefault('ext_windows', []).append([round(float(c_[0]), 3), round(float(c_[1]), 3), round(float(c_[2]), 3), o_[2], hw, hh])
                 if sp and sp[0] == 'brace':           # an X of rough timbers across a blank bay, standing proud of the wall
                     for (a, b) in (((0.3, 0.4), (ln - 0.3, h - 0.5)), ((0.3, h - 0.5), (ln - 0.3, 0.4))):
                         pa = (mm0 @ np.array([a[0], a[1], 0.32, 1]))[:3]; pb = (mm0 @ np.array([b[0], b[1], 0.32, 1]))[:3]
@@ -433,7 +460,24 @@ def stairs():
             tube(shell, 'pale', pts, 0.05, 8)
             for p in pts: box(shell, 'dark', 0.1, 1.0, 0.1, m=T(p[0], p[1] - 0.5, p[2]))
             tube(shell, 'pale', [(xd, ym + (y1 - ym) * t + 1.0, SW['z1'] + (SW['z0'] - SW['z1']) * t) for t in np.linspace(0, 1, 7)], 0.05, 8)
-            collider_box(col, 0.2, (y1 - y0) + 1.2, SW['z1'] - SW['z0'], T(xd, (y0 + y1) / 2 + 0.6, (SW['z0'] + SW['z1']) / 2))
+            # the rail between the two flights: a collider only as tall as the rail (owner: players can hop over it), one per flight
+            for (ya, yb, za_, zb_) in ((y0, ym, SW['z0'], SW['z1']), (ym, y1, SW['z1'], SW['z0'])):
+                ln_ = math.hypot(zb_ - za_, yb - ya); ang_ = math.degrees(math.atan2(yb - ya, zb_ - za_))
+                collider_box(col, 0.2, 1.05, ln_, M(T(xd, (ya + yb) / 2 + 0.525, (za_ + zb_) / 2), Rx(-ang_)))
+        # the back of the stair tower (z = zm, behind the half landings): a solid wall all the way up (owner: people walked off and fell)
+        ramp_y = [(c[0] + c[1]) / 2 for c in cycles() if c[0] < FL['cards'] - 0.1 and c[1] > FL['gallery'] + 0.1][0]
+        zb0 = SW['zm'] + 0.12
+        p0, p1 = ((s * SW['xo'], zb0), (s * SW['xi'], zb0)) if s > 0 else ((s * SW['xi'], zb0), (s * SW['xo'], zb0))
+        for k in range(NS):
+            y0, h = YS[k], YS[k + 1] - YS[k]
+            in_hall = KEYS[k] == 'hall'
+            spans = [(y0, h)]
+            if s > 0 and y0 < ramp_y < y0 + h:              # leave a doorway where the ramp from the Hall of Fakes reaches the landing
+                spans = [(y0, ramp_y - y0), (ramp_y + 3.2, y0 + h - ramp_y - 3.2)]
+            for (ya, hh) in spans:
+                if hh < 0.2: continue
+                rustic_wall(p0, p1, ya, hh, [], battens=not in_hall, plates=not in_hall)
+                collider_box(col, abs(SW['xo'] - SW['xi']), hh, 0.45, T(s * (SW['xo'] + SW['xi']) / 2, ya + hh / 2, zb0))
         xa = s * SW['xi']
         for k in range(NS + 1):
             y0 = YS[k]; h = (YS[k + 1] - y0) if k < NS else 4.0
@@ -468,7 +512,7 @@ def roof():
     pent(y + 1.4, y - 2.2, 3.4)                     # the big mansard skirt
     # dormers sitting on the skirt along the front and back
     for side, zs in (('front', 1), ('back', -1)):
-        for x in (-33.0, -22.0, 22.0, 33.0):
+        for x in ((-33.0, 33.0) if zs > 0 else (-33.0, -22.0, 22.0, 33.0)):     # (v23) the front's middle dormers make way for the gables
             zc = zs * (Z1 + 1.4); yb = y - 0.9
             mm = M(T(x, yb, zc), Ry(0 if zs > 0 else 180))
             rustic_wall_local(mm, 2.8, 2.6)
@@ -556,6 +600,69 @@ def roof():
     cyl(shell, 'iron', 0.1, 9.0, 6, m=T(cx, top + 9.0, cz))
     sphere(shell, 'glow', 0.45, 12, 8, m=T(cx, top + 18.2, cz))
     L['steeple_top'] = top + 18.2; L['nest'] = [cx, top + 1.5, cz]
+
+def gable_spots():
+    """(v23) three swamp-timber gables along the front roof edge (Meshy models placed by outside.py); here only where they stand + colliders.
+    The owner turned down the castle look (turrets, iron spires) - these are rustic bayou-lodge gables."""
+    y = YS[NS]; L['gables'] = []
+    for (gx, gw) in ((0.0, 16.0), (-22.0, 11.0), (22.0, 11.0)):
+        gd = gw * 0.75
+        L['gables'].append([gx, y, Z1 - 0.3, gw])
+        collider_box(col, gw * 0.9, gw * 0.45, gd * 0.8, T(gx, y + gw * 0.225, Z1 - 0.3 - gd * 0.45))
+
+def gothic_front_unused():
+    """(v23, owner's concept) a gothic roofline on the front: three steep gables with tall pointed glowing windows, carved bargeboards and
+    iron spires; slender octagonal turrets with tall cone roofs between them and at the corners; moss trailing off every edge"""
+    y = YS[NS]; zf = Z1 - 0.2
+    def slope(P, mat='shingle'):
+        P = np.array(P); nrm = np.cross(P[1] - P[0], P[3] - P[0]); nrm /= np.linalg.norm(nrm); idx = [0, 1, 2, 0, 2, 3]
+        if nrm[1] < 0: nrm = -nrm; idx = [0, 2, 1, 0, 3, 2]
+        wl = np.linalg.norm(P[1] - P[0]); dl = np.linalg.norm(P[3] - P[0])
+        shell.add(mat, P, [nrm] * 4, [[0, 0], [wl / 3, 0], [wl / 3, dl / 3], [0, dl / 3]], idx, col=tint(rng, 0.1, 0.85))
+        shell.add('dark', P - nrm * 0.1, [-nrm] * 4, [[0, 0], [1, 0], [1, 1], [0, 1]], idx[::-1])
+    def spire(x, yb, z, h, r=0.12):
+        lathe(shell, 'iron', [(r * 2.2, yb), (r * 1.4, yb + 0.25), (r * 1.6, yb + 0.5), (r, yb + 0.7), (r * 0.6, yb + h * 0.75), (0.0, yb + h)], 8, m=T(x, 0, z))
+        sphere(shell, 'glow', r * 2.0, 8, 6, m=T(x, yb + h * 0.55, z))
+    for (gx, gw, gd) in ((0.0, 15.0, 9.0), (-23.0, 10.0, 7.0), (23.0, 10.0, 7.0)):
+        hw = 3.2; ha = gw * 0.85                                  # wall height, then a steep triangle
+        mm = M(T(gx, y, zf), Ry(0))
+        rustic_wall_local(mm, gw, hw)
+        x = -gw / 2                                               # the triangle, boarded vertically
+        while x < gw / 2 - 0.02:
+            bw = min(gw / 2 - x, rng.uniform(0.22, 0.4)); xc = x + bw / 2
+            top = hw + ha * (1 - abs(xc) / (gw / 2))
+            if top - hw > 0.05: box(shell, 'plank', bw - 0.015, top - hw, 0.08, m=M(mm, T(xc, hw + (top - hw) / 2, 0)), col=tint(rng, 0.22), uvs=3.0, faces='zZ')
+            x += bw
+        ww = gw * 0.26; wh = (hw + ha) * 0.62                     # a tall pointed glowing window
+        window(shell, ww, wh, M(mm, T(0, hw * 0.45 + wh / 2, 0.06)), rng, shutters=False, mull=(2, 4), arch=True)
+        for sx in (-1, 1):
+            window(shell, ww * 0.55, wh * 0.45, M(mm, T(sx * gw * 0.33, hw * 0.4 + wh * 0.22, 0.06)), rng, shutters=False, mull=(1, 3), arch=True)
+        apex = (gx, y + hw + ha, zf); back = zf - gd
+        for sx in (-1, 1):                                        # the two roof slopes, running back
+            e0 = (gx + sx * (gw / 2 + 0.5), y + hw - 0.35, zf + 0.5)
+            slope([[e0[0], e0[1], e0[2]], [apex[0], apex[1] + 0.3, zf + 0.5], [apex[0], apex[1] + 0.3, back], [e0[0], e0[1], back]])
+            # carved bargeboard along the gable edge, moss trailing off it
+            pts = [(gx + sx * (gw / 2 + 0.5) * (1 - t), y + hw - 0.35 + (ha + 0.65) * t, zf + 0.55) for t in np.linspace(0, 1, 7)]
+            tube(shell, 'dark', pts, 0.16, 6)
+            for t in np.linspace(0.1, 0.9, 6):
+                q = (gx + sx * (gw / 2 + 0.5) * (1 - t), y + hw - 0.5 + (ha + 0.65) * t, zf + 0.6); hh = rng.uniform(0.6, 2.2)
+                tube(shell, 'moss', [q, (q[0] + rng.uniform(-0.1, 0.1), q[1] - hh / 2, q[2] + 0.05), (q[0], q[1] - hh, q[2])], 0.06, 4, radii=[0.12, 0.07, 0.02])
+            spire(gx + sx * (gw / 2 + 0.4), y + hw - 0.3, zf + 0.5, 3.4, 0.1)        # pinnacles at the eaves
+        for sx in (-1, 1):                                        # side walls under the slopes (closing the gable)
+            P = np.array([[gx + sx * gw / 2, y, zf], [gx + sx * gw / 2, y, back], [gx + sx * gw / 2, y + hw, back], [gx + sx * gw / 2, y + hw, zf]])
+            shell.add('plank', P, [[sx, 0, 0]] * 4, np.c_[P[:, 2] / 0.35, P[:, 1] / 3.0], [0, 1, 2, 0, 2, 3] if sx < 0 else [0, 2, 1, 0, 3, 2])
+        spire(gx, apex[1] + 0.2, zf + 0.5, gw * 0.42, 0.16)      # the iron spire on the apex
+        collider_box(col, gw, hw + ha * 0.5, gd, T(gx, y + (hw + ha * 0.5) / 2, zf - gd / 2))
+    for (tx, rr, th) in ((-12.5, 1.3, 9.0), (12.5, 1.3, 9.0), (-X1 + 1.6, 1.8, 11.0), (X1 - 1.6, 1.8, 11.0), (-31.5, 1.1, 7.5), (31.5, 1.1, 7.5)):
+        tz = zf - rr - 0.2
+        lathe(shell, 'plank', [(rr, y), (rr, y + th)], 8, m=M(T(tx, 0, tz), Ry(22.5)), uvs_u=3, smooth=False)
+        for yy in (y + 0.2, y + th * 0.5, y + th - 0.2): lathe(shell, 'dark', [(rr + 0.08, yy - 0.12), (rr + 0.08, yy + 0.12)], 8, m=M(T(tx, 0, tz), Ry(22.5)), smooth=False)
+        for a in range(0, 360, 90):
+            window(shell, rr * 0.55, th * 0.3, M(T(tx + (rr + 0.02) * math.sin(math.radians(a)), y + th * 0.62, tz + (rr + 0.02) * math.cos(math.radians(a))), Ry(a)), rng, shutters=False, mull=(1, 2), arch=True)
+        lathe(shell, 'shingle', [(rr + 0.45, y + th), (rr * 0.7, y + th + th * 0.35), (0.0, y + th + th * 0.95)], 8, m=M(T(tx, 0, tz), Ry(22.5)), smooth=False)
+        spire(tx, y + th + th * 0.9, tz, 2.6, 0.08)
+        tube(shell, 'moss', [(tx + (rr + 0.4) * math.sin(math.radians(a)), y + th - 0.1, tz + (rr + 0.4) * math.cos(math.radians(a))) for a in range(0, 361, 30)], 0.13, 5)
+        collider_box(col, rr * 2, th, rr * 2, T(tx, y + th / 2, tz))
 
 def rustic_wall_local(mm, w, h):
     x = -w / 2
@@ -653,7 +760,7 @@ def neon():
         pass
 
 if __name__ == '__main__':
-    porch(); boardwalk(); walls(); belts(); balconies(); shacks(); slabs(); stairs(); roof(); portico()
+    porch(); boardwalk(); walls(); belts(); balconies(); shacks(); slabs(); stairs(); roof(); gable_spots(); portico()
     print('shell', write(OUT + 'sp_shell.glb', shell, MATS))
     print('col', write(OUT + 'sp_shell_col.glb', col, MATS))
     print('walk', write(OUT + 'sp_boardwalk.glb', walkm, MATS))

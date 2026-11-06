@@ -81,6 +81,8 @@ for (x, z) in [(-62, -8), (62, -8), (-50, 78), (50, 78), (0, -70)]: dz('fireflie
 for (x, z, ry) in [(0, -45, 0), (-62, 30, 90), (62, 30, 270)]: dz('mist', x, 0.0, z, ry)
 for (x, z) in [(-7.2, 36.0), (7.2, 36.0)]: dz('mwx_brazier', x, FL['lounge'], z, 0, 0.75)
 for sx in (-1, 1): dz('mwx_brazier', sx * 5.6, L['walk']['y1'], L['walk']['z1'] - 1.5, 0, 0.6)
+# (v23, owner) the goblet braziers burn: [x, top of the bowl, z, bowl radius] for the game's animated fire
+D['fireBowls'] = [[e[1], r(e[2] + 4.55 * e[5]), e[3], round(1.5 * e[5], 3)] for e in DECO if e[0] == 'mwx_brazier']
 y2 = FL['hall'] + 0.05                             # jar lanterns hanging from the Floor 2 pent-roof eaves all round
 for x in [-37.1 + 10.6 * k for k in range(8)]:
     if abs(x) > 0.5 or True: dz('mwm_jarlantern', x, y2, L['Z1'] + 2.0, 0); dz('mwm_jarlantern', x, y2, -L['Z1'] - 2.0, 0)
@@ -133,7 +135,7 @@ for (x0, z0, y0, x1, z1, y1, ax, wc) in F2['runs']:      # every run of the wind
     for k in range(n):
         t = (k + 0.5) / n; x = x0 + (x1 - x0) * t; z = z0 + (z1 - z0) * t; y = y0 + (y1 - y0) * t
         bio['floor'].append([r(x), r(y + 0.1), r(z), 4.0, r(ln / n), round(hd, 1), wave(x, z), int(rg.uniform(6500, 9000))])
-        if k % 2 == 0:                                   # glowing vines on the wall above the portraits
+        if False:                                        # (v23) no glowing vines on the portrait walls: they overlapped the upper row
             if ax == 'z': wx, wz, wry = x, wc - math.copysign(0.09, wc), (180 if wc > 0 else 0)
             else: wx, wz, wry = wc - math.copysign(0.09, wc), z, (270 if wc > 0 else 90)
             bio['wall'].append([r(wx), r(y + 4.25), r(wz), 5.5, 2.2, wry, wave(x, z), int(rg.uniform(7000, 10000))])
@@ -167,9 +169,10 @@ for (n, rad, y, rx, rz, per, sc) in ((34, 78.0, 56.0, 7.0, -4.0, 300000, 9.0), (
 D['galaxy'] = gal
 # ---- THE SHOW (swamp magic): the swamp night sky, the giant floating Mudwater pack, moonlight through the mist, will-o'-wisps drifting
 # over the water, sky lanterns rising, clouds of fireflies, a glowing bayou rune circle round the island and rings round the steeple
-fx = dict(sky=['mw_sky', 0.0, 0.0, 20.0, 3.0], pack=[0.0, 90.0, 4.0, 4.0], moon=[], wisps=[], lanterns=[], runes=[], motes=[])
+fx = dict(sky=['sp_sky', 0.0, 0.0, 20.0, 1.0], pack=[0.0, 90.0, 4.0, 4.0], moon=[], wisps=[], lanterns=[], runes=[], motes=[])
 fx['packRings'] = [['fx_ring_gold', 0.0, 19.0, 72.0, 0.0, 26000], ['fx_ring_teal', 0.0, 24.0, 18.0, 10.0, 34000]]
 fx['packBeam'] = ['mwm_diskbeam_t', 0.0, FL['roof'] + 0.5, 4.0, 7.0, 8.5]
+fx['moonDisc'] = [-226.7, 264.7, -231.8, 42.0, 38.0, 105.0]      # (v23) the golden crescent: x, y, z, turn, tilt, size (m) - up and left of the building as you walk in
 fx['moon'] = [[-62.0, 0.0, 58.0, -14.0, 8.0, 16.0, 150.0], [64.0, 0.0, -28.0, 10.0, -12.0, 14.0, 140.0]]
 for k in range(70):
     a = rg.uniform(0, 360); rad = rg.uniform(50, 125)

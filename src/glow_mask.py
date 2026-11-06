@@ -26,6 +26,7 @@ def glow(src, dst, strength=0.9, preview=None):
     lum = a.mean(-1)
     if MODE == 'teal': m = (g > 0.45) & (bl > 0.4) & (g > r * 1.25) & (bl > r * 1.2)        # cyan / teal crystals
     elif MODE == 'gold': m = (r > 0.6) & (g > 0.42) & (r > bl * 1.6) & (lum > 0.42)           # gold leaf, glowing edges
+    elif MODE == 'pane': m = (r > 0.5) & (g > 0.38) & (r >= g * 0.98) & (g > bl * 1.05) & (lum > 0.4)     # (v23) warm lit window glass: the whole pane
     else: m = (r > 0.55) & (r > g * 1.08) & (g > bl * 1.12) & (lum > 0.45) & (g > 0.38)     # light peach / orange caps
     mask = Image.fromarray((m * 255).astype(np.uint8)).filter(ImageFilter.MaxFilter(3)).filter(ImageFilter.GaussianBlur(1.5))
     mk = np.asarray(mask).astype(np.float32)[..., None] / 255
