@@ -26,7 +26,7 @@
 | Lounge (1) | 3.0 | bar, fireplace, waterfalls, booths, card tables, stage band, pond, Kodas, **pool tables** | done; see §5 for open bugs |
 | Hall of Fakes (2) | 10.5 | find the real card among 400 portraits, 4 rounds, finals vault | **done, game 1** |
 | Gallery | 24.9 | ramp/balcony over the hall | done |
-| Cards (3) | 32.0 | **Mud Royale** (game 2) | **built + bot-tested in v34**; floor still needs its decoration pass |
+| Cards (3) | 32.0 | **Mud Royale** (game 2) | built + bot-tested (v34-v37), floor dressed to lounge standard (v39) |
 | Rooms (4+) | 40.0 | **Mudroom Escape** (game 3) | **NOT BUILT** |
 | Roof | 51.0 | grand finale photo terrace + light-curtain backdrop + fireworks + paintable art wall | done (v33) |
 
@@ -34,7 +34,7 @@
 | Where | Version | What |
 |---|---|---|
 | branch `main` | v13 | the old LIVE build. Untouched. Push to main ONLY when the owner says. |
-| branch **`handoff-v14`** | **v38** | everything from sessions 6–11. This is what the owner tests. |
+| branch **`handoff-v14`** | **v39** | everything from sessions 6–11. This is what the owner tests. |
 
 The owner's files load assets from `https://raw.githubusercontent.com/dinopawnz/spire/handoff-v14/` (baked into spire.html by `build_html.py`), so **assets must be pushed to `handoff-v14` before the owner's HTML works.** Remote PIN: **7747**, then press LIVE BUILD.
 
@@ -189,7 +189,10 @@ Raised dark-timber photo stage with steps, Meshy photo arch (8 m) with the Mudwa
 - **Kodas 6833 + 2168** (owner's; downloaded from storage.googleapis.com, which the owner allow-listed this session). `koda_rig.py` new clips: `idle` (standing: weight shift, breathing, looking round) and `cigar`. **6833** walks a waypoint loop (`D.kodaPaths`: turn to face the next corner, walk at 0.45 m/s) through the open floor between the island bar and the front seating ((-7,17) (14,17) (14,27) (-7,27)); **2168** stands at (45.2, 7.75) between the pool tables, facing them. Owner: "ill add more later that can walk around the first floor or be standing around in empty spaces".
 - **Guest ape #6136** (owner uploaded the GLB; NOT one of the hosts' apes - "just an ape lounging around... smoking a cigar"): 87 MB upload -> `sp_ape_6136.glb` 3.9 MB (textures 512). Same UE5 skeleton as the Kodas, so koda_rig works. Clip `cigar` (12 s): sitting back (knees bent 80 deg - he's tall), cigar hand on the armrest, raised to the mouth at 6.2-7.6 s (arm angles from a reach search: `CIGAR_UP`), leans back to blow at ~9 s. Cigar = `sp_cigar.glb` (leaf, gold band, ash, glowing ember) merged as a skinned prop on `hand_r`. Seated in the free fireside armchair (26.2, 37.5), scale 0.9. `D.loungers` = [file, x, y, z, ry, scale, mouth xyz, period, blowAt]; the model's `anim-start-time` is 0 so the JS can time the smoke: 4 grey spheres puff up from his mouth each cycle. The raw upload is NOT in the repo (too big); keep `sp_ape_6136.glb`.
 - **Text audit (owner: "text brings frame rate down, images don't")**: `viewer/textaudit.py` counts m-labels after the build: **0**. The art-wall name board is a picture (`aw_sign`) until the first name is signed; the Mud Royale MVP name labels (4) disappear after 30 s; the Hall of Fakes finals list is the only other label (end of game). Keep it that way: every new sign/word must be a sprite (`sprites.py`).
-- NEXT for floor 3: decoration pass to lounge standard (owner: "every floor must keep the same standard as the first floor") - it's dark and bare apart from the arena: lantern rings + warm light pools, Mudwater banners, framed cards on the walls, spectator benches/bleachers, plants, moss on beams.
+### v39 (session 11): floor 3 dressed to the lounge's standard
+`royale.decor()` -> `sp_royale_decor.glb` (string lights under the whole ceiling, 12 Mudwater banners, gold frames, light pools, 46 puddles) + sdeco (8 Meshy trees `sp_mtree_1/2` with collider pads, 4 Chesterfield lounges with fanned Mudwater hands + barrel, 4 card tables dealt with real cards + armchairs, 60 iron lanterns) + `D.chand3` (16 lantern rings over the pens, seating and board; JS concat in the ring block) + `D.royale.art` (7 framed cards on plain wall panels as m-images `royale/w_NNN.jpg`, never over windows - uses `ext_windows`). About +470k triangles, but the trees/furniture/lanterns are the lounge's own models (already downloaded); only the 7 MB decor GLB is new. Pen flags glow toned down (0.12).
+- Possible next looks items: the team pens read a bit like boxing rings (owner asked what the "gator ring" was) - offer a restyle (timber platform / moss-and-lantern clearing).
+- (old note) NEXT for floor 3: decoration pass to lounge standard (owner: "every floor must keep the same standard as the first floor") - it's dark and bare apart from the arena: lantern rings + warm light pools, Mudwater banners, framed cards on the walls, spectator benches/bleachers, plants, moss on beams.
 
 ### Tests that pass on v32
 `chrometest.py simtest.js` → ERRORS none · `bandtest.js` (instruments off blocks sounds) · `musictest.js` (13 speakers in sync, next/off/on, 6 Kodas animated, frogs croak on click) · `pooltest.js` (break shot works).

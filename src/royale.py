@@ -111,7 +111,7 @@ def team_mat(rgb, glow=0.25):
 
 def pens_glb(m, mats, Y):
     for ti, (_, _, _, rgb) in enumerate(TEAMS):
-        mats['team%d' % ti] = team_mat(rgb, 0.35)
+        mats['team%d' % ti] = team_mat(rgb, 0.12)          # (v39) less glow: the flags read as cloth, not washed out
     for ti, (px, pz, ry) in enumerate(PENS):
         W_ = M(T(px, 0, pz), Ry(ry))
         L_ = lambda x, y, z: M(W_, T(x, y, z))
@@ -192,6 +192,124 @@ def hands_glb(m, mats, Y):
             tube(m, 'iron', [tuple(top), (top[0], Y + 7.95, top[2])], 0.03, 5)
 
 
+# ---------------------------------------------------------------- (v39) FLOOR 3 DRESSED TO THE LOUNGE'S STANDARD (owner: "every floor
+# still maintains the same standard as the first floor in terms of looks and beauty"). The same pieces as the lounge, laid out round the
+# arena: string lights under the whole ceiling, iron lanterns + lantern rings (over the pens, the seating and the board), warm light pools
+# on the floor, glossy puddles, green Mudwater banners, framed Mudwater cards on the plain wall panels, giant Meshy swamp trees, and
+# spectator lounges (Chesterfield sofa groups with a fanned Mudwater hand on the coffee table, card tables dealt with real Mudwater cards).
+TEX = '/home/claude/spire/tex/'
+TREES3 = [(-40.0, 24.0), (40.0, 24.0), (-40.0, -24.0), (40.0, -24.0), (-14.0, 37.5), (14.0, 37.5), (-14.0, -37.5), (14.0, -37.5)]
+SOFAS3 = [(-44.0, 31.5), (44.0, 31.5), (-30.0, -37.0), (30.0, -37.0)]
+CARDS3 = [(-44.0, -17.0), (44.0, -17.0), (-44.0, 17.0), (44.0, 17.0)]
+RINGS3 = [[0.0, -29.0, 0.9], [0.0, 29.0, 0.9], [-33.0, 0.0, 0.9], [33.0, 0.0, 0.9], [-9.0, -9.0, 0.8], [9.0, -9.0, 0.8], [-9.0, 9.0, 0.8], [9.0, 9.0, 0.8],
+          [-44.0, 31.5, 0.8], [44.0, 31.5, 0.8], [-30.0, -37.0, 0.8], [30.0, -37.0, 0.8], [-44.0, -17.0, 0.7], [44.0, -17.0, 0.7], [-44.0, 17.0, 0.7], [44.0, 17.0, 0.7]]
+def decor(D, L, FL):
+    import random
+    Y = FL['cards']; CEIL = FL['rooms']; X1, Z1 = L['X1'], L['Z1']; rng = random.Random(3132)
+    m = Mesh(); mats = dict(MATS)
+    for n_, r_ in (('dec_puddle1', 0.12), ('dec_puddle2', 0.12), ('dec_puddle3', 0.14)):
+        mats[n_] = dict(tex=TEX + n_ + '.png', emis_tex=TEX + n_ + '.png', emis=(0.2, 0.15, 0.1), alpha='BLEND', rough=r_, metal=0.0)
+    mats['pool'] = dict(tex=TEX + 'pool.png', emis_tex=TEX + 'pool.png', emis=(1.0, 0.62, 0.26), alpha='BLEND', rough=0.2)
+    mats['banner'] = dict(tex=TEX + 'banner_mw.jpg', rough=0.9, double=True)
+    from glb import quad, lathe
+    sd = D.setdefault('sdeco', [])
+    def busy(x, z, pad=0.0):                                   # the arena, the pens, the corner signs, the lift lobbies and the stair doors
+        if abs(x) < B + FRAME + 1.5 + pad and abs(z) < B + FRAME + 1.5 + pad: return True
+        if any(math.hypot(x - px, z - pz) < 7.5 + pad for (px, pz, _) in PENS): return True
+        if any(math.hypot(x - sx * CORNER, z - sz * CORNER) < 4.5 + pad for sx in (-1, 1) for sz in (-1, 1)): return True
+        if abs(x) > X1 - 13 and z < -Z1 + 17: return True                      # lift lobbies
+        if abs(x) > X1 - 16 and abs(z) < 10.5: return True                     # stair doors
+        return False
+    # string lights criss-crossing under the whole ceiling
+    yc = CEIL - 0.62
+    ends = [((x, -Z1 + 3), (-x * 0.6, Z1 - 3)) for x in np.linspace(-X1 + 8, X1 - 8, 11)] + [((-X1 + 8, z), (X1 - 8, -z * 0.5)) for z in np.linspace(-Z1 + 6, Z1 - 6, 7)]
+    for (a, b) in ends:
+        a = np.array(a); b = np.array(b); ln = np.linalg.norm(b - a); n = int(ln / 6)
+        for s_ in range(n):
+            p0 = a + (b - a) * s_ / n; p1 = a + (b - a) * (s_ + 1) / n
+            pts = [(p0[0] + (p1[0] - p0[0]) * u, yc - 0.7 * math.sin(math.pi * u), p0[1] + (p1[1] - p0[1]) * u) for u in np.linspace(0, 1, 8)]
+            tube(m, 'dark', pts, 0.012, 3)
+            for q in pts[1:-1]: sphere(m, 'glow', 0.07, 5, 3, m=T(q[0], q[1] - 0.08, q[2]))
+    # green Mudwater banners on iron rods round the arena
+    for (x, z, ry) in [(-15, -31, 0), (15, -31, 0), (-15, 31, 180), (15, 31, 180), (-35, -14, 90), (-35, 14, 90), (35, -14, -90), (35, 14, -90),
+                       (-52, 31, 90), (52, 31, -90), (-50, -16, 90), (50, -16, -90)]:
+        mm = M(T(x, CEIL - 0.7, z), Ry(ry)); w, h = 1.6, 4.0
+        P = np.array([[-w / 2, 0, 0], [w / 2, 0, 0], [w / 2, -h, 0], [0, -h - 0.6, 0], [-w / 2, -h, 0]])
+        U = [[0, 0], [1, 0], [1, h / (h + 0.6)], [0.5, 1], [0, h / (h + 0.6)]]
+        for side, nz in ((0, 1), (1, -1)):
+            I = [0, 4, 1, 1, 4, 2, 2, 4, 3] if side == 0 else [0, 1, 4, 1, 2, 4, 2, 3, 4]
+            Pw = [(mm @ np.array([p[0], p[1], p[2] + nz * 0.01, 1.0]))[:3] for p in P]
+            m.add('banner', Pw, [list((mm @ np.array([0, 0, nz, 0.0]))[:3])] * 5, U, I)
+        tube(m, 'iron', [tuple((mm @ np.array([-(w + 0.4) / 2, 0.05, 0, 1.0]))[:3]), tuple((mm @ np.array([(w + 0.4) / 2, 0.05, 0, 1.0]))[:3])], 0.04, 8)
+        tube(m, 'iron', [(x, CEIL - 0.65, z), (x, CEIL - 0.45, z)], 0.012, 3)
+    # framed Mudwater cards on the plain wall panels (never over a window - owner), plus the stair-tower walls facing the room
+    wins = [(w[0], w[2], w[3]) for w in L.get('ext_windows', []) if Y < w[1] < CEIL]
+    def clear(sd_, x, z):
+        if sd_ in ('front', 'back'): return all(abs(x - wx) > 2.8 for (wx, wz, f) in wins if abs(wz - z) < 1.0)
+        return all(abs(z - wz) > 2.8 for (wx, wz, f) in wins if abs(abs(wx) - abs(x)) < 1.0)
+    art = []; cards = iter([62, 100, 5, 14, 26, 27, 28, 31, 32, 35, 37, 39, 42, 43, 44, 47, 48, 50, 51, 53, 54, 55, 56, 58, 60, 63, 64, 65, 66, 68, 70, 71, 72, 74, 75, 77])
+    def frame(x, z, ry, n):
+        w, h = 1.6, 2.22; mm = M(T(x, Y + 3.1, z), Ry(ry))
+        bevel_box(m, 'gold', w + 0.28, h + 0.28, 0.06, 0.02, m=mm)
+        box(m, 'brass', 0.5, 0.04, 0.16, m=M(mm, T(0, h / 2 + 0.32, 0.05))); sphere(m, 'glow', 0.06, 8, 6, m=M(mm, T(0, h / 2 + 0.38, 0.12)))
+        p = mm @ np.array([0, 0, 0.065, 1.0]); art.append([n, round(float(p[0]), 3), round(float(p[1]), 3), round(float(p[2]), 3), ry, w, h])
+    for (sd_, x, z, kind) in L.get('lounge_bays', []):
+        if kind not in ('', 'brace'): continue
+        if sd_ == 'front' and abs(x) > 6 and clear('front', x, z): frame(x, Z1 - 0.12, 180, next(cards))
+        if sd_ in ('west', 'east') and abs(z) > 11.0 and z > -27.0 and clear(sd_, (-X1 if sd_ == 'west' else X1), z):
+            frame(-X1 + 0.12 if sd_ == 'west' else X1 - 0.12, z, 90 if sd_ == 'west' else -90, next(cards))
+    for zz in (-3.0, 3.0):
+        frame(-L['sw']['xi'] + 0.25, zz + (7.0 if zz > 0 else -7.0), 90, next(cards)); frame(L['sw']['xi'] - 0.25, zz + (7.0 if zz > 0 else -7.0), -90, next(cards))
+    # giant Meshy swamp trees (the lounge's trunks; colliders so nobody walks through them)
+    for i, (x, z) in enumerate(TREES3):
+        sd.append(['sp_mtree_%d' % (1 + i % 2), x, round(Y + (0.946 if i % 2 == 0 else 0.951) * 4.0 - 0.08 + 0.25, 3), z, (i * 67 + 20) % 360, 4.0])
+        D.setdefault('pads', []).append([x, Y + 3.5, z, 2.6, 7.0, 2.6, 0])
+    # spectator lounges: Chesterfields round a coffee table with a fanned Mudwater hand; card tables dealt with real Mudwater cards
+    dy = Y - 3.0
+    for (cx, cz) in SOFAS3:
+        sd += [['sp_m_sofa', cx, 3.52 + dy, cz - 2.3, 0.0, 1.47], ['sp_m_sofa', cx, 3.52 + dy, cz + 2.3, 180.0, 1.47],
+               ['sp_m_sofa', cx - 2.9, 3.41 + dy, cz, 90.0, 1.16], ['sp_m_sofa', cx + 2.9, 3.41 + dy, cz, -90.0, 1.16],
+               ['sp_m_coffeetable', cx, 3.71 + dy, cz, 0.0, 1.16], ['sp_mw_fan_%d' % (int(cx > 0)), cx - 0.035, 3.897 + dy, cz + 0.092, 0.0, 1.0],
+               ['sp_m_barrel', cx + 4.4, 3.43 + dy, cz - 3.0, 0.0, 0.47]]
+        D['pads'] += [[cx, Y + 0.45, cz, 5.4, 0.9, 6.0, 0]]
+    for k, (cx, cz) in enumerate(CARDS3):
+        sd += [['sp_m_cardtable', cx, 3.86 + dy, cz, 162.9, 1.21], ['sp_mw_deal_%d' % (k % 4), cx, 4.692 + dy, cz, (k * 90) % 360, 1.0]]
+        for (ox, oz, ary) in ((1.17, 1.17, -135.0), (1.17, -1.17, -45.0), (-1.17, -1.17, 45.0), (-1.17, 1.17, 135.0)):
+            sd.append(['sp_m_armchair', cx + ox, 3.6 + dy, cz + oz, ary, 0.63])
+    # iron lanterns hanging from the ceiling, and the warm pools of light they (and the rings) throw on the floor
+    lan = []
+    for _ in range(4000):
+        if len(lan) >= 60: break
+        x, z = rng.uniform(-X1 + 6, X1 - 6), rng.uniform(-Z1 + 4, Z1 - 4)
+        if abs(abs(x) - (B + FRAME + 0.6)) < 2.2 and abs(z) < B + 6 or abs(abs(z) - (B + FRAME + 0.6)) < 2.2 and abs(x) < B + 6: continue   # the hand boards
+        if any(math.hypot(x - tx, z - tz) < 3.6 for tx, tz in TREES3) or any(math.hypot(x - c[0], z - c[1]) < 3.6 for c in RINGS3): continue
+        if all(math.hypot(x - q[1], z - q[3]) > 4.0 for q in lan):
+            lan.append(['sp_lantern_' + 'abc'[rng.randint(0, 2)], round(x, 2), CEIL - 0.5, round(z, 2), round(rng.uniform(0, 60), 1), 1.0])
+    sd += lan
+    def pool(x, z, r, a, rot, y=Y + 0.02):
+        quad(m, 'pool', 2 * r, 2 * r, M(T(x, y, z), Ry(rot), Rx(-90)), col=(1, 1, 1, a))
+    for f, x, y, z, ry, s_ in lan:
+        if busy(x, z): continue
+        k = 'abc'.index(f[-1]); pool(x, z, (1.5, 1.8, 2.1)[k], (0.32, 0.42, 0.55)[k], ry * 6)
+    for x, z, s_ in RINGS3:
+        if abs(x) < B and abs(z) < B: continue
+        pool(x, z, 4.3 * s_, 0.55, x * 7 + z, y=Y + 0.16 if any(math.hypot(x - px, z - pz) < 1 for (px, pz, _) in PENS) else Y + 0.02)
+    # glossy puddles on the planks round the arena (5 mm apart so they never flicker)
+    placed = []
+    for k in range(46):
+        for _ in range(60):
+            x, z = rng.uniform(-X1 + 5, X1 - 5), rng.uniform(-Z1 + 3, Z1 - 3)
+            if busy(x, z, 1.0) or any(math.hypot(x - tx, z - tz) < 4.5 for tx, tz in TREES3 + SOFAS3 + CARDS3): continue
+            if all(math.hypot(x - px, z - pz) > 3.0 for px, pz in placed): break
+        placed.append((x, z)); sz = rng.uniform(2.0, 4.0)
+        quad(m, ['dec_puddle1', 'dec_puddle2', 'dec_puddle1', 'dec_puddle3'][k % 4], sz, sz * rng.uniform(0.75, 1.0), M(T(x, Y + 0.008 + 0.005 * (k % 3), z), Ry(rng.uniform(0, 360)), Rx(-90)))
+    write(OUTG + 'sp_royale_decor.glb', m, mats)
+    D.setdefault('roofModels', []).append(['sp_royale_decor', 0, 0, 0])
+    D['chand3'] = RINGS3
+    D['royale']['art'] = art
+    return art
+
+
 def apply(D, L, FL):
     Y = FL['cards']
     card_images()
@@ -216,4 +334,9 @@ def apply(D, L, FL):
         cards=[[cards[str(k)]['t'], cards[str(k)]['l'], cards[str(k)]['r'], cards[str(k)]['b']] for k in range(1, 121)],
         secs=180, hand=5, refill=10, signs=signs,
     )
+    art = decor(D, L, FL)
+    for (n_, *_r) in art:                                                  # plain (no badge) card art for the wall frames
+        dst = OUT + 'royale/w_%03d.jpg' % n_
+        if not os.path.exists(dst): Image.open(MW + 'mwc_%03d.jpg' % n_).convert('RGB').resize((288, 400), Image.LANCZOS).save(dst, quality=84, optimize=True)
+    print('royale decor: %d framed cards, %d trees, %d rings' % (len(art), len(TREES3), len(RINGS3)))
     print('royale: board %dx%d (%.1f m squares), %d pens, scoreboard, %d hand boards, %d cards' % (N, N, TS, len(PENS), len(D['royale']['hands']), 120))

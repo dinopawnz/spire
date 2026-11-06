@@ -299,7 +299,7 @@
       pad({ x: 0, y: L.porch - 0.15, z: (pb.zb + pb.zf) / 2, width: 2 * pb.x, height: 0.3, depth: pb.zf - pb.zb });
     }
     // the lounge's big lantern rings (timber hoops of iron lanterns, as in the owner's concept), swaying a touch
-    D.chand.map((c) => [c[0], c[1], L.f2 - 0.5, c[2] || 1]).concat(D.chand2.map((c) => [c[0], c[1], L.gallery - 0.5, c[2] || 1])).forEach(([x, z, y, s], i) => {
+    D.chand.map((c) => [c[0], c[1], L.f2 - 0.5, c[2] || 1]).concat(D.chand2.map((c) => [c[0], c[1], L.gallery - 0.5, c[2] || 1])).concat((D.chand3 || []).map((c) => [c[0], c[1], L.f4 - 0.5, c[2] || 1])).forEach(([x, z, y, s], i) => {
       const g = el("m-group", { x, y, z });
       anim(g, "rz", -1.2, 1.2, 5200 + i * 700, { pingPong: true, easing: "easeInOutSine", delay: i * 900 });
       model("sp_lantern_ring.glb", { collide: "false", sx: s, sy: s, sz: s }, g);
@@ -547,6 +547,7 @@
         slab.addEventListener("collisionstart", step); slab.addEventListener("collisionmove", step);
         penSlab[ti] = slab;
       });
+      (R.art || []).forEach(([n, x, y, z, ry, w, h]) => { el("m-image", { src: BASE + "royale/w_" + String(n).padStart(3, "0") + ".jpg" + VER, x, y, z, ry, width: w, height: h, emissive: 0.3, collide: "false", "cast-shadows": "false" })._global = true; });   // (v39) framed cards on the walls
       (R.signs || []).forEach(([x, y, z, ry]) => { model("sg_royale_rules.glb", { x, y, z, ry, collide: "false" })._global = true; });
       // ---- (v36) the four corner score signs at eye level (owner: no jumbotron, just see who's winning from signs round the board).
       // Each shows the clock and every team's squares (players before the start); the team in the lead gets a gold glow behind it.
