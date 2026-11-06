@@ -76,7 +76,9 @@
     target._tw = target._tw || {};
     const prev = target._tw[attr];
     if (prev) { cancel(prev.h); prev.a.remove(); }
-    target.setAttribute(attr, String(r3(from)));
+    // (v27, owner: lift doors stuck half open / one leaf open) the FINAL value is set right away: the animation only draws the
+    // movement on top of it, so a client that misses the animation's end still shows the door/cab where it really is
+    target.setAttribute(attr, String(r3(to)));
     const a = el("m-attr-anim", { attr, start: from, end: to, duration: Math.round(ms), loop: "false", easing: easing || "easeInOutCubic", "start-time": Math.round(now()) }, target);
     const rec = { a, to };
     rec.h = later(ms + 80, () => { if (target._tw[attr] !== rec) return; target.setAttribute(attr, String(r3(to))); a.remove(); delete target._tw[attr]; });
@@ -436,6 +438,47 @@
         const e = el("m-sphere", { x: -0.4 + 0.8 * ((k * 37) % 10) / 10, y: 0.3, z: -0.3 + 0.6 * ((k * 53) % 10) / 10, radius: 0.025, color: "#ff8a2a", emissive: 5, collide: "false", "cast-shadows": "false", "data-lite": "1" }, fg);
         const dur = 1700 + (k * 211) % 1200; anim(e, "y", 0.3, 3.0, dur, { delay: k * 260 }); anim(e, "opacity", 1, 0, dur, { delay: k * 260 });
       }
+    });
+    // ---------------------------------------------------- THE STAGE BAND: click the drums, piano keys, harp strings or the guitar to play.
+    // Each player can play one sound every 0.18 s, at most 10 sounds ring at once, and the host can switch the instruments off (trolls).
+    const BAND = { on: true, last: new Map(), live: 0, gk: 0 };
+    function bandPlay(inst, k, id, x, y, z) {
+      if (!BAND.on || id === undefined) return;
+      const t = now(); if (t - (BAND.last.get(id) || 0) < 180) return; BAND.last.set(id, t);
+      if (BAND.live >= 10) return;
+      const f = inst === "guitar" ? "band_guitar_" + (BAND.gk++ % 4) : "band_" + inst + "_" + k;
+      BAND.live++;
+      const a = el("m-audio", { src: BASE + f + ".mp3" + VER, x, y, z, loop: "false", volume: inst === "drum" ? 1.0 : 0.9, "start-time": Math.round(now()) });
+      later(3200, () => { a.remove(); BAND.live--; });
+    }
+    // the castle grand piano (every key) and harp (every string), each with its own recorded note
+    function notePlay(file, id, x, y, z) {
+      if (!BAND.on || id === undefined) return false;
+      const t = now(); if (t - (BAND.last.get("n" + id) || 0) < 90) return false; BAND.last.set("n" + id, t);
+      if (BAND.live >= 12) return false;
+      BAND.live++; const a = el("m-audio", { src: BASE + file + VER, x, y, z, loop: "false", volume: 0.9, "start-time": Math.round(now()) });
+      later(3500, () => { a.remove(); BAND.live--; }); return true;
+    }
+    if (D.bandPiano) D.bandPiano.keys.forEach(([x, y, z, w, d, midi]) => {
+      const t = el("m-cube", Object.assign({ x, y, z, ry: D.bandPiano.ry, width: w, height: 0.03, depth: d, collide: "true", "cast-shadows": "false" }, HIT));
+      t.addEventListener("click", (e) => {
+        if (!notePlay("piano_" + midi + ".mp3", e.detail && e.detail.connectionId, x, y + 0.3, z)) return;
+        const g = model("citadel_fx_keyglow.glb", { x, y: y + 0.02, z, ry: D.bandPiano.ry, sx: w * 1.3, sz: d * 1.1, collide: "false" }); later(300, () => g.remove());
+      });
+    });
+    if (D.bandHarp) D.bandHarp.strings.forEach(([x, y, z, len, midi]) => {
+      const ry = D.bandHarp.ry;
+      el("m-cube", { x, y: y + len / 2, z, ry, width: 0.012, depth: 0.012, height: len, color: "#e8a24a", collide: "false", "cast-shadows": "false" });
+      const t = el("m-cube", Object.assign({ x, y: y + len / 2, z, ry, width: 0.035, height: len, depth: 0.06, collide: "true", "cast-shadows": "false" }, HIT));
+      t.addEventListener("click", (e) => {
+        if (!notePlay("harp_" + midi + ".mp3", e.detail && e.detail.connectionId, x, y + len / 2, z)) return;
+        const s = model("citadel_fx_string.glb", { x, y, z, ry, sx: 0.3, sy: len, sz: 0.3, collide: "false" });
+        tween(s, "sx", 0.9, 0.25, 600, "easeOutQuad"); tween(s, "sz", 0.9, 0.25, 600, "easeOutQuad"); later(700, () => s.remove());
+      });
+    });
+    (D.bandHits || []).forEach(([x, y, z, w, h, d, ry, inst, k]) => {
+      const hb = hitBox({ x, y, z, width: w, height: h, depth: d, ry });
+      hb.addEventListener("click", (e) => bandPlay(inst, k, e.detail && e.detail.connectionId, x, y, z));
     });
     // CELEBRATE (host remote): warm firework bursts over the roof terrace for the finale photo
     function celebrate() {
@@ -1071,7 +1114,7 @@
         return { ph: H.ph, left: finals ? VT.length - H.vremoved.size : HL.length - H.removed.size, fin: H.fin.length, finMax: FINALISTS,
                  finalists: H.fin.map((id) => nameOf(pl(id))), ready: H.ph === "allfound", round: H.round, rounds: FINALISTS, auto: H.auto, nextIn: H.ph === "between" && H.nextAt ? Math.max(0, Math.ceil((H.nextAt - tn) / 1000)) : -1, inVault: H.fin.filter((id) => { const p = pl(id); return p.pos && Math.abs(p.pos.x) < D.room[0] && Math.abs(p.pos.z) < D.room[1] && Math.abs(p.pos.y - D.yv) < 3; }).length, winner: H.winner !== null ? nameOf(pl(H.winner)) : "",
                  huntSecs: H.t0 ? Math.round((tn - H.t0) / 1000) : 0, inside: INSIDE.size, npcMode: NPC_MODE,
-                 talking: Object.values(NPCS).filter((n) => n.talking).map((n) => n.key), liftMusic: Object.values(LIFTS).some((s) => s.music.parentNode),
+                 talking: Object.values(NPCS).filter((n) => n.talking).map((n) => n.key), liftMusic: Object.values(LIFTS).some((s) => s.music.parentNode), instruments: BAND.on,
                  lifts: Object.fromEntries(Object.entries(LIFTS).map(([k, s]) => [k, s.status()])) };
       },
       players(tn) {
@@ -1080,6 +1123,7 @@
       command(cmd, rest, parts) {
         const a1 = (parts[1] || "").toLowerCase();
         if (cmd === "celebrate") return celebrate();
+        if (cmd === "instruments") { BAND.on = a1 === "on" ? true : a1 === "off" ? false : !BAND.on; return BAND.on ? "INSTRUMENTS ON - ANYONE ON THE STAGE CAN PLAY" : "INSTRUMENTS OFF - NOBODY CAN PLAY THEM"; }
         if (cmd === "hall") {
           if (a1 === "open" || a1 === "start") return hallOpen();
           if (a1 === "thin") return thin();
