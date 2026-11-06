@@ -9,7 +9,7 @@ from shrink_glb import shrink
 from glow_mask import glow
 
 SRC = '/home/claude/meshy/models/'; OUT = '/home/claude/spire/out/glb/'
-BIG = {'photoarch': 2048, 'grotto': 2048, 'pond': 2048, 'booth': 2048, 'fireplace': 2048, 'tome': 2048, 'island': 2048, 'cliff': 2048, 'bonsai': 2048, 'crag': 2048, 'vines': 1024, 'ivy': 1024, 'gable': 2048, 'bottles': 1024, 'glassrack': 1024, 'beermug': 512, 'frogbull': 512, 'frogtree': 512, 'dragonfly': 512, 'turtle': 1024}
+BIG = {'photoarch': 2048, 'grotto': 2048, 'pond': 2048, 'booth': 2048, 'fireplace': 2048, 'tome': 2048, 'island': 2048, 'cliff': 2048, 'bonsai': 2048, 'crag': 2048, 'vines': 1024, 'ivy': 1024, 'gable': 2048, 'bottles': 1024, 'glassrack': 1024, 'beermug': 512, 'frogbull': 512, 'frogtree': 512, 'dragonfly': 512, 'turtle': 1024, 'pooltable': 2048, 'poolcue': 512, 'cuerack': 1024}
 GLOW = {'pond': 0.9, 'fireplace': 1.2, 'lanternpost': 1.4, 'crystals': ('teal', 2.2), 'tome': ('gold', 1.6), 'signframe': ('gold', 0.5), 'window': ('pane', 2.2), 'gable': ('pane', 1.6), 'floatlantern': ('warm', 1.8), 'hanglantern': ('pane', 3.0), 'firepit': ('warm', 1.6)}
 
 def bounds(path):

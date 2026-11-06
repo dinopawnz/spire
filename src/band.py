@@ -26,12 +26,21 @@ def apply(D, F1):
             else:                                           # bands bottom -> top
                 hits.append([x, round(y + H * (i + 0.5) / n, 3), z, round(W + 0.1, 3), round(H / n + 0.02, 3), round(Dd + 0.1, 3), ry, inst, k])
     # drums at the back, piano left, harp right, guitar front-right, the microphone front and centre
-    d = put('drumkit', 0.0, zb + 3.0, 0, 4.0, 'w')
+    # (v32, owner: "turn the drums around ... facing the audience", "sound different depending on which piece you hit")
+    # the kit turned 180 so the bass drum faces the crowd and the drummer sits behind it; one click zone per piece, placed on
+    # the piece itself (positions read off a top view of the Meshy model, model units), each with its own real recording.
+    DK = 180.0; d = put('drumkit', 0.0, zb + 3.0, DK, 4.0, 'w')
     if d:
-        W, H, Dd = d; pads.append([0.0, y + H * 0.4, zb + 3.0, W * 0.8, H * 0.8, Dd * 0.8, 0])
-        for row, ks in enumerate((('snare', 'kick', 'tom_lo'), ('hihat', 'tom_hi', 'crash'))):
-            for i, k in enumerate(ks):
-                hits.append([round(-W / 2 + W * (i + 0.5) / 3, 3), round(y + H * (0.25 + 0.5 * row), 3), round(zb + 3.0, 3), round(W / 3 + 0.02, 3), round(H / 2 + 0.02, 3), round(Dd + 0.1, 3), 0, 'drum', k])
+        W, H, Dd = d; pads.append([0.0, y + H * 0.17, zb + 3.0, W * 0.55, H * 0.34, Dd * 0.45, 0])
+        mn, mx = outside.META['drumkit']; s_ = W / (mx[0] - mn[0]); cxm, czm = (mn[0] + mx[0]) / 2, (mn[2] + mx[2]) / 2
+        c, sn = math.cos(math.radians(DK)), math.sin(math.radians(DK))
+        PIECES = [('hihat', -0.79, 0.15, -0.11, 0.42), ('crash', -0.48, 0.42, -0.59, 0.5), ('crash', 0.77, 0.36, -0.24, 0.5),
+                  ('snare', -0.26, -0.05, 0.08, 0.4), ('tom_hi', -0.11, 0.08, -0.35, 0.36), ('tom_hi', 0.32, 0.08, -0.32, 0.36),
+                  ('tom_lo', 0.61, -0.05, 0.06, 0.45), ('kick', 0.13, -0.3, -0.5, 0.55)]
+        for (k, lx, ly, lz, sz) in PIECES:
+            ox, oz = (lx - cxm) * s_, (lz - czm) * s_
+            wx, wz = ox * c + oz * sn, -ox * sn + oz * c
+            hits.append([round(wx, 3), round(y + (ly - mn[1]) * s_, 3), round(zb + 3.0 + wz, 3), round(sz * s_ * 0.5, 3), round(0.18 * s_, 3), round(sz * s_ * 0.5, 3), 0, 'drum', k])
     # the grand piano and the harp from the owner's castle build (Dippy's Lost Crown): every key / string plays its own recorded
     # note (piano_<midi>.mp3, harp_<midi>.mp3). Their key/string layouts (castle_instruments.json) are in each model's own space.
     import json
@@ -46,7 +55,7 @@ def apply(D, F1):
         wx, wz = xf(lx, lz, PP, PA, PS); keys.append([round(wx, 3), round(y + ly * PS, 3), round(wz, 3), round(w * PS, 3), round(d * PS, 3), midi, black])
     D['bandPiano'] = dict(ry=CI['piano']['ry'] + PA, keys=keys)
     bx, bz = xf(-0.25, 0.0, PP, PA, PS); pads.append([round(bx, 3), y + 0.45, round(bz, 3), 1.3 * PS, 0.9, 1.4 * PS, PA])     # the body only - the keys stay clickable
-    HS, HA = 1.35, -20.0; HP = (4.5, y, sz_ - 0.8)                  # harp: strings facing the crowd, turned to the middle
+    HS, HA = 1.35, 160.0; HP = (4.5, y, sz_ - 0.8)                  # harp: (v32, owner) turned round to face the audience like the piano
     add(['sp_band_harp', HP[0], y, HP[2], HA, HS])
     strs = []
     for (lx, ly, lz, ln, midi) in CI['harp']['strings']:
@@ -56,9 +65,9 @@ def apply(D, F1):
     # the guitar (no stand) hangs at hip height, tilted like it's being played: stand behind it and you're the guitarist.
     # (owner) [x, y centre, z, ry, rz tilt, scale] - the model's neck runs up +y; rz -55 swings the neck to the player's left.
     if 'guitarsolo' in outside.META:
-        mn, mx = outside.META['guitarsolo']; gs = 1.05 / (mx[1] - mn[1]); GX, GZ = 2.4, zf - 2.2
+        mn, mx = outside.META['guitarsolo']; gs = 1.6 / (mx[1] - mn[1]); GX, GZ = 2.4, zf - 2.2        # (v32, owner) bigger guitar, easier to see and play
         D['bandGuitar'] = [GX, round(y + 1.12, 3), round(GZ, 3), -10.0, -55.0, round(gs, 4)]
-        hits.append([GX, round(y + 1.12, 3), round(GZ, 3), 1.0, 0.75, 0.35, -10.0, 'guitar', 0])
+        hits.append([GX, round(y + 1.12, 3), round(GZ, 3), 1.5, 1.1, 0.5, -10.0, 'guitar', 0])
     m = put('microphone', 0.0, zf - 1.4, 0, 1.75, 'h')
     if m: pads.append([0.0, y + 0.85, zf - 1.4, 0.35, 1.7, 0.35, 0])
     print('band: %d clickable zones' % len(hits))

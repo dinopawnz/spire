@@ -41,7 +41,7 @@ def drop():
 if __name__ == '__main__':
     os.makedirs(SND, exist_ok=True)
     for k, f0 in enumerate((2900, 3300, 3700)): save('pool_clack_%d' % k, clack(f0))
-    save('pool_cue', clack(1800) * 0.6 + thump(220, 0.2, 0.3, 30))
+    a_, b_ = clack(1800) * 0.6, thump(220, 0.25, 0.3, 30); save('pool_cue', a_[:len(b_)] + b_[:len(a_)])
     save('pool_rail', thump(95, 0.35, 0.5, 16))
     save('pool_pocket', drop())
     # plaques: dark carved wood with a gold border and gold lettering

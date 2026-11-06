@@ -229,6 +229,7 @@ for i, e in enumerate([e for e in F1.get('mprops', []) if e[0] == 'sp_m_cardtabl
 for i, e in enumerate([e for e in F1.get('mprops', []) if e[0] == 'sp_m_coffeetable']):     # and a Mudwater hand on each coffee table
     c, s_ = math.cos(math.radians(e[4])), math.sin(math.radians(e[4])); lx, lz = -0.03 * e[5], 0.08 * e[5]
     D['sdeco'].append(['sp_mw_fan_%d' % (i % 2), round(e[1] + lx * c + lz * s_, 3), round(e[2] + 0.134 * e[5] + 0.03, 3), round(e[3] - lx * s_ + lz * c, 3), e[4], 1.0])
+import pool; pool.apply(D, FL)
 # THE BAYOU GARDEN POND comes alive (owner: "ribbitting frogs... fill it with something appropriate"): Meshy lily pads with
 # bullfrogs and green treefrogs sitting on them (they croak - a real Everglades pig frog recording, public domain, NPS - and hop
 # round when you click them), a red-eared slider basking on a log at the edge, dragonflies darting over the water.
