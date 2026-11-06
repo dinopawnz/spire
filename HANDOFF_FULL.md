@@ -34,7 +34,7 @@
 | Where | Version | What |
 |---|---|---|
 | branch `main` | v13 | the old LIVE build. Untouched. Push to main ONLY when the owner says. |
-| branch **`handoff-v14`** | **v50** | everything from sessions 6–11. This is what the owner tests. |
+| branch **`handoff-v14`** | **v51** | everything from sessions 6–11. This is what the owner tests. |
 
 The owner's files load assets from `https://raw.githubusercontent.com/dinopawnz/spire/handoff-v14/` (baked into spire.html by `build_html.py`), so **assets must be pushed to `handoff-v14` before the owner's HTML works.** Remote PIN: **7747**, then press LIVE BUILD.
 
@@ -258,6 +258,14 @@ Raised dark-timber photo stage with steps, Meshy photo arch (8 m) with the Mudwa
 - Escape redesign under discussion (owner: no standing-on-pads puzzles - "I doubt the game can detect how many players are standing on a lily pad"; room 1 lanterns "way too easy"; forger's desk / card battle lock too easy for ~20 players who spam-click; Warden's Riddle OK if hard enough for 20+). Proposed set (all locks + 30 s team lockout on a wrong code): harder Critter Sums, the Swamp Cipher, the Witch's Eye (perspective digits), the Warden's Riddle (5-ape logic grid).
 - Possible next looks items: the team pens read a bit like boxing rings (owner asked what the "gator ring" was) - offer a restyle (timber platform / moss-and-lantern clearing).
 - (old note) NEXT for floor 3: decoration pass to lounge standard (owner: "every floor must keep the same standard as the first floor") - it's dark and bare apart from the arena: lantern rings + warm light pools, Mudwater banners, framed cards on the walls, spectator benches/bleachers, plants, moss on beams.
+
+### v51 (session 11) - MUDWATER ESCAPE rebuilt: 4 code-lock rooms (owner: "give them something that stumps them... difficult enough for 20+ people"; approved "yes build those 4")
+- Every door is a CODE LOCK: a 12-key keypad (1-9, CLR, 0, OK; face = `esc/keypad.jpg`, 12 invisible buttons in front of it). A wrong code locks that keypad for 30 s (red countdown). Key presses are SILENT (20 people clicking = no sound storm); only OK makes a sound. No pads, no frogs, no memory cards, no lanterns-puzzle any more.
+- R1 CRITTER SUMS: 8 chests hold picture sums (5 critters, values 1-9, all different); 2 of the 8 sums are FAKE; the painting gives 4 critters in order = the code. R2 SWAMP CIPHER: a message in pigpen-style marks (letters shuffled per set), the key torn into 6 pieces in the 6 chests; the message asks a sum about things counted in the room - EXACTLY 7 candles, 4 frogs, 5 lanterns, 6 chests (escape.py builds exactly these; the corridor lanterns were removed because they show through the R2 glass). R3 WITCH'S EYE: 3 eyes painted on the floor, one true (random each game); 4 random digits are drawn as paint strokes pushed 60-100% of the way along the line from the true eye (+9 stray strokes), so they only line up from that eye (checked: readable from 2.5 m behind + 1 m above the eye too, scrambled from the room middle / the other eyes / the stair). R4 WARDEN'S RIDDLE: 5 apes on 5 numbered stools (stool 1 = left as you face the bar), hats/drinks/pets, 9-14 clues (8 pinned on the walls, the rest in chests, other chests hold junk notes); code = the stools of GATOR, FROG, CRAWDAD, CATFISH, TURTLE.
+- Puzzle pools: `escape_puzzles.py` (12 sums sets, 8 ciphers, 12 riddles; every set checked to have exactly ONE answer) writes `out/esc/*.jpg` - copy them to the repo `esc/` by hand. Each team gets a different set every game; pictures only appear when the team reaches that room (no solving through the glass while teams are picked).
+- Hints (remote HINT): R1 opens + marks the 2 fake sums "FAKE"; R2 shows the first half of the message; R3 a beam on the true eye for 30 s; R4 tells one pet's stool (press again for the next pet). SKIP still opens the current door.
+- Chests: the body is baked into sp_escape.glb, the lid is `sp_esc_lid.glb` (hinge origin, opens with stepped rx); the note floats above the chest for everyone.
+- Tests: `viewer/escapetest.py` (45 bots: chests, notes, CLR, wrong code -> 30 s lock (even the right code is ignored while locked), every code, witch strokes line up only from the true eye, hints, skip, raffle, end, open = fresh different sets) -> 45 OK. `viewer/clicktest/escclick.py` casts click rays at all 288 keypad buttons + 75 closed chests from straight on / the sides / above: all clear except a few steep side rays that pass through a real wall (a player just stands in front).
 
 ### Tests that pass on v32
 `chrometest.py simtest.js` → ERRORS none · `bandtest.js` (instruments off blocks sounds) · `musictest.js` (13 speakers in sync, next/off/on, 6 Kodas animated, frogs croak on click) · `pooltest.js` (break shot works).

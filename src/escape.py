@@ -4,17 +4,19 @@ The owner's rules: all the teams begin in a different room; to progress they sol
 not be on another floor. Built inside floor 4 (no taller tower needed): the floor is ~10 m high, so it gets a second level at +5.3 m.
 
   6 teams, one lane each: 3 lanes on the west half, 3 on the east half (z bands -36..-12, -12..12, 12..36).
-  In every lane (u = metres in from the outer wall, v = metres along the lane from its middle):
-    R1 lower, outer (u 0..18)  - LANTERN CODE: 4 hidden coloured lanterns show digits, a painting gives the colour order, door keypad
-    R2 lower, inner (u 18..36) - LILY PADS: stand on 4 pads at once (fewer if the team is smaller)
+  In every lane (u = metres in from the outer wall, v = metres along the lane from its middle). (v51) Every door is a CODE LOCK
+  (12-key keypad; a wrong code locks that keypad for 30 s, so guessing is slow):
+    R1 lower, outer (u 0..18)  - CRITTER SUMS: 8 chests hold picture sums (2 are FAKE); a painting gives the order of 4 critters
+    R2 lower, inner (u 18..36) - SWAMP CIPHER: a message in secret marks; the key is torn in 6 pieces (in chests); the message asks
+                                 a sum about things you count in the room (7 candles, 4 frogs, 5 lanterns, 6 chests)
        -> a stair (in an enclosed well carved out of R1's corner) climbs to the upper level
-    R3 upper, outer            - CARD MEMORY: 12 face-down Mudwater cards on the wall, find the 6 pairs
-    R4 upper, inner            - FROG CHOIR: 4 frogs croak a pattern, the team copies it (3 rounds: 4, 5, 6 croaks)
+    R3 upper, outer            - WITCH'S EYE: the code floats in the air as paint strokes that only line up from one of 3 eyes
+    R4 upper, inner            - WARDEN'S RIDDLE: 5 apes on 5 stools, hats/drinks/pets, clues on the walls and in chests
     -> the last door opens into the VICTORY HALL (upper level, the middle strip |x| < 8). First team out wins.
   Doors: D0 start door (outer wall, from the side aisle where the lifts + stairs arrive), D1 R1->R2, D2 R2->stair, D3 R3->R4, D4 R4->hall.
   The middle strip downstairs is the hosts' / spectators' corridor (glass into every R2), with a stair up to the Victory Hall (glass into
   every R4). Progress boards in both.
-Writes sp_escape.glb (everything static), sp_escape_col.glb (invisible colliders), sp_esc_door.glb, esc/k_NNN.jpg (memory cards) and
+Writes sp_escape.glb (everything static), sp_escape_col.glb (invisible colliders), sp_esc_door.glb, sp_esc_lid.glb, esc/*.jpg (puzzles) and
 D['escape'] for the game code (spire_src.html block "MUDWATER ESCAPE")."""
 import math, os, random
 import numpy as np
@@ -37,8 +39,6 @@ TEAMS = [  # key, colour, rgb, side (-1 west / +1 east), lane centre z
     ('red', '#e5533d', (0.90, 0.25, 0.18), -1, -24.0), ('gold', '#f2b632', (0.95, 0.70, 0.15), -1, 0.0),
     ('green', '#56d364', (0.30, 0.80, 0.35), -1, 24.0), ('blue', '#3d8bfd', (0.22, 0.48, 0.97), 1, -24.0),
     ('purple', '#b06cf0', (0.66, 0.40, 0.94), 1, 0.0), ('orange', '#ff8c2e', (1.0, 0.52, 0.16), 1, 24.0)]
-LANTERN_COLS = ['#ff4a3a', '#ffd23a', '#4ae06a', '#4aa8ff']     # the four lantern colours (red, yellow, green, blue)
-FROG_COLS = ['#ff5a4a', '#ffd84a', '#5ae07a', '#5aaeff']
 WATER = dict(color=(0.02, 0.045, 0.035, 1), metal=0.0, rough=0.55, emis=(0.004, 0.014, 0.011))
 
 
@@ -48,7 +48,8 @@ def r3(v): return round(float(v), 3)
 def apply(D, L, FL):
     Y0 = FL['rooms']; YU = Y0 + UP; YT = Y0 + 10.0
     vis, col = Mesh(), Mesh()
-    mats = {k: MATS[k] for k in ('plank', 'dark', 'iron', 'gold', 'glass', 'glow', 'moss', 'rope', 'bartop', 'wetfloor')}
+    mats = {k: MATS[k] for k in ('plank', 'dark', 'iron', 'gold', 'glass', 'glow', 'moss', 'rope', 'bartop', 'wetfloor', 'black', 'leather')}
+    mats['wax'] = dict(color=(0.93, 0.88, 0.74, 1), rough=0.7, emis=(0.08, 0.06, 0.03))
     mats['col'] = MATS['col']; mats['water'] = WATER
     for ti, t in enumerate(TEAMS):
         mats['esc%d' % ti] = dict(color=t[2] + (1,), emis=tuple(v * 0.55 for v in t[2]), rough=0.6)
@@ -157,54 +158,96 @@ def apply(D, L, FL):
         for sz in (-1, 1):
             box(vis, 'esc%d' % ti, 0.06, 4.6, 1.3, m=T(X(-0.2), Y0 + 2.6, zc + sz * 2.9))
             box(vis, 'gold', 0.08, 0.1, 1.42, m=T(X(-0.22), Y0 + 4.95, zc + sz * 2.9))
-        # ---- R1 (lantern code): shelves, a table, barrels, crates; the lanterns hide in/under/behind them
-        deco('bottles', X(0.75), Y0 + 1.6, zc - 10.2, ryi, 1.9, 'w')                  # high shelf of bottles (lantern A on top)
-        bevel_box(vis, 'dark', 0.5, 0.1, 2.2, 0.02, m=T(X(0.55), Y0 + 1.55, zc - 10.2), uvs=1.0)
-        for sz in (-1, 1): box(vis, 'dark', 0.4, 1.55, 0.1, m=T(X(0.55), Y0 + 0.78, zc - 10.2 + sz * 1.0), uvs=1.0)
-        deco('coffeetable', X(8.5), Y0, zc + 8.5, 15, 2.2)                            # lantern B under it
-        deco('barrel', X(12.4), Y0, zc - 10.4, 0, 1.0, 'h'); deco('barrel', X(13.4), Y0, zc - 9.5, 40, 1.0, 'h'); deco('barrel', X(12.0), Y0, zc - 8.9, 80, 0.9, 'h')
-        deco('bench', X(1.0), Y0, zc + 4.0, ryi, 1.9)
+        # ================= (v51, owner: "give them something that stumps them... difficult enough for 20+ people") every door is a
+        # CODE LOCK now: R1 CRITTER SUMS, R2 SWAMP CIPHER, R3 WITCH'S EYE, R4 WARDEN'S RIDDLE. No pads, no frogs, no memory cards.
+        def face_ry(f): return {'+u': ryi, '-u': ryo, '+v': 0.0, '-v': 180.0}[f]
+        chests, kp = [], []
+
+        def chest(room, u, v, f, yfl):
+            """a wooden chest (body baked here; the lid is its own model so it can swing open). Front faces f."""
+            x, z, ry = X(u), zc + v, face_ry(f)
+            Mx = M(T(x, yfl, z), Ry(ry))
+            box(vis, 'plank', 0.9, 0.42, 0.6, m=M(Mx, T(0, 0.21, 0)), uvs=0.8)
+            for bx in (-0.3, 0.3): box(vis, 'iron', 0.06, 0.44, 0.62, m=M(Mx, T(bx, 0.21, 0)), uvs=0.4)
+            box(vis, 'dark', 0.94, 0.06, 0.64, m=M(Mx, T(0, 0.03, 0)), uvs=0.6)
+            box(col, 'col', 0.9, 0.5, 0.6, m=M(Mx, T(0, 0.25, 0)))
+            chests.append([room, r3(x), r3(yfl), r3(z), r3(ry)])
+
+        def keypad(uw, f, v, yfl):
+            """the iron back plate of a 12-key keypad on the wall at u=uw, facing f (-1 = toward the outer wall, +1 = toward the
+            middle). The keys, numbers and screen are added by the game."""
+            sgn = -1 if f < 0 else 1
+            box(vis, 'iron', 0.08, 2.45, 1.5, m=T(X(uw + sgn * 0.19), yfl + 1.8, zc + v), uvs=0.6)
+            box(vis, 'gold', 0.1, 0.06, 1.56, m=T(X(uw + sgn * 0.2), yfl + 3.04, zc + v))
+            box(vis, 'gold', 0.1, 0.06, 1.56, m=T(X(uw + sgn * 0.2), yfl + 0.56, zc + v))
+            kp.append([r3(X(uw + sgn * 0.25)), r3(yfl + 1.5), r3(zc + v), ryo if f < 0 else ryi])
+
+        def frame_on_x(uw, f, v, y, w, h):          # a dark board with a gold rim on a wall that runs along z
+            sgn = -1 if f < 0 else 1
+            bevel_box(vis, 'dark', 0.08, h + 0.16, w + 0.16, 0.02, m=T(X(uw + sgn * 0.19), y, zc + v), uvs=1.0)
+            bevel_box(vis, 'gold', 0.06, h + 0.26, w + 0.26, 0.02, m=T(X(uw + sgn * 0.165), y, zc + v))
+            return [r3(X(uw + sgn * 0.24)), r3(y), r3(zc + v), ryo if f < 0 else ryi]
+
+        def frame_on_z(vw, f, u, y, w, h):          # the same on a lane wall (runs along x); f = +1 faces +z
+            bevel_box(vis, 'dark', w + 0.16, h + 0.16, 0.08, 0.02, m=T(X(u), y, zc + vw + f * 0.19), uvs=1.0)
+            bevel_box(vis, 'gold', w + 0.26, h + 0.26, 0.06, 0.02, m=T(X(u), y, zc + vw + f * 0.165))
+            return [r3(X(u)), r3(y), r3(zc + vw + f * 0.24), 0.0 if f > 0 else 180.0]
+
+        # ---- R1 CRITTER SUMS: 8 chests (picture sums inside), the painting (the code's order), a keypad by the door to R2
+        for (u, v, f) in ((0.6, -10.4, '+u'), (0.6, 10.4, '+u'), (4.5, -11.3, '+v'), (9.0, -11.3, '+v'), (13.0, -11.3, '+v'),
+                          (15.6, -11.3, '+v'), (5.0, 11.3, '-v'), (10.0, 11.3, '-v')):
+            chest(0, u, v, f, Y0)
         for (u, v) in ((3, -6), (6, 3), (10.5, -3)): sdeco.append(['sp_lantern_%s' % 'abc'[rng.randrange(3)], r3(X(u)), r3(YU - 0.3), r3(zc + v), rng.uniform(0, 360), 1.0])
-        # ---- R2 (lily pads): dark water floor, reeds round the edge
-        box(vis, 'water', 17.4, 0.02, 2 * HALF - 0.6, m=T(X(27), Y0 + 0.012, zc))
-        for k in range(10):
-            u = 19 + rng.uniform(0, 16.4); v = rng.choice([-1, 1]) * rng.uniform(9.6, 11.3)
-            deco('cattails', X(u), Y0, zc + v, rng.uniform(0, 360), 0.9)
-        for (u, v) in ((22, 0), (31, 0), (27, -9)): sdeco.append(['sp_lantern_%s' % 'abc'[rng.randrange(3)], r3(X(u)), r3(YU - 0.3), r3(zc + v), rng.uniform(0, 360), 1.0])
-        # ---- R3 (card memory): a big dark board for the cards on the outer wall, a card table
-        bevel_box(vis, 'dark', 0.12, 4.3, 9.6, 0.05, m=T(X(0.2), YU + 2.05, zc), uvs=2.0)
-        bevel_box(vis, 'gold', 0.14, 0.1, 9.8, 0.02, m=T(X(0.21), YU + 4.25, zc))
-        bevel_box(vis, 'gold', 0.14, 0.1, 9.8, 0.02, m=T(X(0.21), YU - 0.15 + 0.2, zc))
-        deco('cardtable', X(8.5), YU, zc + 6.5, 0, 2.0)
-        for (u, v) in ((4, -8), (9, 0), (12, -8), (6, 8)): sdeco.append(['sp_lantern_%s' % 'abc'[rng.randrange(3)], r3(X(u)), r3(YT - 0.3), r3(zc + v), rng.uniform(0, 360), 1.0])
-        # ---- R4 (frog choir): 4 tree stumps in a row, moss, a round counter
-        frogs = []
-        for k, v in enumerate((-6.0, -2.0, 2.0, 6.0)):
-            fx = X(30.5)
-            cyl(vis, 'dark', 0.62, 0.6, 14, m=T(fx, YU, zc + v)); cyl(vis, 'moss', 0.64, 0.05, 14, m=T(fx, YU + 0.58, zc + v))
-            box(col, 'col', 1.1, 0.6, 1.1, m=T(fx, YU + 0.3, zc + v))
-            frogs.append([r3(fx), r3(YU + 0.62), r3(zc + v), ryo])
-        for (u, v) in ((25, -10.5), (33, 10.5), (34.5, -10.5)): deco('mossclump', X(u), YU, zc + v, rng.uniform(0, 360), 1.4)
-        for (u, v) in ((23, 0), (31, -8), (31, 8)): sdeco.append(['sp_lantern_%s' % 'abc'[rng.randrange(3)], r3(X(u)), r3(YT - 0.3), r3(zc + v), rng.uniform(0, 360), 1.0])
-        # ---- the clue painting frame (R1) and the keypad back plate (R1, beside D1)
-        bevel_box(vis, 'dark', 0.1, 1.3, 2.6, 0.03, m=T(X(0.2), Y0 + 2.1, zc + 6.5), uvs=1.0)
-        bevel_box(vis, 'gold', 0.12, 1.42, 2.72, 0.02, m=T(X(0.18), Y0 + 2.1, zc + 6.5))
-        bevel_box(vis, 'iron', 0.08, 2.1, 1.35, 0.03, m=T(X(17.8), Y0 + 1.75, zc - 4.0), uvs=0.6)
-        bevel_box(vis, 'dark', 0.06, 0.5, 1.5, 0.02, m=T(X(17.82), Y0 + 2.95, zc - 4.0), uvs=0.6)
-        # ---- data for the game
-        lant = [[X(0.75), Y0 + 2.35, zc - 10.6], [X(8.5), Y0 + 0.22, zc + 8.5], [X(13.7), Y0 + 0.25, zc - 11.0], [X(1.1), Y0 + 3.6, zc + 10.9]]
-        keys = []
-        for k in range(10):                                         # 1 2 3 / 4 5 6 / 7 8 9 / _ 0 _
-            c, r = (1, 3) if k == 0 else ((k - 1) % 3, (k - 1) // 3)
-            keys.append([r3(X(17.72)), r3(Y0 + 2.42 - r * 0.42), r3(zc - 4.0 + (c - 1) * 0.42 * (-s))])
-        cards = []
-        for r in range(2):
-            for c in range(6):
-                cards.append([r3(X(0.36)), r3(YU + 1.1 + r * 1.85), r3(zc + (c - 2.5) * 1.45 * (-s)), ryi])
-        # (fps) the static bits of the puzzles live in this model, not as separate objects: keypad buttons, lantern caps, rug border
-        for (kx, ky, kz) in keys: box(vis, 'dark', 0.05, 0.34, 0.34, m=T(kx - 0.03 * s, ky, kz))      # (v46) behind the number, not over it
-        for (lx, ly, lz) in lant:
-            cyl(vis, 'iron', 0.13, 0.04, 10, m=T(lx, ly, lz)); cyl(vis, 'iron', 0.09, 0.05, 10, m=T(lx, ly + 0.34, lz))
+        paint = frame_on_x(0, 1, 6.5, Y0 + 2.1, 2.5, 1.05)
+        keypad(18, -1, -4.1, Y0)
+        # ---- R2 SWAMP CIPHER: the coded message on the wall, EXACTLY 7 candles, 4 frogs, 5 lanterns and 6 chests to count
+        msg = frame_on_x(18, 1, -1.5, Y0 + 2.45, 5.0, 1.7)
+        keypad(18, 1, 6.5, Y0)
+        tx, tz = X(27), zc                                            # the candle table (long side along the lane)
+        bevel_box(vis, 'dark', 1.2, 0.08, 3.0, 0.02, m=T(tx, Y0 + 0.9, tz), uvs=1.2)
+        for (dx, dz) in ((-0.5, -1.35), (0.5, -1.35), (-0.5, 1.35), (0.5, 1.35)): box(vis, 'dark', 0.08, 0.86, 0.08, m=T(tx + dx, Y0 + 0.43, tz + dz), uvs=1.0)
+        box(col, 'col', 1.2, 0.95, 3.0, m=T(tx, Y0 + 0.47, tz))
+        for k in range(7):
+            cz = tz + (k - 3) * 0.4; ch = 0.22 + 0.06 * ((k * 3) % 4)
+            cyl(vis, 'gold', 0.08, 0.02, 12, m=T(tx, Y0 + 0.94, cz))
+            cyl(vis, 'wax', 0.045, ch, 10, m=T(tx, Y0 + 0.96, cz))
+            sphere(vis, 'glow', 0.035, 8, 6, m=M(T(tx, Y0 + 0.96 + ch + 0.05, cz), np.diag([1, 1.7, 1, 1])))
+        shx, shy, shz = X(27), Y0 + 1.45, zc + HALF - WT / 2 - 0.22   # the frog shelf on the far lane wall
+        bevel_box(vis, 'dark', 3.0, 0.06, 0.44, 0.02, m=T(shx, shy, shz), uvs=1.2)
+        for dx in (-1.2, 1.2): box(vis, 'iron', 0.05, 0.3, 0.3, m=T(shx + dx, shy - 0.18, shz + 0.07))
+        for k in range(4):
+            deco('frogtree', shx + (k - 1.5) * 0.72, shy + 0.03, shz - 0.02, 180, 0.5)
+        for (u, v) in ((21, -6), (27, -6), (33, -6), (21, 6), (33, 6)):
+            sdeco.append(['sp_lantern_%s' % 'abc'[rng.randrange(3)], r3(X(u)), r3(YU - 0.3), r3(zc + v), rng.uniform(0, 360), 1.0])
+        for (u, v, f) in ((20.5, -11.3, '+v'), (33.5, -11.3, '+v'), (23.0, 11.3, '-v'), (31.0, 11.3, '-v'), (35.4, -5.0, '-u'), (35.4, 4.0, '-u')):
+            chest(1, u, v, f, Y0)
+        # ---- R3 WITCH'S EYE: three painted eyes on the floor (one is true); the code floats in the air as paint strokes that only
+        # line up from the true eye (made by the game). Keypad by the door to R4.
+        eye = dict(spots=[[r3(X(u)), r3(YU), r3(zc + v)] for (u, v) in ((2.5, 9.5), (2.0, -3.0), (10.0, 9.5))],
+                   c=[r3(X(13.0)), r3(YU + 2.8), r3(zc - 9.0)])
+        keypad(18, -1, -4.1, YU)
+        for (u, v) in ((6, -11), (16, 6)): sdeco.append(['sp_lantern_%s' % 'abc'[rng.randrange(3)], r3(X(u)), r3(YT - 0.3), r3(zc + v), rng.uniform(0, 360), 1.0])
+        cyl(vis, 'black', 0.55, 0.7, 18, m=T(X(16.0), YU, zc - 10.8), r2=0.62); cyl(vis, 'glow', 0.5, 0.02, 18, m=T(X(16.0), YU + 0.62, zc - 10.8))   # the witch's cauldron (out of the way)
+        box(col, 'col', 1.2, 0.7, 1.2, m=T(X(16.0), YU + 0.35, zc - 10.8))
+        # ---- R4 WARDEN'S RIDDLE: a bar with 5 numbered stools, the question board, 8 clue notes on the walls, 6 chests
+        bz = zc + HALF - WT / 2 - 0.36
+        bevel_box(vis, 'bartop', 12.4, 0.08, 0.8, 0.02, m=T(X(27), YU + 1.1, bz), uvs=2.0)
+        box(vis, 'dark', 12.0, 1.06, 0.6, m=T(X(27), YU + 0.53, bz + 0.08), uvs=1.6)
+        box(col, 'col', 12.4, 1.15, 0.8, m=T(X(27), YU + 0.57, bz))
+        stools = []
+        for k in range(1, 6):
+            u = 27 - (3 - k) * 2 * s                                  # stool 1 is on the LEFT as you face the bar (looking toward +z)
+            sx_, sz_ = X(u), bz - 1.05
+            cyl(vis, 'iron', 0.22, 0.04, 14, m=T(sx_, YU, sz_)); cyl(vis, 'iron', 0.04, 0.72, 8, m=T(sx_, YU, sz_))
+            cyl(vis, 'leather', 0.24, 0.1, 16, m=T(sx_, YU + 0.72, sz_)); cyl(vis, 'gold', 0.2, 0.02, 14, m=T(sx_, YU + 0.32, sz_))
+            stools.append([r3(sx_), r3(YU + 2.1), r3(zc + HALF - WT / 2 - 0.05), 180.0])     # big stool number on the wall over it
+            bevel_box(vis, 'dark', 0.8, 0.8, 0.06, 0.02, m=T(sx_, YU + 2.1, zc + HALF - WT / 2 - 0.02)); bevel_box(vis, 'gold', 0.9, 0.9, 0.04, 0.02, m=T(sx_, YU + 2.1, zc + HALF - WT / 2 - 0.005))
+        board = frame_on_x(18, 1, 3.5, YU + 2.45, 4.2, 2.0)
+        wnotes = [frame_on_z(-HALF + WT / 2, 1, u, YU + 1.95, 1.7, 0.57) for u in (20.5, 23.0, 25.5, 28.0, 30.5, 33.0)]
+        wnotes += [frame_on_x(18, 1, v, YU + 1.95, 1.7, 0.57) for v in (7.4, 9.9)]
+        for (u, v, f) in ((35.4, -9.0, '-u'), (35.4, -5.5, '-u'), (35.4, 6.5, '-u'), (35.4, 9.3, '-u'), (24.5, -2.5, '-u'), (29.5, 3.5, '-u')):
+            chest(3, u, v, f, YU)
+        keypad(36, -1, 2.75, YU)
         rw_, rd_ = 12.5, 21.5
         for (dx, dz, w_, d_) in ((0, rd_ / 2 - 0.35, rw_ - 0.4, 0.12), (0, -rd_ / 2 + 0.35, rw_ - 0.4, 0.12), (rw_ / 2 - 0.35, 0, 0.12, rd_ - 0.4), (-rw_ / 2 + 0.35, 0, 0.12, rd_ - 0.4)):
             box(vis, 'esc%d' % ti, w_, 0.01, d_, m=T(X(7.25) + dx, Y0 + 0.085, zc + dz))
@@ -212,13 +255,9 @@ def apply(D, L, FL):
             k=key, c=hx, side=s, zc=zc, word='e_' + key,
             rug=[r3(X(7.25)), r3(Y0), zc, 12.5, 21.5],
             doors=[[r3(X(0)), Y0, zc], [r3(X(18)), Y0, zc - 7], [r3(X(18)), Y0, zc + 10], [r3(X(18)), YU, zc - 7], [r3(X(36)), YU, zc]],
-            lanterns=[[r3(a), r3(b), r3(c)] for a, b, c in lant],
-            clue=[r3(X(0.28)), r3(Y0 + 2.1), r3(zc + 6.5), ryi],
-            keys=keys, disp=[r3(X(17.76)), r3(Y0 + 2.95), r3(zc - 4.0), ryo],
-            pads=[[r3(X(u)), r3(Y0), r3(zc + v)] for (u, v) in ((22.5, -5.5), (31.5, -5.5), (22.5, 5.0), (31.5, 5.0))],
-            cards=cards, frogs=frogs, rounds=[r3(X(26.5)), r3(YU + 0.1), r3(zc + 9.0), ryo],
-            rsigns=[[r3(X(0.25)), r3(Y0 + 2.5), r3(zc - 5.0), ryi, 'esc_r1'], [r3(X(18.2)), r3(Y0 + 2.5), r3(zc - 1.5), ryi, 'esc_r2'],
-                    [r3(X(17.8)), r3(YU + 2.4), r3(zc - 3.6), ryo, 'esc_r3'], [r3(X(18.2)), r3(YU + 2.4), r3(zc - 1.5), ryi, 'esc_r4']],
+            kp=kp, chests=chests, paint=paint, msg=msg, board=board, wnotes=wnotes, stools=stools, eye=eye,
+            rsigns=[[r3(X(0.25)), r3(Y0 + 2.7), r3(zc - 6.0), ryi, 'esc_r1'], [r3(X(27)), r3(Y0 + 3.1), r3(zc - HALF + WT / 2 + 0.06), 0.0, 'esc_r2'],
+                    [r3(X(0.25)), r3(YU + 2.6), r3(zc + 0.5), ryi, 'esc_r3'], [r3(X(18.2)), r3(YU + 2.45), r3(zc - 2.6), ryi, 'esc_r4']],
             hint=[[r3(X(9)), r3(Y0 + 3.6), zc, ryi], [r3(X(27)), r3(Y0 + 3.6), zc, ryi], [r3(X(9)), r3(YU + 3.6), zc, ryi], [r3(X(27)), r3(YU + 3.6), zc, ryi]]))
     # ---- the middle: corridor downstairs (open at both ends), Victory Hall upstairs, the stair between them
     slab(-XC, -3.0, -ZB, ZB, YU); slab(3.0, XC, -ZB, ZB, YU); slab(-3.0, 3.0, -ZB, 23.5, YU); slab(-3.0, 3.0, 34.0, ZB, YU)
@@ -238,18 +277,20 @@ def apply(D, L, FL):
     cyl(vis, 'dark', 3.2, 0.18, 32, m=T(0, YU, 0)); cyl(vis, 'gold', 3.3, 0.04, 32, m=T(0, YU + 0.15, 0))
     box(col, 'col', 6.0, 0.18, 6.0, m=T(0, YU + 0.09, 0))
     for z in (-24, -12, 0, 12): sdeco.append(['sp_lantern_%s' % 'abc'[rng.randrange(3)], 0.0, r3(YT - 0.3), float(z), rng.uniform(0, 360), 1.2])
-    for z in (-24, -8, 8): sdeco.append(['sp_lantern_%s' % 'abc'[rng.randrange(3)], 0.0, r3(YU - 0.35), float(z), rng.uniform(0, 360), 1.0])
+    # (v51) no lanterns in the corridor any more: the cipher room counts LANTERNS and the corridor shows through its glass
     write(OUTG + 'sp_escape.glb', vis, mats)
     from shrink_glb import shrink
     shrink(OUTG + 'sp_escape.glb', OUTG + 'sp_escape.glb', 512)
     write(OUTG + 'sp_escape_col.glb', col, colm)
-    door_glb()
-    cardset = card_images()
-    D['escape'] = dict(y0=Y0, yu=YU, teams=teams, boards=boards, vh=[0.0, r3(YU + 0.2), 0.0], slide=SLIDE, dw=DW, dh=DH,
-                       lcols=LANTERN_COLS, fcols=FROG_COLS, cards=cardset,
-                       frogm=[_o.place(n, 0, 0, 0, 0, 0.62, 'l') for n in ('frogbull', 'frogtree')],
+    door_glb(); lid_glb()
+    import escape_puzzles as EP
+    pools = EP.build_all()
+    D['escape'] = dict(y0=Y0, yu=YU, teams=teams, boards=boards, vh=[0.0, r3(YU + 0.2), 0.0], slide=SLIDE, dw=DW, dh=DH, lock=30000,
+                       sums=[dict(notes=p['notes'], paint=p['paint'], code=p['code'], fake=p['fake']) for p in pools['sums']],
+                       cipher=[dict(msg=p['msg'], mh=p['mh'], keys=p['keys'], code=p['code'], q=p['q']) for p in pools['cipher']],
+                       riddle=[dict(notes=p['notes'], code=p['code']) for p in pools['riddle']], empty=pools['empty'],
                        signs=[[r3(s * (XO + 1.2)), r3(Y0 + 2.4), z, 90 * s] for s in (-1, 1) for z in (-12.0, 12.0)])
-    print('escape: 6 teams x 4 rooms, victory hall at y %.1f, %d memory cards' % (YU, len(cardset)))
+    print('escape: 6 teams x 4 code rooms, victory hall at y %.1f; pools %d sums, %d ciphers, %d riddles' % (YU, len(pools['sums']), len(pools['cipher']), len(pools['riddle'])))
 
 
 def door_glb():
@@ -266,6 +307,17 @@ def door_glb():
     write(OUTG + 'sp_esc_door.glb', m, {k: MATS[k] for k in ('dark', 'iron', 'gold')})
     from shrink_glb import shrink
     shrink(OUTG + 'sp_esc_door.glb', OUTG + 'sp_esc_door.glb', 256)
+
+
+def lid_glb():
+    """a chest lid: origin at the hinge (back top edge of the chest), the lid reaches toward +z; it opens by turning rx negative"""
+    m = Mesh()
+    bevel_box(m, 'plank', 0.94, 0.14, 0.62, 0.02, m=T(0, 0.07, 0.31), uvs=0.8)
+    for bx in (-0.3, 0.3): box(m, 'iron', 0.06, 0.16, 0.64, m=T(bx, 0.07, 0.31), uvs=0.4)
+    box(m, 'gold', 0.14, 0.16, 0.04, m=T(0, 0.0, 0.63))
+    write(OUTG + 'sp_esc_lid.glb', m, {k: MATS[k] for k in ('plank', 'iron', 'gold')})
+    from shrink_glb import shrink
+    shrink(OUTG + 'sp_esc_lid.glb', OUTG + 'sp_esc_lid.glb', 256)
 
 
 def card_images():

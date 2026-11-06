@@ -807,10 +807,10 @@
     }
     // ---------------------------------------------------- MUDWATER ESCAPE (v43, game 3, floor 4). The owner's rules: every team begins in
     // its own room and solves clues/puzzles to get to the next room (some up a stair). 6 teams walk in through a coloured door to join (they
-    // can switch until the host presses START, then the start doors lock). Each team: R1 LANTERN CODE -> R2 LILY PADS -> stair -> R3 CARD
-    // MEMORY -> R4 FROG CHOIR -> the VICTORY HALL. First team out wins. Codes, colours and card pairs are new every game.
+    // can switch until the host presses START, then the start doors lock). (v51) Each team: R1 CRITTER SUMS -> R2 SWAMP CIPHER -> stair ->
+    // R3 WITCH'S EYE -> R4 WARDEN'S RIDDLE -> the VICTORY HALL. Every door is a code lock. First team out wins.
     // Host: escape open | start | end | reset | hint <team> | skip <team> | raffle (remote panel "Mudwater Escape").
-    const ES = { on: !!D.escape, ph: "open", roster: new Map(), tok: 0, t0: 0, order: [], teams: [] };
+    const ES = { on: !!D.escape, ph: "open", roster: new Map(), tok: 0, t0: 0, order: [], teams: [], tries: {} };
     if (D.escape) {
       const E = D.escape, TM = E.teams, NT = TM.length;
       const eg = el("m-group", {}); eg._global = true;
@@ -842,80 +842,64 @@
         ES.teams.forEach((T, k) => { if (!T.doorCnt) return; const n = inTeam(k).length; if (T.doorCnt._n === n) return; T.doorCnt._n = n; Array.from(T.doorCnt.children).forEach((c) => c.remove()); digits(n, 0.75, {}, T.doorCnt); });
       };
       every(3000, () => countsShow());                          // people who log off drop off the counts
-      // ---- one team's rooms
+      // ---- one team's rooms. (v51, owner: "give them something that stumps them... difficult enough for 20+ people") every door is a
+      // CODE LOCK: R1 CRITTER SUMS -> R2 SWAMP CIPHER -> stair -> R3 WITCH'S EYE -> R4 WARDEN'S RIDDLE -> the VICTORY HALL.
+      // Every keypad has 1-9, CLR, 0, OK; a wrong code locks that keypad for 30 s (so guessing/spamming is slow). Each team gets a
+      // different puzzle set every game (pools made by escape_puzzles.py, checked to have exactly one answer).
+      const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "C", "0", "K"];
+      const img = (src, attrs, parent) => el("m-image", Object.assign({ src: BASE + "esc/" + src + VER, emissive: 0.45, collide: "false", "cast-shadows": "false" }, attrs), parent);
+      const clearKids = (g, keep) => Array.from(g.children).forEach((c) => { if (c !== keep) c.remove(); });
       TM.forEach((t, k) => {
-        const T = { k, stage: 0, doors: [], code: [], typed: [], lant: [], found: [false, false, false, false], pads: [], padOn: new Map(), holdT: 0,
-                    cards: [], pairs: [], up: [], matched: new Set(), busy: false, frogs: [], song: [], round: 0, pos: 0, playing: false, rl: [], lastIn: 0, hints: [] };
+        const T = { k, stage: 0, doors: [], kp: [], chests: [], codes: ["", "", "", ""], si: [0, 0, 0], shown: [], bars: null, eyes: [], eyeI: 0, hints: [], hintN: 0 };
         ES.teams.push(T);
-        // doors: a timber leaf in each doorway (solid), slid into the wall to open
-        t.doors.forEach(([x, y, z], d) => {
+        t.doors.forEach(([x, y, z]) => {
           const g = el("m-group", { x, y, z }, eg);
           model("sp_esc_door.glb", { collide: "true" }, g);
           T.doors.push({ g, z, open: false });
         });
-        // join: the rug in R1 (a visible slab, the owner's Territory pads)
+        // join: the rug in R1 (walk onto it before the start)
         const [rx, ry_, rz, rw, rd] = t.rug;
         const dim = "#" + [1, 3, 5].map((j) => Math.round(parseInt(t.c.substr(j, 2), 16) * 0.32).toString(16).padStart(2, "0")).join("");
         const rug = el("m-cube", { x: rx, y: ry_ + 0.04, z: rz, width: rw, height: 0.08, depth: rd, color: dim, collide: "true", "collision-interval": 120, "cast-shadows": "false" }, eg);
         const join = (e) => { const id = e.detail && e.detail.connectionId; if (typeof id === "number") eJoin(k, id); };
         rug.addEventListener("collisionstart", join); rug.addEventListener("collisionmove", join);
-        word(t.word, 0.9, { x: t.doors[0][0] + t.side * 0.4, y: E.y0 + 4.0, z: t.zc, ry: 90 * t.side }, eg);       // the team colour over the start door (aisle side)
-        // (v45, owner: "there should be a counter somewhere on the outside that tells us how many players are on each team") the team's
-        // player count, big, over its start door on the aisle side (+ the word PLAYERS under it)
+        word(t.word, 0.9, { x: t.doors[0][0] + t.side * 0.4, y: E.y0 + 4.0, z: t.zc, ry: 90 * t.side }, eg);
         T.doorCnt = el("m-group", { x: t.doors[0][0] + t.side * 0.4, y: E.y0 + 5.15, z: t.zc, ry: 90 * t.side }, eg);
         word("r_players", 0.32, { x: t.doors[0][0] + t.side * 0.4, y: E.y0 + 4.55, z: t.zc, ry: 90 * t.side }, eg);
-        // (v46, owner: "i have no idea what to do in the room") a sign in every room says what to do (pictures of text = cheap)
         (t.rsigns || []).forEach(([x, y, z, ry, key]) => model("sg_" + key + ".glb", { x, y, z, ry, collide: "false" }, eg));
-        // R1: lanterns (click to see its number), the clue painting (4 gems in order), the keypad
-        t.lanterns.forEach(([x, y, z], i) => {
-          const g = el("m-group", { x, y, z }, eg);
-          const glass = el("m-sphere", { y: 0.18, radius: 0.16, color: "#ffffff", emissive: 1.2, collide: "false", "cast-shadows": "false" }, g);
-          const num = el("m-group", { y: 0.75 }, g);
-          const hb = hitBox({ y: 0.2, width: 0.6, height: 0.6, depth: 0.6 }, g);
-          [hb, glass].forEach((n) => n.addEventListener("click", () => { if (ES.ph === "live" && T.stage === 0) lanternShow(T, i); }));
-          T.lant.push({ g, glass, num });
+        // keypads: one picture for the face, 12 invisible buttons in front of it (one per key), a screen above
+        t.kp.forEach(([x, y, z, ry], r) => {
+          const g = el("m-group", { x, y, z, ry }, eg);
+          const face = img("keypad.jpg", { width: 1.34, height: 1.76, emissive: 0.5 }, g);
+          KEYS.forEach((kk, i) => {
+            const hb = hitBox({ x: (i % 3 - 1) * 0.42, y: 0.63 - Math.floor(i / 3) * 0.42, z: 0.035, width: 0.39, height: 0.39, depth: 0.04 }, g);
+            hb.addEventListener("click", (e) => padKey(T, r, kk, e.detail && e.detail.connectionId));
+          });
+          face.addEventListener("click", (e) => {          // a click that slips between two buttons lands on the picture
+            const p = e.detail && e.detail.position; if (!p) return;
+            const c = Math.round(p.x / 0.42) + 1, rr = Math.round((0.63 - p.y) / 0.42);
+            if (c >= 0 && c <= 2 && rr >= 0 && rr <= 3) padKey(T, r, KEYS[rr * 3 + c], e.detail.connectionId);
+          });
+          const bg = el("m-cube", { y: 1.24, z: 0.0, width: 1.34, height: 0.44, depth: 0.03, color: "#0d0907", emissive: 0, collide: "false", "cast-shadows": "false" }, g);
+          T.kp.push({ g, bg, disp: el("m-group", { y: 1.24, z: 0.03 }, g), typed: [], lock: 0, last: 0, tick: 0 });
         });
-        T.clue = t.clue; T.gems = [0, 1, 2, 3].map((j) => el("m-sphere", { x: t.clue[0] + 0.02 * -t.side, y: t.clue[1], z: t.clue[2] + (j - 1.5) * 0.55 * t.side, radius: 0.19, color: "#555", emissive: 1.0, collide: "false", "cast-shadows": "false" }, eg));
-        t.keys.forEach(([x, y, z], d) => {
-          const g = el("m-group", { x, y, z, ry: 90 * t.side }, eg);
-          const w_ = word("d" + d, 0.24, { z: 0.05 }, g);
-          const hb = hitBox({ z: -0.01, width: 0.36, height: 0.36, depth: 0.04 }, g);
-          [w_, hb].forEach((n) => n.addEventListener("click", (e) => keyPress(T, d, e.detail && e.detail.connectionId)));
+        // chests: a lid that swings open; the note inside floats above it for everyone
+        t.chests.forEach(([room, x, y, z, ry], i) => {
+          const g = el("m-group", { x, y, z, ry }, eg);
+          const hinge = el("m-group", { y: 0.42, z: -0.3 }, g);
+          const lid = model("sp_esc_lid.glb", { collide: "false" }, hinge);
+          const hb = hitBox({ y: 0.4, width: 1.0, height: 0.8, depth: 0.72 }, g);
+          const C = { g, hinge, room, open: false, note: null, src: "", w: 1.7, h: 0.55, x, y, z, i };
+          [lid, hb].forEach((n) => n.addEventListener("click", (e) => chestOpen(T, C, e.detail && e.detail.connectionId)));
+          T.chests.push(C);
         });
-        T.disp = el("m-group", { x: t.disp[0], y: t.disp[1], z: t.disp[2], ry: t.disp[3] }, eg);
-        T.dispBg = el("m-cube", { width: 1.3, height: 0.42, depth: 0.03, z: -0.02, color: "#0d0907", emissive: 0, collide: "false", "cast-shadows": "false" }, T.disp);
-        // R2: lily pads (stand on them; any 4 at once, fewer if the team is smaller)
-        t.pads.forEach(([x, y, z], i) => {
-          const p = el("m-cylinder", { x, y: y + 0.06, z, radius: 1.05, height: 0.12, color: "#2f6b2a", emissive: 0, collide: "true", "collision-interval": 150, "cast-shadows": "false" }, eg);
-          el("m-cylinder", { x, y: y + 0.125, z, radius: 0.18, height: 0.01, color: "#f2e6a8", emissive: 0.6, collide: "false", "cast-shadows": "false" }, eg);
-          const on = (e) => { const id = e.detail && e.detail.connectionId; if (typeof id === "number") padStep(T, i, id, true); };
-          const off = (e) => { const id = e.detail && e.detail.connectionId; if (typeof id === "number") padStep(T, i, id, false); };
-          p.addEventListener("collisionstart", on); p.addEventListener("collisionmove", on); p.addEventListener("collisionend", off);
-          T.pads.push({ p, who: new Map() });
-        });
-        // R3: 12 memory cards on the wall
-        t.cards.forEach(([x, y, z, ry], i) => {
-          const img = el("m-image", { x, y, z, ry, width: 1.15, height: 1.6, src: BASE + "esc/back.jpg" + VER, emissive: 0.35, collide: "false", "cast-shadows": "false" }, eg);
-          const back = polar(-0.09, ry, 0), hb = hitBox({ x: x + back[0], y, z: z + back[2], ry, width: 1.2, height: 1.65, depth: 0.05 }, eg);
-          [img, hb].forEach((n) => n.addEventListener("click", (e) => cardFlip(T, i, e.detail && e.detail.connectionId)));
-          T.cards.push({ img, face: 0, up: false });
-        });
-        // R4: four frogs on stumps; each lights up and croaks in its own voice
-        t.frogs.forEach(([x, y, z, ry], i) => {
-          const g = el("m-group", { x, y, z, ry }, eg), body = el("m-group", {}, g);
-          const ring = el("m-cylinder", { y: 0.0, radius: 0.55, height: 0.04, color: E.fcols[i], emissive: 0.15, collide: "false", "cast-shadows": "false" }, g);
-          const fm = E.frogm[i % 2]; model(fm[0] + ".glb", { x: fm[1], y: fm[2], z: fm[3], sx: fm[5], sy: fm[5], sz: fm[5], collide: "false" }, body);
-          const hb = hitBox({ y: 0.3, width: 1.0, height: 0.8, depth: 1.0 }, g);
-          [hb, ring].forEach((n) => n.addEventListener("click", (e) => frogPress(T, i, e.detail && e.detail.connectionId)));
-          T.frogs.push({ g, body, ring, x, y, z });
-        });
-        T.rlamps = [0, 1, 2].map((r) => el("m-sphere", { x: t.rounds[0], y: t.rounds[1] + 1.4 + r * 0.42, z: t.rounds[2], radius: 0.14, color: "#2a2018", emissive: 0, collide: "false", "cast-shadows": "false" }, eg));
-        el("m-cylinder", { x: t.rounds[0], y: t.rounds[1] + 0.6, z: t.rounds[2], radius: 0.08, height: 1.25, color: "#2a1d12", collide: "false" }, eg);
+        // R3: three eyes painted on the floor (one is true, picked every game)
+        t.eye.spots.forEach(([x, y, z]) => T.eyes.push(img("eye.png", { x, y: y + 0.03, z, rx: -90, width: 1.3, height: 1.3, emissive: 0.8 }, eg)));
+        // R4: stool numbers on the bar, the question board (the same every game)
+        t.stools.forEach(([x, y, z, ry], j) => word("d" + (j + 1), 1.0, { x, y, z, ry }, eg));
+        img("w_board.jpg", { x: t.board[0], y: t.board[1], z: t.board[2], ry: t.board[3], width: 4.2, height: 2.0, emissive: 0.5 }, eg);
       });
-      // ---- doors
-      // (v44, owner: "when i opened the build there was a big ding dong sound that played throughout the whole world") doors are
-      // silent when the game is set up, started, reset or ended (that was 6-30 chimes at once); only a door a team just unlocked
-      // makes a soft sound, right there
+      // ---- doors (silent at set-up / start / end; a soft clack only when a team unlocks one)
       function door(T, d, open, quiet) {
         const D_ = T.doors[d]; if (D_.open === open) return; D_.open = open;
         escStep(D_.g, "z", open ? D_.z : D_.z - E.slide, open ? D_.z - E.slide : D_.z, 1600, 9);
@@ -924,9 +908,8 @@
       function solved(T, room) {
         if (ES.ph !== "live" || T.stage !== room) return;
         T.stage = room + 1; door(T, room + 1, true); lampsShow();
-
-        if (room === 3) finish(T);
-        else if (room === 2) later(3500, () => frogRound(T, 0));
+        if (room === 2) witchClear(T);                            // the floating paint goes once R3 is done (fewer objects)
+        if (room === 3) finish(T); else reveal(T, room + 1);
       }
       function finish(T) {
         ES.order.push(T.k); const secs = Math.round((now() - ES.t0) / 1000);
@@ -947,116 +930,110 @@
           later(1500, () => g.remove());
         });
       }
-      // ---- R1: lanterns + keypad
-      function lanternShow(T, i) {
-        if (T.found[i]) return; T.found[i] = true;
-        const L_ = T.lant[i]; digits(T.code[T.lcol.indexOf(i)], 0.45, {}, L_.num);
-        sfx("pool_clack_1.mp3", ...TM[T.k].lanterns[i], 0.5);
+      // ---- keypads. Key presses are silent (20 people clicking = no sound storm); only OK makes a sound.
+      function padShow(P) { clearKids(P.disp); P.typed.forEach((v, j) => word("d" + v, 0.3, { x: (j - (P.typed.length - 1) / 2) * 0.22 }, P.disp)); }
+      function padKey(T, r, kk, id) {
+        if (ES.ph !== "live" || T.stage !== r || id === undefined) return;
+        const P = T.kp[r], t = now();
+        if (t < P.lock || t - P.last < 150) return; P.last = t;
+        if (kk === "C") { P.typed = []; padShow(P); return; }
+        if (kk !== "K") { if (P.typed.length < 6) { P.typed.push(kk); padShow(P); } return; }
+        if (!P.typed.length) return;
+        const [x, y, z] = TM[T.k].kp[r], ok = P.typed.join("") === T.codes[r];
+        P.typed = []; ES.tries[T.k] = (ES.tries[T.k] || 0) + 1;
+        P.bg.setAttribute("color", ok ? "#1f6b2a" : "#7a1a12"); P.bg.setAttribute("emissive", "0.8");
+        if (ok) { sfx("lift_chime.mp3", x, y + 1, z, 0.45); later(900, () => { P.bg.setAttribute("color", "#0d0907"); P.bg.setAttribute("emissive", "0"); clearKids(P.disp); solved(T, r); }); return; }
+        sfx("pool_rail.mp3", x, y + 1, z, 0.6);
+        P.lock = t + E.lock; const tok = ES.tok, end = P.lock;
+        const tick = () => {
+          if (ES.tok !== tok || P.lock !== end) return;
+          const left = Math.ceil((end - now()) / 1000); clearKids(P.disp);
+          if (left <= 0) { P.lock = 0; P.bg.setAttribute("color", "#0d0907"); P.bg.setAttribute("emissive", "0"); return; }
+          digits(left, 0.3, {}, P.disp, true); later(1000, tick);
+        };
+        tick();
       }
-      function keyPress(T, d, id) {
-        if (ES.ph !== "live" || T.stage !== 0 || T.typed.length >= 4) return;
-        const t = now(); if (t - T.lastIn < 180) return; T.lastIn = t;
-        T.typed.push(d); dispShow(T);
-        const [x, y, z] = TM[T.k].disp; sfx("pool_clack_0.mp3", x, y, z, 0.4);
-        if (T.typed.length === 4) {
-          const ok = T.typed.every((v, j) => v === T.code[j]);
-          T.dispBg.setAttribute("color", ok ? "#1f6b2a" : "#7a1a12"); T.dispBg.setAttribute("emissive", "0.8");
-          later(900, () => { T.typed = []; dispShow(T); T.dispBg.setAttribute("color", "#0d0907"); T.dispBg.setAttribute("emissive", "0"); if (ok) solved(T, 0); });
-          if (!ok) sfx("pool_rail.mp3", x, y, z, 0.7);
+      function padReset(P) { P.typed = []; P.lock = 0; clearKids(P.disp); P.bg.setAttribute("color", "#0d0907"); P.bg.setAttribute("emissive", "0"); }
+      // ---- chests
+      function noteFor(T, C) {                                   // which picture is in this chest (this game)
+        const R1 = E.sums[T.si[0]], R2 = E.cipher[T.si[1]], R4 = E.riddle[T.si[2]];
+        if (C.room === 0) return [R1.notes[T.map0[C.j]], 1.7, 0.52];
+        if (C.room === 1) return [R2.keys[T.map1[C.j]], 1.75, 0.4];
+        const n = T.map3[C.j]; return [n >= 0 ? R4.notes[n] : E.empty[(C.j + T.si[2]) % E.empty.length], 1.7, 0.567];
+      }
+      function chestOpen(T, C, id, force) {
+        if (C.open || (!force && (ES.ph !== "live" || T.stage < C.room || id === undefined))) return;
+        C.open = true; escStep(C.hinge, "rx", 0, -105, 700, 6);
+        const [src, w, h] = noteFor(T, C);
+        C.note = img(src, { y: 1.55, z: 0.05, width: w, height: h, emissive: 0.5 }, C.g);
+        if (!force) sfx("pool_clack_1.mp3", C.x, C.y + 0.6, C.z, 0.3);
+      }
+      function chestShut(C) { C.open = false; (C.hinge._steps || []).forEach((h) => cancel(h)); C.hinge._steps = []; C.hinge.setAttribute("rx", "0"); if (C.note) { C.note.remove(); C.note = null; } }
+      // ---- what each room shows once the team gets there (not before: no solving through the glass while teams are picked)
+      function reveal(T, r) {
+        const t = TM[T.k];
+        if (r === 0) { const p = t.paint; T.shown.push(img(E.sums[T.si[0]].paint, { x: p[0], y: p[1], z: p[2], ry: p[3], width: 2.5, height: 1.05, emissive: 0.5 }, eg)); }
+        if (r === 1) { const p = t.msg, c = E.cipher[T.si[1]], w = Math.min(5.0, 1.7 / c.mh); T.shown.push(img(c.msg, { x: p[0], y: p[1], z: p[2], ry: p[3], width: w, height: w * c.mh, emissive: 0.5 }, eg)); }
+        if (r === 2) witchBuild(T);
+        if (r === 3) { const R4 = E.riddle[T.si[2]]; t.wnotes.forEach(([x, y, z, ry], j) => T.shown.push(img(R4.notes[T.wall3[j]], { x, y, z, ry, width: 1.7, height: 0.567, emissive: 0.5 }, eg))); }
+      }
+      // ---- R3 the witch's eye: 4 digits drawn as paint strokes, each stroke pushed a random distance along the line from the
+      // true eye (and made bigger/smaller to match), so they only line up into numbers seen from that eye. Plus stray strokes.
+      const SEGS = { a: [0, 1, 0.82, 0.17], g: [0, 0, 0.82, 0.17], d: [0, -1, 0.82, 0.17], f: [-0.5, 0.5, 0.17, 0.85], b: [0.5, 0.5, 0.17, 0.85], e: [-0.5, -0.5, 0.17, 0.85], c: [0.5, -0.5, 0.17, 0.85] };
+      const DIG7 = ["abcdef", "bc", "abged", "abgcd", "fgbc", "afgcd", "afgedc", "abc", "abcdefg", "abcdfg"];
+      function witchBuild(T) {
+        witchClear(T);
+        const W = TM[T.k].eye, S = W.spots[T.eyeI], V = [S[0], S[1] + 2.2, S[2]], C0 = W.c;
+        const d = [C0[0] - V[0], C0[1] - V[1], C0[2] - V[2]], L = Math.hypot(d[0], d[1], d[2]), f = d.map((v) => v / L);
+        const hr = Math.hypot(f[0], f[2]), rt = [-f[2] / hr, 0, f[0] / hr];
+        const up = [rt[1] * f[2] - rt[2] * f[1], rt[2] * f[0] - rt[0] * f[2], rt[0] * f[1] - rt[1] * f[0]];
+        const U = 1.1 * L / 20, g = el("m-group", {}, eg); T.bars = g;
+        const bar = (sx, sy, w, h, q, col) => {
+          const P0 = [C0[0] + (rt[0] * sx + up[0] * sy) * U, C0[1] + (rt[1] * sx + up[1] * sy) * U, C0[2] + (rt[2] * sx + up[2] * sy) * U];
+          const P = [V[0] + q * (P0[0] - V[0]), V[1] + q * (P0[1] - V[1]), V[2] + q * (P0[2] - V[2])];
+          const n = [V[0] - P[0], V[1] - P[1], V[2] - P[2]], nl = Math.hypot(n[0], n[1], n[2]);
+          const yaw = Math.atan2(n[0], n[2]) * 180 / Math.PI, pitch = -Math.asin(n[1] / nl) * 180 / Math.PI;
+          const o = el("m-group", { x: P[0], y: P[1], z: P[2], ry: yaw }, g);
+          el("m-cube", { rx: pitch, width: w * U * q, height: h * U * q, depth: 0.04, color: col, emissive: 1.6, collide: "false", "cast-shadows": "false" }, o);
+        };
+        const code = T.codes[2];
+        code.split("").forEach((ch, j) => DIG7[+ch].split("").forEach((sg) => { const [sx, sy, w, h] = SEGS[sg]; bar((j - 1.5) * 1.6 + sx, sy, w, h, 0.6 + Math.random() * 0.4, "#c77dff"); }));
+        for (let i = 0; i < 9; i++) {                             // stray strokes: outside the numbers seen from the eye, mixed in from anywhere else
+          const side = i % 3, sx = side === 0 ? -4.4 + Math.random() * 8.8 : (side === 1 ? -1 : 1) * (4.3 + Math.random() * 1.2), sy = side === 0 ? (Math.random() < 0.5 ? -1 : 1) * (1.8 + Math.random() * 0.9) : -1.2 + Math.random() * 2.4;
+          const hz = Math.random() < 0.5; bar(sx, sy, hz ? 0.82 : 0.17, hz ? 0.17 : 0.85, 0.45 + Math.random() * 0.55, "#c77dff");
         }
       }
-      function dispShow(T) { Array.from(T.disp.children).forEach((c) => { if (c !== T.dispBg) c.remove(); }); T.typed.forEach((v, j) => word("d" + v, 0.32, { x: (j - 1.5) * 0.28, z: 0.01 }, T.disp)); }
-      // ---- R2: lily pads
-      function padStep(T, i, id, on) {
-        const P = T.pads[i];
-        if (on) P.who.set(id, now()); else P.who.delete(id);
-        padCheck(T);
-      }
-      function padsLit(T) {
-        const t = now(); return T.pads.map((P) => { P.who.forEach((ts, id) => { if (t - ts > 45000 || !ONLINE.has(id)) P.who.delete(id); }); return P.who.size > 0; });
-      }
-      function padCheck(T) {
-        const lit = padsLit(T);
-        T.pads.forEach((P, i) => { const v = lit[i] ? "0.9" : "0"; if (P.p.getAttribute("emissive") !== v) { P.p.setAttribute("emissive", v); P.p.setAttribute("color", lit[i] ? "#7fe05a" : "#2f6b2a"); } });
-        if (ES.ph !== "live" || T.stage !== 1) return;
-        const need = Math.max(1, Math.min(4, inTeam(T.k).length)), n = lit.filter(Boolean).length;
-        if (n >= need) { if (!T.holdT) { T.holdT = now(); const tok = ES.tok; later(1600, () => { if (ES.tok !== tok || T.stage !== 1) return; const n2 = padsLit(T).filter(Boolean).length; if (n2 >= need) solved(T, 1); else T.holdT = 0; }); } }
-        else T.holdT = 0;
-      }
-      every(2000, () => { if (ES.ph === "live") ES.teams.forEach((T) => { if (T.stage === 1) padCheck(T); }); });
-      // ---- R3: memory cards
-      function cardFlip(T, i, id) {
-        if (ES.ph !== "live" || T.stage !== 2 || T.busy) return;
-        const C = T.cards[i]; if (C.up || T.matched.has(i)) return;
-        C.up = true; C.img.setAttribute("src", BASE + "esc/k_" + String(T.pairs[i]).padStart(3, "0") + ".jpg" + VER); T.up.push(i);
-        const [x, y, z] = TM[T.k].cards[i]; sfx("pool_clack_1.mp3", x, y, z, 0.35);
-        if (T.up.length < 2) return;
-        const [a, b] = T.up; T.up = [];
-        if (T.pairs[a] === T.pairs[b]) { T.matched.add(a); T.matched.add(b); sfx("lift_chime.mp3", x, y, z, 0.4); if (T.matched.size === T.cards.length) later(700, () => solved(T, 2)); return; }
-        T.busy = true; const tok = ES.tok;
-        later(1300, () => { if (ES.tok !== tok) return; [a, b].forEach((j) => { T.cards[j].up = false; T.cards[j].img.setAttribute("src", BASE + "esc/back.jpg" + VER); }); T.busy = false; });
-      }
-      // ---- R4: frog choir
-      function croak(T, i, ms) {
-        const F = T.frogs[i]; F.ring.setAttribute("emissive", "3"); F.body.setAttribute("y", "0.25");
-        sfx("frog_" + i + ".mp3", F.x, F.y + 0.3, F.z, 0.8);
-        later(ms || 420, () => { F.ring.setAttribute("emissive", "0.15"); F.body.setAttribute("y", "0"); });
-      }
-      const LENS = [4, 5, 6];
-      function frogRound(T, r) {
-        if (ES.ph !== "live" || T.stage !== 3) return;
-        T.round = r; T.pos = 0; T.song = Array.from({ length: LENS[r] }, () => Math.floor(Math.random() * 4));
-        T.rlamps.forEach((l, j) => { l.setAttribute("color", j < r ? "#7fe05a" : "#2a2018"); l.setAttribute("emissive", j < r ? "1.2" : "0"); });
-        frogPlay(T, 1);
-      }
-      function frogPlay(T, slow) {
-        if (ES.ph !== "live" || T.stage !== 3) return;
-        const tok = ++T.ptok || (T.ptok = 1); T.playing = true; T.pos = 0; const gap = slow > 1 ? 1200 : 750;
-        T.song.forEach((f, j) => later(600 + j * gap, () => { if (T.ptok === tok) croak(T, f, slow > 1 ? 700 : 420); }));
-        later(600 + T.song.length * gap + 200, () => { if (T.ptok === tok) { T.playing = false; T.waitAt = now(); } });
-      }
-      every(3000, () => { if (ES.ph === "live") ES.teams.forEach((T) => { if (T.stage === 3 && !T.playing && T.pos === 0 && T.waitAt && now() - T.waitAt > 12000) frogPlay(T, 1); }); });   // nobody tried: play it again
-      function frogPress(T, i, id) {
-        if (ES.ph !== "live" || T.stage !== 3 || T.playing) return;
-        const t = now(); if (t - T.lastIn < 250) return; T.lastIn = t;
-        croak(T, i);
-        if (T.song[T.pos] !== i) {
-          T.frogs.forEach((F) => { F.ring.setAttribute("color", "#ff2a1a"); F.ring.setAttribute("emissive", "2"); });
-          sfx("pool_rail.mp3", T.frogs[i].x, T.frogs[i].y, T.frogs[i].z, 0.7);
-          later(700, () => T.frogs.forEach((F, j) => { F.ring.setAttribute("color", E.fcols[j]); F.ring.setAttribute("emissive", "0.15"); }));
-          T.pos = 0; T.playing = true; later(1400, () => frogPlay(T, 1)); return;
-        }
-        T.pos++; T.waitAt = now();
-        if (T.pos >= T.song.length) {
-          if (T.round + 1 >= LENS.length) { T.rlamps.forEach((l) => { l.setAttribute("color", "#7fe05a"); l.setAttribute("emissive", "1.2"); }); solved(T, 3); }
-          else { T.playing = true; later(1200, () => frogRound(T, T.round + 1)); }
-        }
-      }
-      // ---- setup / phases
+      function witchClear(T) { if (T.bars) { T.bars.remove(); T.bars = null; } }
+      // ---- set-up / phases
       function eJoin(k, id) {
         if (ES.ph !== "open" || REMOTES.has(id) || ES.roster.get(id) === k) return;
         ES.roster.set(id, k); countsShow();
         const t = TM[k]; privWords(["r_youre", t.word], [t.rug[0], E.y0 + 2.6, t.rug[2]], 90 * t.side, id, 2200, 0.5);
       }
-      function freshPuzzles(T) {
+      function freshPuzzles(T, si) {
         const t = TM[T.k];
-        T.stage = 0; T.typed = []; T.found = [false, false, false, false]; T.holdT = 0; T.up = []; T.matched = new Set(); T.busy = false; T.round = 0; T.pos = 0; T.playing = false; T.ptok = (T.ptok || 0) + 1; T.waitAt = 0;
-        T.code = [0, 1, 2, 3].map(() => Math.floor(Math.random() * 10));
-        T.lcol = shuffle([0, 1, 2, 3]);                                  // T.lcol[j] = which lantern holds digit j (in the painting's order)
-        const cols = shuffle(E.lcols.slice());
-        T.lcol.forEach((li, j) => { T.lant[li].glass.setAttribute("color", cols[j]); T.gems[j].setAttribute("color", cols[j]); });
-        T.lant.forEach((L_) => Array.from(L_.num.children).forEach((c) => c.remove()));
-        dispShow(T); T.dispBg.setAttribute("color", "#0d0907");
-        T.pads.forEach((P) => P.who.clear()); padCheck(T);
-        const pick = shuffle(E.cards.slice()).slice(0, T.cards.length / 2);
-        T.pairs = shuffle(pick.concat(pick));
-        T.cards.forEach((C) => { C.up = false; C.img.setAttribute("src", BASE + "esc/back.jpg" + VER); });
-        T.rlamps.forEach((l) => { l.setAttribute("color", "#2a2018"); l.setAttribute("emissive", "0"); });
+        T.stage = 0; T.si = si; T.hintN = 0;
+        T.shown.forEach((n) => n.remove()); T.shown = []; witchClear(T);
         T.hints.forEach((h) => h.remove()); T.hints = [];
+        T.kp.forEach(padReset); T.chests.forEach(chestShut);
+        const R1 = E.sums[si[0]], R2 = E.cipher[si[1]], R4 = E.riddle[si[2]];
+        // chests in each room: shuffle which note sits in which chest
+        const byRoom = [0, 1, 3].map((r) => T.chests.filter((C) => C.room === r));
+        byRoom.forEach((L) => L.forEach((C, j) => { C.j = j; }));
+        T.map0 = shuffle(R1.notes.map((_, j) => j)).slice(0, byRoom[0].length);
+        T.map1 = shuffle(R2.keys.map((_, j) => j)).slice(0, byRoom[1].length);
+        const cl = shuffle(R4.notes.map((_, j) => j));             // 8 clues on the walls, the rest in chests (others hold junk)
+        T.wall3 = cl.slice(0, t.wnotes.length);
+        const inCh = cl.slice(t.wnotes.length), m3 = byRoom[2].map((_, j) => (j < inCh.length ? inCh[j] : -1));
+        T.map3 = shuffle(m3);
+        T.eyeI = Math.floor(Math.random() * t.eye.spots.length);
+        T.codes = [R1.code, R2.code, Array.from({ length: 4 }, () => Math.floor(Math.random() * 10)).join(""), R4.code];
       }
       function eOpen() {
-        ES.tok++; ES.ph = "open"; ES.order = []; ES.t0 = 0;
-        ES.teams.forEach((T) => { freshPuzzles(T); T.doors.forEach((_, d) => door(T, d, d === 0, true)); });
+        ES.tok++; ES.ph = "open"; ES.order = []; ES.t0 = 0; ES.tries = {};
+        const pick = (n) => shuffle(Array.from({ length: n }, (_, i) => i));
+        const a = pick(E.sums.length), b = pick(E.cipher.length), c = pick(E.riddle.length);
+        ES.teams.forEach((T, k) => { freshPuzzles(T, [a[k % a.length], b[k % b.length], c[k % c.length]]); T.doors.forEach((_, d) => door(T, d, d === 0, true)); });
         BOARDS.forEach((B) => Array.from(B.big.children).forEach((c) => c.remove()));
         lampsShow(); countsShow(); clockShow(0);
         return "MUDWATER ESCAPE: DOORS OPEN - WALK INTO A COLOURED DOOR TO JOIN THAT TEAM";
@@ -1065,8 +1042,9 @@
         if (ES.ph === "live") return "MUDWATER ESCAPE IS ALREADY RUNNING";
         const ids = Array.from(ES.roster.keys()).filter((id) => ONLINE.has(id));
         if (!ids.length) return "NOBODY HAS JOINED A TEAM YET";
+        if (ES.ph === "done") eOpen();                            // a second game: fresh puzzles, chests shut
         ES.ph = "live"; ES.t0 = now(); ES.order = []; const tok = ++ES.tok;
-        ES.teams.forEach((T) => { T.doors.forEach((_, d) => door(T, d, false, true)); });
+        ES.teams.forEach((T) => { T.doors.forEach((_, d) => door(T, d, false, true)); reveal(T, 0); });
         ids.forEach((id) => { const t = TM[ES.roster.get(id)]; privWords(["r_go"], [t.rug[0], E.y0 + 2.8, t.rug[2]], 90 * t.side, id, 2500, 0.5); });
         lampsShow(); countsShow();
         const tick = () => { if (ES.tok !== tok || ES.ph !== "live") return; clockShow(Math.round((now() - ES.t0) / 1000)); later(1000, tick); };
@@ -1076,17 +1054,45 @@
       function eEnd() {
         if (ES.ph !== "live") return "MUDWATER ESCAPE ISN'T RUNNING";
         ES.ph = "done"; ES.tok++;
-        ES.teams.forEach((T) => T.doors.forEach((_, d) => door(T, d, true, true)));    // let everybody out (silently)
+        ES.teams.forEach((T) => { T.doors.forEach((_, d) => door(T, d, true, true)); witchClear(T); });
         return "MUDWATER ESCAPE ENDED - ALL DOORS OPEN. " + (ES.order.length ? "ORDER: " + ES.order.map((k) => TM[k].k.toUpperCase()).join(", ") : "NOBODY ESCAPED");
       }
       function teamArg(a) { const k = TM.findIndex((t) => t.k === a || String(TM.indexOf(t) + 1) === a); return k; }
+      const PETS = ["GATOR", "FROG", "CRAWDAD", "CATFISH", "TURTLE"];
+      function hintLabel(T, at, text, ms) {
+        const lab = el("m-label", { x: at[0], y: at[1], z: at[2], ry: at[3], width: 6.5, height: 0.7, content: text, "font-size": 30, alignment: "center", color: "#0d0907", "font-color": "#ffe6a8", emissive: 0.5, collide: "false" }, eg);
+        T.hints.push(lab); if (ms) later(ms, () => lab.remove());
+        return lab;
+      }
       function eHint(k) {
         const T = ES.teams[k]; if (!T || ES.ph !== "live") return "NO HINT (GAME NOT RUNNING)";
-        if (T.stage === 0) { T.lant.forEach((L_, i) => { if (!T.found[i]) { const a = anim(L_.glass, "radius", 0.16, 0.45, 600, { pingPong: true }); later(12000, () => a.remove()); } }); return TM[k].k.toUpperCase() + " HINT: THE HIDDEN LANTERNS ARE PULSING"; }
-        if (T.stage === 1) { const need = Math.max(1, Math.min(4, inTeam(k).length)); T.pads.forEach((P, i) => { if (i < need) { const a = anim(P.p, "emissive", 0, 1.5, 500, { pingPong: true }); later(8000, () => { a.remove(); padCheck(T); }); } }); return TM[k].k.toUpperCase() + " HINT: " + need + " PADS FLASHING - STAND ON THEM TOGETHER"; }
-        if (T.stage === 2) { const left = T.cards.map((_, i) => i).filter((i) => !T.matched.has(i) && !T.cards[i].up); if (left.length < 2) return "NOTHING TO HINT"; const a = left[0], b = left.find((j) => j !== a && T.pairs[j] === T.pairs[a]); [a, b].forEach((j) => T.cards[j].img.setAttribute("src", BASE + "esc/k_" + String(T.pairs[j]).padStart(3, "0") + ".jpg" + VER)); later(2500, () => [a, b].forEach((j) => { if (!T.matched.has(j) && !T.cards[j].up) T.cards[j].img.setAttribute("src", BASE + "esc/back.jpg" + VER); })); return TM[k].k.toUpperCase() + " HINT: ONE PAIR SHOWN FOR 2 SECONDS"; }
-        if (T.stage === 3) { T.pos = 0; frogPlay(T, 2); return TM[k].k.toUpperCase() + " HINT: THE FROGS SING IT SLOWLY"; }
-        return TM[k].k.toUpperCase() + " IS ALREADY OUT";
+        const t = TM[k], nm = t.k.toUpperCase();
+        if (T.stage === 0) {
+          const fk = E.sums[T.si[0]].fake;
+          T.chests.filter((C) => C.room === 0 && fk.includes(T.map0[C.j])).forEach((C) => {
+            chestOpen(T, C, undefined, true);
+            const lab = el("m-label", { y: 2.0, z: 0.08, width: 1.4, height: 0.4, content: "FAKE", "font-size": 40, alignment: "center", color: "#7a1a12", "font-color": "#ffffff", emissive: 0.6, collide: "false" }, C.g); T.hints.push(lab);
+          });
+          return nm + " HINT: THE 2 FAKE SUMS ARE OPEN AND MARKED 'FAKE'";
+        }
+        if (T.stage === 1) {
+          const w = E.cipher[T.si[1]].q.split(" "), n = Math.ceil(w.length / 2);
+          hintLabel(T, [t.msg[0] + (t.side > 0 ? -0.1 : 0.1), t.msg[1] + 1.35, t.msg[2], t.msg[3]], "IT SAYS: " + w.slice(0, n).join(" ") + " ...");
+          return nm + " HINT: THE FIRST HALF OF THE MESSAGE IS SHOWN OVER IT";
+        }
+        if (T.stage === 2) {
+          const [x, y, z] = t.eye.spots[T.eyeI];
+          const b = el("m-cylinder", { x, y: y + 3, z, radius: 0.25, height: 6, color: "#c77dff", emissive: 2, opacity: 0.35, collide: "false", "cast-shadows": "false" }, eg);
+          T.hints.push(b); later(30000, () => b.remove());
+          return nm + " HINT: A BEAM SHOWS THE TRUE EYE (30 s)";
+        }
+        if (T.stage === 3) {
+          const code = E.riddle[T.si[2]].code, i = T.hintN++ % 5, b = t.board;
+          if (T._h4) T._h4.remove();
+          T._h4 = hintLabel(T, [b[0] + (t.side > 0 ? -0.1 : 0.1), b[1] + 1.5, b[2], b[3]], "HINT: THE " + PETS[i] + " SAT ON STOOL " + code[i]);
+          return nm + " HINT: THE " + PETS[i] + " SAT ON STOOL " + code[i];
+        }
+        return nm + " IS ALREADY OUT";
       }
       function eSkip(k) { const T = ES.teams[k]; if (!T || ES.ph !== "live" || T.stage > 3) return "NOTHING TO SKIP"; const r = T.stage; solved(T, r); return TM[k].k.toUpperCase() + ": ROOM " + (r + 1) + " SKIPPED BY THE HOST"; }
       function eRaffle() {

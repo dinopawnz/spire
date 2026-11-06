@@ -1,7 +1,6 @@
 """MUDWATER ESCAPE bot test: 45 bots walk onto the 6 team rugs (some switch), host starts (start doors shut, late joiner refused),
-then every team solves its 4 rooms the way players would: R1 read lantern numbers in the painting's colour order + type the code (one
-wrong try first), R2 stand on the lily pads together (too few first), R3 flip the memory cards (mismatches flip back), R4 copy the frog
-song (one wrong croak first). Checks doors, boards, finish order, hint/skip/raffle/end/open.
+then teams solve the 4 code rooms (v51): open the chests, check the pictures, type codes on the 12-key keypads (one wrong code first:
+30 s lock), check the witch's strokes line up only from the true eye. Checks doors, boards, finish order, hint/skip/raffle/end/open.
 python3 escapetest.py /home/claude/spire/out/spire.html"""
 import sys, time, json, random
 from playwright.sync_api import sync_playwright
@@ -30,74 +29,89 @@ with sync_playwright() as p:
     ok(all(("%s %dp" % (n, want[k])) in s0 for k, n in enumerate(['RED', 'GOLD', 'GREEN', 'BLUE', 'PURPLE', 'ORANGE'])), "team counts match %s" % want)
     dz = lambda k, d: pg.evaluate("([k, d]) => { const D = __ES._T[k].doors[d]; return parseFloat(D.g.getAttribute('z')) - D.z; }", [k, d])
     ok(all(abs(dz(k, 0) + 2.5) < 0.05 for k in range(6)) and all(abs(dz(k, 1)) < 0.05 for k in range(6)), "open phase: start doors open, room doors shut")
+    pg.evaluate("() => { const C = __ES._T[0].chests[0]; __X.f(__X.hb(C.g), 'click', {connectionId: 5}); }")
+    ok(not pg.evaluate("() => __ES._T[0].chests[0].open"), "before START a chest won't open")
+    ok(pg.evaluate("() => __ES._T[1].shown.length") == 0, "before START no puzzle pictures are up")
     say("escape start"); print(ack()); time.sleep(2.6)
     ok(all(abs(dz(k, 0)) < 0.05 for k in range(6)), "START shut every start door")
     pg.evaluate("() => { window.dispatchEvent(new CustomEvent('connected', {detail:{connectionId:60}})); __X.f(__X.rugs[0], 'collisionstart', {connectionId: 60}); }")
     say("escape"); ok("RED %dp" % want[0] in ack(), "late joiner not added")
+    def press(k, r, seq, who=2):
+        for kk in seq:
+            i = "123456789C0K".index(kk)
+            pg.evaluate("([k, r, i, w]) => { const hb = Array.from(__ES._T[k].kp[r].g.children).filter(c => c.tagName.toLowerCase() === 'm-cube' && c.getAttribute('opacity') === '0'); __X.f(hb[i], 'click', {connectionId: w}); }", [k, r, i, who])
+            time.sleep(0.17)
+    shown = lambda k, r: pg.evaluate("([k, r]) => __ES._T[k].kp[r].disp.querySelectorAll('m-model').length", [k, r])
+    def chests(k, room):
+        n = pg.evaluate("([k, room]) => { const L = __ES._T[k].chests.filter(C => C.room === room); L.forEach(C => __X.f(__X.hb(C.g), 'click', {connectionId: 5})); return L.map(C => C.note && C.note.getAttribute('src').split('/').pop().split('?')[0]); }", [k, room])
+        return n
     def solve(k, wrong_first):
         T = "__ES._T[%d]" % k
-        # ---- R1: click the 4 lanterns, read digits + colours, order by the painting's gems
-        for i in range(4): pg.evaluate("([k, i]) => __X.f(__X.hb(__ES._T[k].lant[i].g), 'click', {connectionId: 2})", [k, i])
-        info = pg.evaluate("""(k) => { const T = __ES._T[k];
-            const lan = T.lant.map(L => [L.glass.getAttribute('color'), Array.from(L.num.querySelectorAll('m-model')).map(m => m.getAttribute('src').match(/ms_d(\\d)/)[1]).join('')]);
-            return { lan, gems: T.gems.map(g => g.getAttribute('color')) }; }""", k)
-        code = [int(dict(info['lan'])[c]) for c in info['gems']]
-        keys = lambda seq: [pg.evaluate("([k, d]) => { const T = __ES._T[k]; const gs = Array.from(document.querySelectorAll('m-group')).filter(g => g.querySelector('m-model[src*=\"ms_d' + d + '.glb\"]') && g.querySelector('m-cube[width=\"0.36\"]'));"
-                                       " const t = __ES._T; const want = %s; const pos = want.keys[d]; const g = gs.find(g => Math.abs(parseFloat(g.getAttribute('x')) - pos[0]) < 0.01 && Math.abs(parseFloat(g.getAttribute('z')) - pos[2]) < 0.01); __X.f(__X.hb(g), 'click', {connectionId: 2}); }" % "window.__TM[k]", [k, d]) or time.sleep(0.2) for d in seq]
+        codes = pg.evaluate("(k) => __ES._T[k].codes", k)
+        # ---- R1: open the 8 chests (8 different picture sums), type the code (a wrong one first -> 30 s lock)
+        n1 = chests(k, 0)
+        ok(len(n1) == 8 and all(n1) and len(set(n1)) == 8, "team %d: R1 8 chests open, 8 different sums %s" % (k, n1[:2]))
+        paint = pg.evaluate("(k) => __ES._T[k].shown.map(n => n.getAttribute('src').split('/').pop().split('?')[0])", k)
+        ok(len(paint) == 1 and paint[0].endswith('_p.jpg'), "team %d: the code painting is up (%s)" % (k, paint))
         if wrong_first:
-            keys([(code[0] + 1) % 10] + code[1:]); time.sleep(1.2)
+            press(k, 0, "12"); ok(shown(k, 0) == 2, "team %d: screen shows 2 typed digits" % k)
+            press(k, 0, "C"); ok(shown(k, 0) == 0, "team %d: CLR empties the screen" % k)
+            press(k, 0, str((int(codes[0][0]) + 1) % 10) + codes[0][1:] + "K"); time.sleep(1.2)
             ok(abs(dz(k, 1)) < 0.05, "team %d: wrong code keeps door 1 shut" % k)
-        keys(code); time.sleep(3.0)
-        ok(abs(dz(k, 1) + 2.5) < 0.05, "team %d: code %s opens door 1" % (k, code))
-        # ---- R2: lily pads
-        ids = [id for id, t in team.items() if t == k]; need = max(1, min(4, len(ids)))
-        if need > 1:
-            for j in range(need - 1): pg.evaluate("([k, j, id]) => __X.f(__ES._T[k].pads[j].p, 'collisionstart', {connectionId: id})", [k, j, ids[j]])
-            time.sleep(2.2); ok(abs(dz(k, 2)) < 0.05, "team %d: %d of %d pads is not enough" % (k, need - 1, need))
-        for j in range(need): pg.evaluate("([k, j, id]) => __X.f(__ES._T[k].pads[j].p, 'collisionstart', {connectionId: id})", [k, j, ids[j]])
-        time.sleep(4.2); ok(abs(dz(k, 2) + 2.5) < 0.05, "team %d: %d players on the pads open door 2" % (k, need))
-        # ---- R3: memory (flip like a player: remember what's seen)
-        seen = {}; matched = set()
-        flip = lambda i: pg.evaluate("([k, i]) => { const C = __ES._T[k].cards[i]; __X.f(C.img, 'click', {connectionId: 3}); return C.img.getAttribute('src').match(/(k_\\d+|back)/)[1]; }", [k, i])
-        mism = 0
-        for i in range(12):
-            if i in matched: continue
-            fa = flip(i); seen.setdefault(fa, []).append(i)
-            mate = [j for j in seen[fa] if j != i]
-            j = mate[0] if mate else next((j for j in range(12) if j != i and j not in matched and all(j not in v for v in seen.values())), None)
-            if j is None: continue
-            fb = flip(j); seen.setdefault(fb, []).append(j)
-            if fa == fb: matched |= {i, j}
-            else: mism += 1; time.sleep(1.5)
-        for f_, v in seen.items():
-            v = [x for x in v if x not in matched]
-            if len(v) >= 2: flip(v[0]); flip(v[1]); matched |= {v[0], v[1]}
-        time.sleep(3.4)
-        ok(abs(dz(k, 3) + 2.5) < 0.05, "team %d: memory solved (%d mismatches flipped back) opens door 3" % (k, mism))
-        # ---- R4: frog choir (3 rounds), one wrong croak first
-        for r in range(3):
-            pg.wait_for_function("(k) => !__ES._T[k].playing && __ES._T[k].stage === 3 && __ES._T[k].song.length === %d" % (4 + r), arg=k, timeout=30000)
-            if wrong_first and r == 0:
-                bad = (pg.evaluate("(k) => __ES._T[k].song[0]", k) + 1) % 4
-                pg.evaluate("([k, i]) => __X.f(__X.hb(__ES._T[k].frogs[i].g), 'click', {connectionId: 4})", [k, bad]); time.sleep(0.4)
-                pg.wait_for_function("(k) => !__ES._T[k].playing", arg=k, timeout=30000)
-            song = pg.evaluate("(k) => __ES._T[k].song", k)
-            for f_ in song: pg.evaluate("([k, i]) => __X.f(__X.hb(__ES._T[k].frogs[i].g), 'click', {connectionId: 4})", [k, f_]); time.sleep(0.3)
-            time.sleep(1.5)
-        time.sleep(2.0)
-        ok(abs(dz(k, 4) + 2.5) < 0.05, "team %d: frog choir solved opens the Victory Hall door" % k)
-    pg.evaluate("() => { window.__TM = null; }")
-    pg.evaluate("""() => { const ts = []; document.querySelectorAll('m-group').forEach(() => {}); }""")
-    # the team data (key positions) from the page's data block
-    pg.evaluate("() => { const s = document.documentElement.innerHTML; }")
+            press(k, 0, codes[0] + "K", who=7); time.sleep(1.5)
+            ok(abs(dz(k, 1)) < 0.05, "team %d: while locked, even the RIGHT code does nothing" % k)
+            red = pg.evaluate("(k) => Array.from(__ES._T[k].kp[0].disp.querySelectorAll('m-model')).map(m => m.getAttribute('src').match(/ms_(r\\d)/)[1]).join('')", k)
+            ok(red.startswith('r'), "team %d: screen counts down in red (%s)" % (k, red))
+            time.sleep(28.5)
+        press(k, 0, codes[0] + "K"); time.sleep(3.2)
+        ok(abs(dz(k, 1) + 2.5) < 0.05, "team %d: code %s opens door 1" % (k, codes[0]))
+        # ---- R2: the message is up, 6 chests hold 6 key pieces
+        n2 = chests(k, 1)
+        ok(len(n2) == 6 and len(set(n2)) == 6 and all('_k' in x for x in n2), "team %d: R2 6 chests, 6 key pieces" % k)
+        press(k, 1, codes[1] + "K"); time.sleep(3.2)
+        ok(abs(dz(k, 2) + 2.5) < 0.05, "team %d: cipher answer %s opens door 2" % (k, codes[1]))
+        # ---- R3: the floating code lines up from the true eye only
+        geo = pg.evaluate("""(k) => { const T = __ES._T[k]; return { eyeI: T.eyeI, bars: Array.from(T.bars.children).map(o => { const c = o.firstElementChild;
+              return [+o.getAttribute('x'), +o.getAttribute('y'), +o.getAttribute('z'), +o.getAttribute('ry'), +c.getAttribute('rx'), +c.getAttribute('width'), +c.getAttribute('height')]; }) }; }""", k)
+        E3 = TMS[k]['eye']; import math
+        def spread(spot):
+            V = [spot[0], spot[1] + 2.2, spot[2]]; C = E3['c']
+            f = [C[i] - V[i] for i in range(3)]; L = math.sqrt(sum(v * v for v in f)); f = [v / L for v in f]
+            hr = math.hypot(f[0], f[2]); rt = [-f[2] / hr, 0, f[0] / hr]
+            up = [rt[1] * f[2] - rt[2] * f[1], rt[2] * f[0] - rt[0] * f[2], rt[0] * f[1] - rt[1] * f[0]]
+            pts = []
+            for (x, y, z, *_r) in geo['bars']:
+                d = [x - V[0], y - V[1], z - V[2]]; dep = sum(d[i] * f[i] for i in range(3))
+                pts.append((sum(d[i] * rt[i] for i in range(3)) / dep * L, sum(d[i] * up[i] for i in range(3)) / dep * L, dep / L))
+            return pts
+        def ideal_err(spot):      # for the true eye, every stroke projects onto the digit plane at a "grid" spot: |x|,|y| multiples of the segment layout
+            U = 1.1 * math.dist([spot[0], spot[1] + 2.2, spot[2]], E3['c']) / 20
+            P = spread(spot); n_dig = sum(len(["abcdef", "bc", "abged", "abgcd", "fgbc", "afgcd", "afgedc", "abc", "abcdefg", "abcdfg"][int(c)]) for c in codes[2])
+            errs_ = []
+            for (sx, sy, dep) in P[:n_dig]:
+                gx = sx / U; gy = sy / U
+                cands = [(j - 1.5) * 1.6 + ox for j in range(4) for ox in (-0.5, 0, 0.5)]
+                errs_.append(min(abs(gx - c) for c in cands) + min(abs(gy - c) for c in (-1, -0.5, 0, 0.5, 1)))
+            return max(errs_), n_dig
+        e_true, nd = ideal_err(E3['spots'][geo['eyeI']])
+        e_wrong = max(ideal_err(E3['spots'][j])[0] for j in range(3) if j != geo['eyeI'])
+        ok(len(geo['bars']) == nd + 9, "team %d: %d strokes for code %s + 9 strays" % (k, len(geo['bars']), codes[2]))
+        ok(e_true < 0.02 and e_wrong > 0.15, "team %d: strokes line up from the true eye (err %.3f) but not from the others (err %.2f)" % (k, e_true, e_wrong))
+        press(k, 2, codes[2] + "K"); time.sleep(3.2)
+        ok(abs(dz(k, 3) + 2.5) < 0.05, "team %d: witch code %s opens door 3" % (k, codes[2]))
+        ok(pg.evaluate("(k) => __ES._T[k].bars === null", k), "team %d: floating strokes removed after R3" % k)
+        # ---- R4: 8 clue notes on the walls, 6 chests (the rest of the clues + junk)
+        n4 = chests(k, 3); walls = pg.evaluate("(k) => __ES._T[k].shown.filter(n => /w\\d+_/.test(n.getAttribute('src'))).length", k)
+        clues = sum(1 for x in n4 if not x.startswith('w_empty'))
+        ok(walls == 8, "team %d: 8 clue notes on the walls, %d more clues in the chests" % (k, clues))
+        press(k, 3, codes[3] + "K"); time.sleep(3.2)
+        ok(abs(dz(k, 4) + 2.5) < 0.05, "team %d: riddle answer %s opens the Victory Hall door" % (k, codes[3]))
     TMS = json.loads(open(sys.argv[1]).read().split('const D = ')[1].split(';\n')[0])['escape']['teams']
-    pg.evaluate("(t) => { window.__TM = t; }", TMS)
     t0 = time.time()
     solve(2, True)
     say("escape"); print(ack())
     lamps = pg.evaluate("() => Array.from(document.querySelectorAll('m-sphere[radius=\"0.17\"]')).filter(s => s.getAttribute('emissive') === '1.4').length")
     ok(lamps == 8, "progress boards: team green 4 lamps lit on both boards (%d)" % lamps)
-    ok("GREEN ESCAPED FIRST" in ack() or True, "")
     acks = pg.evaluate("() => JSON.parse(document.querySelector('[data-ack]').getAttribute('data-ack')).l.map(a => a.t)")
     ok(any("GREEN ESCAPED FIRST" in a for a in acks), "host told: GREEN ESCAPED FIRST")
     solve(4, False)
@@ -105,13 +119,19 @@ with sync_playwright() as p:
     ok(any("PURPLE OUT IN PLACE 2" in a for a in acks), "purple second")
     # host tools
     say("escape hint red"); print(ack())
-    say("escape skip red"); print(ack()); time.sleep(2.5); ok(abs(dz(0, 1) + 2.5) < 0.05, "skip opened red's door 1")
-    say("escape hint red"); print(ack())
+    fk = pg.evaluate("() => { const T = __ES._T[0]; return T.chests.filter(C => C.open).map(C => [T.map0[C.j], C.g.querySelector('m-label') ? 1 : 0]); }")
+    fake = pg.evaluate("() => __ES._T[0].si[0]"); fakes = json.loads(open(sys.argv[1]).read().split('const D = ')[1].split(';\n')[0])['escape']['sums'][fake]['fake']
+    ok(len(fk) == 2 and sorted(f[0] for f in fk) == sorted(fakes) and all(f[1] for f in fk), "R1 hint opens exactly the 2 fake sums, marked FAKE")
+    for r in range(3):
+        say("escape skip red"); print(ack()); time.sleep(2.5); ok(abs(dz(0, r + 1) + 2.5) < 0.05, "skip opened red's door %d" % (r + 1))
+        say("escape hint red"); print(ack())
     say("escape raffle"); r = ack(); print(r); ok("RAFFLE WINNER (GREEN)" in r, "raffle picks from the winning team")
     say("escape end"); print(ack()); time.sleep(2.6)
     ok(all(abs(dz(k, d) + 2.5) < 0.05 for k in range(6) for d in range(5)), "END opened every door")
     say("escape open"); print(ack()); time.sleep(2.6)
     ok(all(abs(dz(k, 0) + 2.5) < 0.05 for k in range(6)) and all(abs(dz(k, d)) < 0.05 for k in range(6) for d in range(1, 5)), "OPEN: fresh game, start doors open")
+    ok(pg.evaluate("() => __ES._T.every(T => T.chests.every(C => !C.open) && !T.shown.length && !T.hints.length && T.stage === 0)"), "OPEN: chests shut, pictures and hints gone")
+    sets = pg.evaluate("() => __ES._T.map(T => T.si.join(','))"); ok(len(set(sets)) == 6, "every team got a different puzzle set %s" % sets)
     say("escape"); print(ack())
     print("ERRORS:", errs or "none", "| %.0f s" % (time.time() - t0))
     b.close()
