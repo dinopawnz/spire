@@ -151,7 +151,7 @@ def corner_frames():
 def score_glb(m, mats, Y):
     """(v36, owner: no jumbotron - "we just need to clearly see who's winning from signs around the board") a sturdy double-sided timber
     sign at each corner: the scores face the board, the rules face outwards"""
-    for ti, (_, _, _, rgb) in enumerate(TEAMS): mats['team%d' % ti] = team_mat(rgb, 0.45)
+    for ti, (_, _, _, rgb) in enumerate(TEAMS): mats['tstrip%d' % ti] = team_mat(rgb, 0.45)        # (v39) own name: the pen flags keep their softer glow
     mats['face'] = dict(color=(0.05, 0.035, 0.025, 1), rough=0.9)
     for (x, z, ry) in corner_frames():
         W_ = M(T(x, Y, z), Ry(ry)); L_ = lambda a, b, c: M(W_, T(a, b, c))
@@ -163,7 +163,7 @@ def score_glb(m, mats, Y):
         for yy in (SC_B + 0.04, SC_B + SC_H - 0.04):
             bevel_box(m, 'gold', SC_W + 0.35, 0.06, 0.28, 0.01, m=L_(0, yy, 0))
         for k in range(4):                                                    # a colour strip over each team's column
-            bevel_box(m, 'team%d' % k, 1.35, 0.07, 0.04, 0.01, m=L_(-2.4 + 1.6 * k, SC_B + 2.02, 0.15))
+            bevel_box(m, 'tstrip%d' % k, 1.35, 0.07, 0.04, 0.01, m=L_(-2.4 + 1.6 * k, SC_B + 2.02, 0.15))
         bevel_box(m, 'dark', SC_W + 0.9, 0.16, 0.6, 0.03, m=L_(0, SC_B + SC_H + 0.3, 0), uvs=2.0)   # a little roof
 
 
