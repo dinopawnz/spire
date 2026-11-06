@@ -63,15 +63,18 @@ def front_banner():
     write(OUTG + 'sp_frontbanner.glb', m, mats)
     return h + tip
 
+ISLANDS = False      # Meshy floating islands + far cliffs in the sky (owner turned off in v21)
+BONSAI = False       # Meshy bonsai islets on the water (owner turned off in v21)
+
 def apply(D, L, FL, rg):
     X1, Z1 = L['X1'], L['Z1']; W = L['walk']; R = random.Random(19)
     add = D['sdeco'].append
     # ---- out with the cartoon pieces, the moonbeam slabs and the red glow plants out on the water
-    D['deco'] = [d for d in D['deco'] if d[0] not in CARTOON and not (d[0].startswith('bog_glowplant') and d[2] < 1.0) and not (d[0] == 'mwx_brazier' and d[3] > Z1 + 5)]
+    # (owner, v21: the original water GLBs stay - nothing is removed from D['deco'])
     for k in range(10):                                   # low mist drifting over the water round the boardwalk and the porch
         a = R.uniform(-150, 150); rr = R.uniform(X1 + 10, X1 + 55)
         D['deco'].append(['mist', r3(rr * math.sin(math.radians(a))), 0.0, r3(Z1 * 0.3 + rr * math.cos(math.radians(a))), round(R.uniform(0, 360), 1), round(R.uniform(0.6, 1.0), 2)])
-    D['fx']['moon'] = []
+    # (moonbeams kept)
     # ---- the boardwalk: carved railings both sides, lantern posts at every other joint
     w = L['walk_w']; z0, z1 = L['walk_z0'], L['walk_z0'] + L['walk_len']; ya, yb = FL['lounge'], L['walk_y']
     wy = lambda z: ya + (yb - ya) * (z - z0) / (z1 - z0)
@@ -98,7 +101,7 @@ def apply(D, L, FL, rg):
     for k in range(10):
         p = water_spot(X1 + 18, X1 + 85, 9.0)
         if p: add(place('crystals', p[0], -0.4, p[1], R.uniform(0, 360), R.uniform(2.5, 4.5), 'h'))
-    for k in range(9):
+    for k in range(9 if BONSAI else 0):
         p = water_spot(X1 + 22, X1 + 80, 14.0)
         if p: add(place('bonsai', p[0], -0.8, p[1], R.uniform(0, 360), R.uniform(14.0, 22.0), 'l'))
     # ---- the sky: floating islands (bob slowly), tall floating cliffs far out
@@ -113,7 +116,7 @@ def apply(D, L, FL, rg):
         a = math.radians(-150 + k * 100 + R.uniform(-15, 15)); rr = R.uniform(X1 + 150, X1 + 200)
         p = place('cliff', rr * math.sin(a), R.uniform(8, 22), Z1 * 0.3 + rr * math.cos(a), R.uniform(0, 360), R.uniform(55, 80), 'h')
         isl.append(p + [round(R.uniform(2.0, 4.0), 2), int(R.uniform(14000, 22000))])
-    D['fx']['islands'] = isl
+    D['fx']['islands'] = isl if ISLANDS else []
     # ---- the front: tall banners, gold frame round the MUDWATER sign
     bh = front_banner()
     top = max(L['balconies']['lines']) - 0.6; zf = Z1 + L['balconies']['depth'] + 0.35
@@ -137,11 +140,6 @@ def apply(D, L, FL, rg):
                 x = -X1 + t
                 if y < 12 and abs(x) < 11: continue
                 add(place('mossclump', x, y - 1.5, Z1 + Dd - 0.1, R.choice([0, 180]), 1.8, 'w'))
-    # ---- the floating book, gold rings, gold glyph ring, gold beam
-    D['fx']['pack'] = [0.0, 92.0, 4.0, 15.0 / (META['tome'][1][1] - META['tome'][0][1])]
-    D['fx']['packModel'] = 'sp_m_tome'
-    D['fx']['packRings'] = [['fx_ring_gold', 0.0, 22.0, 72.0, 0.0, 26000], ['fx_rune_gold', 0.0, 27.0, 18.0, 10.0, 34000], ['fx_ring_gold', 0.0, 31.0, -12.0, 64.0, 41000]]
-    D['fx']['packBeam'] = ['mwm_diskbeam_g', 0.0, FL['roof'] + 0.5, 4.0, 7.0, 8.5]
-    # ---- strings of gold lights between the floating cards
+    # (owner, v21: the original floating Mudwater pack, gold + teal rings and beam stay on top - no book)
     # (the floating cards stay exactly as they are - owner)
     print('outside: placed', len(D['sdeco']), 'spire models;', len(isl), 'sky islands/cliffs')

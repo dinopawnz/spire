@@ -1,483 +1,173 @@
 # MUDWATER SPIRE — FULL HANDOFF (read this first)
 
-> Written 5 Nov 2026, end of session 6, for the next AI picking this project up.
+> Written 6 Nov 2026, end of session 7, for the next AI picking this project up. Supersedes the session-6 handoff (kept in git history).
 > The owner is **Dinopawnz** (GitHub `dinopawnz`).
-> **Talk to the owner in plain, non-technical words, with the simplest possible steps.** They said they don't follow technical walkthroughs.
+> **Talk to the owner in plain, non-technical words, with the simplest steps.** Short messages; they read on the go.
 > **Deliver files as attachments in the chat. Never save to their computer.**
+> **Show a render before changing anything big. Change ONE thing at a time when they're unhappy** — this session they nearly reverted everything after several big changes landed at once.
 
 ---
 
 ## 0. The 60-second version
 
-**What it is.** **Mudwater Spire** is a giant swamp-timber building made with MML (Metaverse Markup Language) for Otherside. It's for an **OtherGames event with 100+ players**. The goal, in the owner's words, is to be **"the unquestionable greatest build ever"** and to top their earlier *Pink Princess Castle* build.
+**What it is.** **Mudwater Spire**: a giant swamp-timber building in MML for Otherside, for an **OtherGames event with 100+ players**. Goal: "the unquestionable greatest build ever". Every moment should look like a picture. Highest quality, realistic (they gave a concept image: `reference/19_outside_concept.png` + the one in §6).
 
-**How the world loads.**
-- The world document is **`spire.html`**; the host remote is **`spire_remote.html`** (PIN **7747**).
-- Every model, sound and picture loads from the public GitHub repo **https://github.com/dinopawnz/spire** through `https://raw.githubusercontent.com/dinopawnz/spire/main/<file>?v=<version>`.
-- The swamp decorations come from the owner's other repo **dinopawnz/mudwater** (the Mudwater Coliseum build).
+**Two versions exist:**
 
-**State: `main` (live).**
-- **v13** (commit `fc78aad`) is live on `main`. That's what the owner has in-world now.
-
-**State: branch `handoff-v14`.** Everything made after v13 is pushed to this branch, NOT to main. It has been tested in a simulated browser, but nobody has looked at it in Otherside yet.
-- **v14:** the "Pandora" living-swamp glow layer, and no wooden beams across the portraits.
-- **The new lounge (half-finished):**
-  - giant mossy trees
-  - puddles and grass
-  - green banners and arched trusses
-  - 2 indoor waterfalls and 4 shop booths
-  - 46 more hanging lanterns
-  - gold glowing veins
-- **All source code** in `src/`, and **all the owner's reference images** in `reference/`.
-
-**Next jobs, in order.**
-1. Finish and render-check the new lounge against the owner's concept image (§6.1).
-2. Rebuild the **outside** to match the owner's newest concept image (§6.2).
-3. Build **Game 2, Mud Royale**, on floor 3 (§5.2).
-4. Build **Game 3, Group Mud / the Heist**, on floor 4 (§5.3).
-5. Put something on the roof.
-6. Push to `main` once the owner is happy.
-
----
-
-## 1. How to get everything (the files)
-
-**Everything** is in the GitHub repo `dinopawnz/spire`, on branch **`handoff-v14`**:
-
-```
-/ (repo root)          every GLB / MP3 / PNG the world loads (the world fetches them from here) + spire.html + spire_remote.html
-/portraits/            1,100 portrait GLBs (pf_0000..pf_1099) for the Hall of Fakes / finals
-/src/                  ALL build scripts (Python) + the HTML templates + textures + card art + test tools
-/src/viewer/           test + render tools (jsdom tests, three.js render viewer)
-/reference/            every image the owner sent (concepts, screenshots of problems), the rules PDF, the territory game they liked
-/HANDOFF_FULL.md       this file
-```
-
-Clone it like this:
-
-```
-GIT_LFS_SKIP_SMUDGE=1 git clone https://github.com/dinopawnz/spire /home/claude/spire_repo
-cd /home/claude/spire_repo && git checkout handoff-v14
-# set up the work folders the scripts expect
-mkdir -p /home/claude/spire && cp -r src/* /home/claude/spire/
-mkdir -p /home/claude/viewer && cp -r src/viewer/* /home/claude/viewer/ && cd /home/claude/viewer && npm install
-# the Coliseum decor and card art
-GIT_LFS_SKIP_SMUDGE=1 git clone --depth 1 https://github.com/dinopawnz/mudwater /home/claude/mudwater_repo
-```
-
-The scripts use these hard-coded paths. Keep them the same, or search-and-replace:
-
-| Path | What lives there |
-|---|---|
-| `/home/claude/spire` | workspace: scripts, `tex/`, `cards/`, `out/` = build output |
-| `/home/claude/spire_repo` | the git clone |
-| `/home/claude/viewer` | tests and renders |
-| `/home/claude/mudwater_repo` | the Coliseum repo |
-
-Built GLBs land in `out/` and `out/glb/`, sounds in `out/snd/`, glow textures in `out/bio/`.
-
----
-
-## 2. HOW TO UPLOAD GLBs STRAIGHT TO THE OWNER'S GITHUB (no manual uploading)
-
-The owner does **not** want to drag files into GitHub by hand. Push them yourself.
-
-### A. If you are Claude (claude.ai / Claude Code with the GitHub connector)
-
-1. Call the tool **`add_repo`** with `owner: "dinopawnz"`, `repo: "spire"`, `access: "push"`.
-   - It attaches the repo, sets up the credentials, and gives you a clone command. Do NOT pre-check the repo with curl first.
-2. Clone it (command above), then `git config user.name` / `user.email` as the tool suggests.
-3. After building, run the sync script. It finds every file the built world uses, copies only the new or changed ones into the clone, then commits and pushes:
-   ```
-   cd /home/claude/spire
-   python3 build_html.py 15                       # 15 = the new version number (cache-buster)
-   python3 sync_to_repo.py --dry                  # see what will be sent
-   python3 sync_to_repo.py "v15: lounge + outside" --branch handoff-v14   # safe, NOT live
-   python3 sync_to_repo.py "v15: lounge + outside"                        # to main = LIVE in Otherside
-   ```
-4. **Always bump the version number** (`build_html.py <ver>`). Every URL then gets a new `?v=`, so Otherside and GitHub's ~5-minute cache serve the fresh files.
-
-**To try a branch in Otherside without touching the live world:** the built page loads files from `main` by default. Build it against the branch instead:
-`python3 build_html.py 15 https://raw.githubusercontent.com/dinopawnz/spire/handoff-v14/`. Push it, then give the owner the raw link of that branch's `spire.html` to paste in their world.
-(The `spire.html` currently on handoff-v14 was built against `main`, so it still shows the OLD lounge. Rebuild it as above to preview the new one.)
-
-### B. If you are another AI or a plain computer
-
-1. The owner makes a **fine-grained personal access token** at GitHub → Settings → Developer settings → Fine-grained tokens:
-   - Repository access: only `dinopawnz/spire` (and `mudwater` if needed).
-   - Permissions: Contents = Read and write.
-2. Store it in a private file (`umask 077; echo TOKEN > ~/.gh_token`). **Never** put it in a build file, the repo, a deliverable or chat output.
-3. Point the clone at it:
-   ```
-   git remote set-url origin https://x-access-token:$(cat ~/.gh_token)@github.com/dinopawnz/spire.git
-   ```
-   Then `sync_to_repo.py` works exactly as in A.
-4. Without git, the GitHub REST API also works: `PUT /repos/dinopawnz/spire/contents/<path>` with base64 content plus the old file's `sha`. It's slower, and git is better for big batches.
-
-### Rules
-
-- **The 100 MB per-file limit.** Keep GLBs well under it. `shrink_glb.py` re-encodes the textures smaller.
-- **The lounge GLB is now 18.6 MB at 195k triangles.** Don't let it grow much more.
-- **The repo is PUBLIC.** No keys, tokens or private screenshots go in it.
-- **Pushing to `main` changes the live world.** Use a branch for experiments, and only merge or push to main when the owner says it's good.
-
----
-
-## 3. The owner — preferences and how to work with them
-
-- **Plain words, simple steps.** No jargon in replies. Say what changed and what they'll see.
-- **Files go as chat attachments**: renders, the html, zips.
-- **They test in Otherside themselves.** They paste the raw GitHub link of `spire.html` into their world, and use `spire_remote.html` as the host remote.
-- **They react to screenshots.** Render previews (§8) and send them so they can judge before testing.
-- **They want a SPECTACLE**: "wow everyone", "not boring", "not plain". But it must fit a **swamp / Mudwater** theme with a **rustic wooden** feel.
-
-### Things they REJECTED (never bring back)
-
-| Rejected | What to do instead |
-|---|---|
-| Neon or cosmic looks: neon streaks, disco or laser beams, a purple cosmic sky ("does that fit a swamp?") | Warm, natural swamp magic |
-| Pop-out holograms (images coming out of cards) | Floating *cards* themselves |
-| Blue card backs | Cards must look exactly like real Mudwater cards (real art front, real black-and-gold back) |
-| A big summoning or rune circle on the ground, runes on the steeple | Nothing there |
-| Columns or logs blocking the entrance | Keep the entrance clear |
-| A dome over the finals room | No dome. An invisible lid stays so nobody jumps in, frosted until the finals |
-| Wooden beams across the portrait walls | No battens on the Hall of Fakes walls |
-| A card floating oddly on the lounge wall over a door | No cards behind the lifts or over the stair doors |
-| A plain or empty first floor; a bar "randomly on the left" | Centre bar, a full room |
-| Wasting space (the old spiral used a small part of the big building) | Use the whole building |
-| Empty upper floors | Fill them |
-| A guard with a searchlight and stealing in the Heist ("too many mechanics that can go wrong") | Lights-out and clues only |
-| A secret room BELOW the floor | No elevation possible. A secret room behind a bookcase was offered; no answer yet |
-| Living swamp animals (gators etc.) unless they are extremely realistic | Leave them out |
-
-### Things they LIKED
-
-- Framed Mudwater cards as wall decorations.
-- The square building.
-- The rustic timber look.
-- The Mud Royale idea.
-- The 120 floating Mudwater cards circling the building like a galaxy.
-- The "Pandora / Avatar" idea: the floor breathes and glows, lights up under your feet, and the walls glisten as you pass.
-- Their two concept images (§6).
-
----
-
-## 4. Security and API keys
-
-The owner pasted a **Meshy** API key and an **ElevenLabs** key in an earlier chat.
-
-- They were stored ONLY in `/home/claude/.meshy_key` and `/home/claude/.eleven_key` (umask 077). Those copies are gone in a new session.
-- **Never** write keys into build files, the repo, deliverables, memory or chat output.
-- `meshy_npcs.py` reads the key from that file.
-- **ElevenLabs:** the key the owner gave lacked permissions. Voices need a real `sk_...` key with Text to Speech, Voices (read + write), Sound Effects and Music. Voices are NOT done; the NPCs use speech bubbles. `build_html.py <ver> --voices` turns voice lines on once the vo_*.mp3 files exist.
-- Meshy credits left ≈ 4,160.
-
----
-
-## 5. THE GAMES (official spec from the owner)
-
-### 5.1 Game 1 — MUD MATCH in the Hall of Fakes — BUILT and working (v13)
-
-**The hunt.**
-- 200 portraits of **#62 "The Founder"** hang beside a winding stair. 199 are forgeries and 1 is real; a reference portrait stands on pillars.
-- **4 rounds.** The first person to click the real one each round becomes a **finalist** (4 finalists in total).
-- After each find, everything **reshuffles** and the next round starts.
-- A wrong click locks that player out for **5 seconds**.
-
-**The finals.**
-- They happen in a **big, tall, non-claustrophobic glass finals hall in the centre of the Hall of Fakes floor**, on an island in a glowing moat. The owner asked for "WAY bigger, in the centre, tall and wide".
-- The finals hall holds **99 fake + 1 real #100 "Black Flag"**. The first finalist to click the real one wins.
-- The glass is **frosted until the host presses START THE FINALS**. Everyone else watches through the glass.
-
-**The remote (Hall panel).** OPEN MUD MATCH, NEXT ROUND NOW, AUTO NEXT ROUND toggle, THIN (removes fakes), START THE FINALS (lights up when ready), Reset.
-
-**In code:** `H.round`, `FINALISTS = 4`, `LOCKOUT_MS = 5000`, `ROUND_GAP_MS = 10000`; commands `hall open | next | auto on | auto off | thin | finals | reset`. Answer keys are in out/hall/answer.json and out/vault/answer.json (forge seeds 4062 / 9100).
-
-### 5.2 Game 2 — MUD ROYALE on floor 3 ("cards", y 32) — APPROVED, NOT BUILT
-
-**Basis.** The owner's own `reference/territory_v12.html` (a territory card game), as a **team** version.
-
-**The board.** A **giant board on the floor** (about 100 squares). Players play Mudwater cards onto squares to **capture squares by the Mudwater card rules**. The rules are in `reference/Mudwater_Rules_Sheet.pdf`, `src/cards/cards.json` and `src/mudwater_sim.py`.
-
-**Changes from territory_v12.**
-- No flooding edges.
-- A **2-minute timer**; when it ends, the **team with the most squares wins**.
-- Show an MVP.
-
-**Open question for the owner: 3 teams or 4?**
-
-**Design notes so far (not approved in detail):**
-- a hand of 5 cards per player
-- team-coloured squares
-- a big scoreboard and timer sign
-- a host remote panel: start, stop, reset, teams
-- Old helper GLBs from an earlier table version are in the repo (`sp_gt_*.glb`: table, squares, rims, highlight) and may be reused.
-
-The floor is empty right now apart from the lift lobbies and stairs.
-
-### 5.3 Game 3 — GROUP MUD / THE HEIST on floor 4 ("rooms", y 40–51) — APPROVED, NOT BUILT
-
-**The basic game.**
-- 6 team rooms (hideouts).
-- **One player per team at a time** goes into the **Mudwater warehouse** to search for **clues**.
-- The first team to enter the right **code** on their console wins.
-- Then a **raffle among the winning team**, for a pack.
-
-**Keep:** **lights-out** (dark warehouse, lantern / flashlight feel) plus clues.
-
-**NO guard searchlight and NO stealing.** These are the owner's words.
-
-The owner wants it "SOOOO AMAZING, not a boring escape room".
-
-**Reference for riddles and remote style:** their earlier `dippys_lost_crown.html` and `dippys_lost_crown_remote.html` (escape room / scavenger hunt). Those were uploaded to the old chat and are NOT in this repo. Ask the owner to re-send them if needed.
-
-### 5.4 Other spec bits
-
-- Spawn is at the **front**, at the far end of the boardwalk (never in the centre).
-- **Lifts:** 4 real elevators at the building's sides; everyone in the cab rides together like a real elevator.
-  - The owner reported that the OLD lifts only carried 1 player and teleported others. They were rewritten to glide with `m-attr-lerp`, so every client moves the same cab smoothly.
-  - **The new lifts still need a multi-player test in Otherside.**
-- **Backup stairs must exist**: two stair towers at the ends of the building.
-- **Buttons in the cab must be clickable** (not sunk in the floor).
-- **NPC speech bubbles must never be hidden.**
-
----
-
-## 6. THE OWNER'S TWO CONCEPT IMAGES (the current visual targets)
-
-### 6.1 Lounge concept — `reference/18_lounge_concept.png`
-
-Sent with "look at this for a first floor look". What's in the image:
-- **Giant mossy trees** growing up through the floor into the ceiling, with **glowing shelf mushrooms** on the trunks and **candles** among the roots.
-- A **wet, glossy, reflective wooden floor** with **puddles** and **grass tufts**.
-- **Many warm hanging lanterns** and **big round lantern rings / chandeliers**.
-- **Tall dark green banners with a gold emblem.**
-- **A central round bar with a big MUDWATER sign** above it; a MUDWATER logo inlaid in the floor.
-- **Indoor waterfalls** at the back.
-- **Lit shop booths / stalls with screens** around the edges.
-- **Arched timber ceiling trusses.**
-- Overall **warm golden light**.
-
-**What's done (branch handoff-v14, `build_lounge.py`):**
-- `giant_trees()`: 7 huge trees with flared trunks, snaking roots, moss, vines, branches under the ceiling, glowing shelf mushrooms and candles. They replace the old columns.
-- `wet_floor()`: 34 glossy puddles and grass tufts.
-- `banners()`: 8 green banners using `tex/banner_mw.jpg`.
-- `trusses()`: 4 arched trusses.
-- `waterfalls()`: 2 rock-framed falls in the back wall at x = ±13.5 beside the stage, with pools.
-  - The moving water sheets are `m-image` (`water_fall.png`) animated in `spire_src.html`, plus mist.
-- `booths()`: 4 booths on the back wall — CARD SHOP, MUDWATER MERCH, TROPHY ROOM, PHOTO BOOTH — with green and gold striped awnings, lit counters, screens and glowing sign words (`ms_bt_*.glb`).
-- 46 extra jar lanterns hanging at different heights (in `build_html.py`).
-- The lounge glow veins and vines are **warm gold** (`bio_veins_gold.png`, `bio_wall_gold.png`); the Hall of Fakes keeps teal.
-
-**Still to do for the lounge:**
-1. **Render it** (§8) and compare with the concept. Nobody has looked at the new lounge yet. Fix anything that looks off: tree sizes, trees clashing with furniture or lifts, puddle colour, truss heights, banner placement.
-2. A **MUDWATER sign** over the round bar (the bar has logo boards; make it big and glowing like the concept), and a **MUDWATER logo inlaid in the floor** in front of the bar.
-3. **Big lantern rings**: chandeliers exist (`D.chand`, `sp_chandelier.glb`); make a few larger ring chandeliers like the concept.
-4. Booth **screens** could show card art (`m-image`) instead of plain glass.
-5. Check the tests pass. The last test run was interrupted, so run `simtest.js`, `roundtest.js` and `biotest.js` (§8).
-
-### 6.2 OUTSIDE concept — `reference/19_outside_concept.png` (the newest message: "this is how the outside should look")
-
-What's in the image:
-- **The building:** a tall, wide, multi-storey **dark wooden building**, warm and glowing. **Rows of lit, warm windows on every storey.** **Wraparound balconies with railings on every level**, with **hanging vines and moss**.
-- **The front:** **two tall dark green banners with a gold tree emblem** hanging down the front. A **big glowing gold MUDWATER sign** with an ornate frame over the entrance. An **arched double wooden door** and **wide steps**. Many small lanterns along the eaves.
-- **The boardwalk:** a long, **wet, reflective boardwalk** leading straight to the door, with **carved wooden railings** and **lantern posts on the railing posts** all the way down.
-- **The water:** dark water with **lily pads (large round pads)** and **glowing teal crystals**, plus mist on the water.
-- **Around it:** bonsai-like swamp trees on islands. **Waterfalls** pouring off cliffs and **floating rock islands** with trees.
-- **Floating framed pictures (cards) in gold frames, strung together on strands of warm gold lights**, circling the building. This matches our existing 120-card galaxy (`D.galaxy`); add gold light-strand chains linking them.
-- **On top:** a **giant glowing Mudwater card/book** floating above the roof, inside **slowly turning golden rings** (with gold glyphs on the rings) and a soft light beam. We already float the Mudwater pack over the roof with 2 rings and a disk beam (`D.fx`); restyle it to match.
-- **The sky:** a starry night sky.
-
-**My message to the owner about this (they haven't replied yet):** I said I'd make the outside match, keeping colours **warm gold and natural, not neon**, because they had rejected cosmic and neon looks before. I asked whether they want the **starry sky** too. **Wait for, or ask for, their answer on the starry sky and the floating islands.** Everything else in the image is clearly wanted.
-
-**Where this goes in code:** `build_rect.py`, the shell.
-- Windows: `bay_spec` / `rustic_wall` holes.
-- Balconies: currently a few `balconies()` exist; make them wrap every storey.
-- Banners: the texture `tex/banner_mw.jpg` already exists.
-- The MUDWATER sign: the `mw_logo` decor and `D.signs`.
-- Portico and door, steps.
-- `build_html.py`: boardwalk lanterns (decor `mwx_lantern` / lantern posts), lily pads (`lilypads`), crystals, waterfalls and floating islands (could use Coliseum decor or new GLBs), the galaxy light-strands, and the roof card plus rings (`D.fx`).
-- Keep the triangle count sane: the shell is 222k triangles.
-
----
-
-## 7. THE BUILDING (current geometry)
-
-**Footprint:** a rectangle ≈ **85 × 60 m**, centred on the origin. The front faces **+z**. Water is at y ≈ 0.1. The boardwalk comes from the front (spawn at walk z ≈ 108).
-
-**Levels** (`FL` in `build_rect.py`): **lounge 3.0 | hall 10.5 | gallery 24.9 | cards 32.0 | rooms 40.0 | roof 51.0**.
-- Full floors: `KEYS = lounge, hall, cards, rooms, roof`.
-- `gallery` 24.9 is the top landing of the Hall of Fakes stair plus a slab in the east core (x 34.4..42.1, z 9.5..29.6). Only lift A stops there.
-
-**Lifts** (`LIFTS` in `build_rect.py`; doors face +z):
-
-| Lift | Position (x, z) | Stops |
+| Where | Version | What it is |
 |---|---|---|
-| A "The Grand Cage" | (38.25, 14) | 6 stops, incl. gallery (`sp_lift_shaft_g.glb`) |
-| B | (38.25, −20) | 5 stops (`sp_lift_shaft.glb`) |
-| C | (−38.25, 14) | 5 stops |
-| D | (−38.25, −20) | 5 stops |
+| branch **`main`** | **v13** (`fc78aad`) | **LIVE** in Otherside. Untouched this session. To fully "revert", the owner just keeps using the main link. |
+| branch **`handoff-v14`** | **v21** (latest) | Everything from sessions 6–7. Test link below. NOT live. |
 
-- One cab model `sp_lift_cab.glb` serves all lifts.
-- Lift speed is 2.4 m/s; m-attr-lerp gliders move the cab y, ropes, counterweight and needles.
-- The floor-button panel sits 0.55 m in from the wall.
-- The operator NPC (the owner's own ape #5413) rides in lift A only.
-- Lift music is synced per lift.
+**Test links (branch build):**
+- World: `https://raw.githubusercontent.com/dinopawnz/spire/handoff-v14/spire.html`
+- Host remote: `https://raw.githubusercontent.com/dinopawnz/spire/handoff-v14/spire_remote.html` (PIN **7747**, press LIVE BUILD)
+- Live (main) world: same URLs with `main` instead of `handoff-v14`.
 
-**Stairs:** stair towers at x = ±34.4..42.1, z −9.5..9.5. Tall storeys get several switchbacks.
+**Every version is a commit on `handoff-v14`** (roll back to any one by checking it out, rebuilding with a new version number and pushing):
+`bf41634` v15 lounge rebuilt · `df5bd22` v16 · `92f3c8f` v18 lifts/400 portraits/fire/sign-up book · `d67383a` v20 outside · **v21** (this commit) = the owner's last corrections.
 
-**Shell style** (`build_rect.py`):
-- rustic uneven boards, X-braces, crooked windows
-- pent roofs and belts at 10.5, 17.7, 24.9, 32 and 40; mansard, dormers, chimneys, water tower, balconies, porch shacks
-- portico with only the 2 outer columns (±8)
-- a steeple at the back centre, and lift-head houses on the roof
-- `sp_neon.glb` = warm string lights under the eaves and down the steeple, plus a glowing mud channel round the porch and boardwalk
-
-**Hall of Fakes** (`build_fakes.py`):
-- A 4 m wide stair-ramp band runs 2 laps round all four walls. It goes from y 13.7 (grand steps up from the hall floor at the east-front) to 24.9 (the top landing, then a door into the east core).
-- 200 portraits (1.3 m) hang on the walls beside the runs.
-- The open hall inside is 60.8 × 51.2 m and 21 m tall.
-- The finals hall is a glass box x ±13, z ±10, 9.5 m tall, with an invisible lid collider and a frosted sleeve. It has 10 screens in 2 rows of 5 and sits on an island in a 3.2 m glowing moat, with a bridge to the front door.
-- Big chandeliers hang from the ceiling.
-
-**Lounge** (`build_lounge.py`):
-- the round centre bar (BAR_C (0, 1), radius 5.6 / 4.5, 8 taps; the beer mug slides to the edge nearest the player)
-- a stage and dance floor at the back centre, and a jukebox
-- a fireplace on the front wall
-- a bayou garden with a pond at (−25, 4)
-- sofa groups, card tables, framed Mudwater cards on the walls
-- plus the new trees, puddles, banners, trusses, waterfalls and booths (§6.1)
-
-**NPCs** (rigged and animated by Meshy, `npc_<key>.glb`, with `_idle` and `_talk` clips):
-
-| NPC | Where |
-|---|---|
-| operator = the owner's own ape #5413 | lift A |
-| barkeep Mama Silt (bullfrog) | at the bar |
-| gator Gator Pete | lounge |
-| appraiser (raccoon) | Hall of Fakes door |
-| skipper (old gorilla captain) | roof |
-| dealer (opossum) | floor 3 |
-| ferryman Moss (turtle) | outside |
-
-- Lines are in `npc.py`; speech bubbles are `sb_*.glb`.
-- **The owner has only their own ape; every other character must stay an original creature.**
-
-**The show and decor** (`build_html.py` → `D`):
-- `D.deco`: Coliseum GLBs from the mudwater repo — water, lake, mangroves, acorn houses, a cypress ring, lantern posts, glow plants, reeds, lily pads, rowboats, floating lanterns, fireflies, mist, braziers, jar lanterns, shelf mushrooms, and `mw_logo` on the portico.
-- `D.galaxy`: 120 real-card GLBs (`gc_001..120.glb`, real front plus the real black-and-gold back `mwc_back.jpg`, gold rim) on 3 slowly turning rings round the building.
-- `D.fx`: swamp sky, the Mudwater pack floating at (0, 90, 4) with 2 rings and a disk beam, 2 faint moonbeams, 70 will-o'-wisps, 42 rising sky lanterns, motes and fireflies.
-- `D.bio` (v14 "Pandora" layer):
-  - glowing vein tiles on every floor and stair run, breathing slowly (emissive ping-pong)
-  - glowing vines on the walls and 54 rising spores
-  - **footsteps bloom with light** (`bio_ring`) and **walls shimmer as you pass** (`bio_sheen`), from the position probe
-  - all of it is skipped in LITE mode
-
-**Modes and zones:** `visible-to` zones (f1..f4 bands by height); **LITE** removes ~770 decor pieces for weak computers; **REFRESH**.
+**The owner's mood at the end:** unhappy with parts of the outside (v20). v21 undid the parts they named (see §3). **Ask before adding more outside changes; show renders first.**
 
 ---
 
-## 8. HOW TO BUILD, TEST AND RENDER
-
-**Build order** (from `/home/claude/spire`; send output to log files, never pipe into `head`, which breaks the json writes):
+## 1. Getting set up (what actually works in this environment)
 
 ```
-python3 textures.py            > /tmp/t.log    # textures -> tex/ (only if missing)
-python3 build_rect.py          > /tmp/br.log   # shell -> out/sp_shell.glb, layout.json
-python3 build_lift.py          > /tmp/bli.log  # lifts -> lift_layout.json
-python3 build_fakes.py         > /tmp/bf.log   # Hall of Fakes (+ --portraits to remake pf_ GLBs)
-python3 build_lounge.py        > /tmp/bl.log   # lounge -> f1_layout.json
-python3 build_cards.py                          # galaxy cards gc_*.glb (only if changed)
-python3 build_fx.py                             # wisps, moonbeams
-python3 npc.py; python3 sprites.py              # speech bubbles, glowing words (ms_*, ms1_*, sg_*)
-python3 build_html.py 15       > /tmp/bh.log   # bakes everything into out/spire.html + out/spire_remote.html (15 = version)
+# repo (all files are real files, no LFS)
+GIT_LFS_SKIP_SMUDGE=1 git clone --branch handoff-v14 https://github.com/dinopawnz/spire /home/claude/spire_repo
+mkdir -p /home/claude/spire /home/claude/viewer
+cp -r /home/claude/spire_repo/src/* /home/claude/spire/ ; cp -r /home/claude/spire_repo/src/viewer/* /home/claude/viewer/
+# the Coliseum decor + card art (scripts expect /home/claude/dinopawnz/mudwater)
+git clone --depth 1 https://github.com/dinopawnz/mudwater /home/claude/mudwater_repo
+mkdir -p /home/claude/dinopawnz && ln -sfn /home/claude/mudwater_repo /home/claude/dinopawnz/mudwater
+mkdir -p /home/claude/spire/out/cards_small /home/claude/spire/out/hall /home/claude/spire/out/vault /home/claude/spire/out/bio
+echo '{"real": 821}' > /home/claude/spire/out/hall/answer.json      # real #62 Founder = forgery 821 (all 1000 pf_ GLBs are in the repo)
+echo '{"real": 63}'  > /home/claude/spire/out/vault/answer.json     # real #100 Black Flag = vault slot 63
 ```
+- **npm / pip installs were BLOCKED** this session. jsdom couldn't be installed, so:
+  - **three.js**: `git clone --depth 1 --branch r170 --filter=blob:none --sparse https://github.com/mrdoob/three.js /home/claude/three_src` then `git sparse-checkout set build examples/jsm` and `ln -sfn /home/claude/three_src /home/claude/viewer/node_modules/three`.
+  - **tests** run in real headless Chrome via `viewer/chrometest.py` (wraps the jsdom test files unchanged).
+- Push access: call `add_repo` (owner `dinopawnz`, repo `spire`, access `push`). It worked once GitHub was linked in claude.ai. Pushing from `/home/claude/spire_repo` works.
+- **Meshy**: the owner allowed `api.meshy.ai` + `assets.meshy.ai`. Key goes ONLY in `/home/claude/.meshy_key` (umask 077). **Never** in the repo, a build or chat output. ⚠️ The owner pasted the key into chat this session; recommend they regenerate it on meshy.ai. **Balance at end of session: 2,884 credits** (started 4,160).
+- Hard-coded paths: `/home/claude/spire` (workspace), `/home/claude/spire_repo` (clone), `/home/claude/viewer` (tests/renders), `/home/claude/meshy` (Meshy downloads), `/home/claude/mudwater_repo`.
 
-**Forgeries** (once): `python3 forge.py 62 999 out/hall 4062` and `python3 forge.py 100 99 out/vault 9100`.
-
-**Tests** (in `/home/claude/viewer`; each takes the page path as its first argument):
+## 2. Build → test → render → push
 
 ```
-node simtest.js   /home/claude/spire/out/spire.html     # remote, lifts, hall flow
-node roundtest.js /home/claude/spire/out/spire.html     # 4 rounds -> finals -> winner
-node biotest.js   /home/claude/spire/out/spire.html     # glow layer, footstep blooms, LITE
-node refcheck2.js /home/claude/spire/out/spire.html /home/claude/spire/out   # every referenced file exists
+cd /home/claude/spire
+python3 textures.py > /tmp/t.log            # only if tex/ is missing pieces (the photo textures in tex/ are Meshy-made: keep them)
+python3 build_rect.py > /tmp/br.log         # shell, balconies, stairs, gallery ramp, boardwalk  -> out/glb/sp_shell.glb, layout.json
+python3 build_lift.py > /tmp/bli.log        # lifts (reads LIFTS from build_rect.py)
+python3 build_fakes.py > /tmp/bf.log        # Hall of Fakes (400 slots)
+python3 meshy_props.py                       # Meshy models -> out/glb/sp_m_*.glb + meshy_meta.json (only if /home/claude/meshy/models has new ones;
+                                             #   the finished sp_m_*.glb are already in the repo root - copy them into out/glb/ instead)
+python3 build_lounge.py > /tmp/bl.log       # lounge -> f1_layout.json (needs out/glb/meshy_meta.json!)
+python3 npc.py; python3 sprites.py           # speech bubbles / glowing words
+python3 build_html.py 22 https://raw.githubusercontent.com/dinopawnz/spire/handoff-v14/ > /tmp/bh.log    # ALWAYS bump the version number
+cd /home/claude/viewer
+python3 chrometest.py simtest.js  /home/claude/spire/out/spire.html     # remote, lifts, hall flow   -> "ERRORS: none"
+python3 chrometest.py roundtest.js /home/claude/spire/out/spire.html    # 4 rounds -> finals -> winner
+python3 chrometest.py biotest.js  /home/claude/spire/out/spire.html     # glow layer, LITE
+python3 lifttest.py /home/claude/spire/out/spire.html 40 15             # 40 bots ride 15 simulated minutes -> "NO PROBLEMS FOUND"
+python3 mmlshot.py O4.json                                               # render the REAL page (see below)
+cd /home/claude/spire && python3 sync_to_repo.py "v22: ..." --branch handoff-v14     # safe test branch
+#                       python3 sync_to_repo.py "v22: ..."                          # to main = LIVE (only when the owner says so)
 ```
+- **Before pushing:** copy changed source into the repo: `cp spire/*.py spire/*_src.html spire_repo/src/; cp spire/tex/* spire_repo/src/tex/`, and grep the repo for `msy_` (no keys!).
+- Before going live on main: rebuild WITHOUT the branch URL (`python3 build_html.py 22`) so files load from main, then sync to main.
+- **Renders:** `viewer/mmlshot.py <scene.json>` loads the real spire.html in Chrome, presses LIVE BUILD, then draws the live MML with three.js (`viewer/mmlrender.js`; maps GitHub URLs to local files). Scene JSON: `{"page", "pos" (player position, picks zones), "opts": {"skip": [...substrings...]}, "shots": [{"out","cam","at","fov"}]}`. Cameras are in building coordinates. Examples: `M3.json` (lounge), `O4.json` (outside), `R1.json` (hall), `B2.json` (sign-up book). **The Chrome tab crashes (out of memory) if everything loads** — use `opts.skip` (e.g. `portraits/`, `sp_f2_`, indoor `sp_m_`) for outside/hall shots.
 
-**Renders:** `viewer/shot.py` with `view.html` (three.js 0.170 in headless Chrome). Scene JSON lists models `{f, p, ry, s}`, `cam`, `at`, `fov`, `night`, `lights`; examples are `s1.json`..`s12.json`. Run `python3 shot.py s12.json` and send the PNGs to the owner.
+## 3. What changed this session (v15 → v21), and what the owner said
 
-**Live test without Otherside:** `viewer/mmlserver.mjs` (a networked-dom server) plus `remotetest.py`.
+**Owner corrections at the very end (v21, applied):**
+- **The sign-up book goes OUTSIDE**: now on the porch in front of the doors (`build_html.py` `'books': [[0.0, FL['lounge'], 37.0, 0]]`). Not yet render-checked out there; check it doesn't crowd the boardwalk/porch lanterns.
+- **"Place back the GLBs that were in the water"**: the original Coliseum water decor (acorn houses, mangroves, trunks, glow plants, moonbeams) is back. The Meshy **floating islands/cliffs and bonsai islets are OFF** (`outside.py` flags `ISLANDS = False`, `BONSAI = False`): the owner circled them.
+- **"You replaced the card in the top of the build with a book, switch that back"**: the original floating **Mudwater pack + gold & teal rings + teal disk beam** is back (book removed).
+- The owner said they "almost want to revert the whole build". Ask what they want to keep before doing more outside work.
 
----
+**Lounge (floor 1), to their concept `reference/18_lounge_concept.png`. They liked most of this:**
+- Photo-quality wet muddy plank floor (Meshy image → `wet_tex.py`/`photo_floor.py` → `tex/wetfloor*.{jpg,png}`), warm photo wood (`tile_photo.py` → `tex/wood_planks.jpg`, `wood_dark.jpg`; faint warm self-glow in `kit.py`).
+- Shiny water puddles (Meshy decals `tex/dec_puddle1..3.png`). The owner REJECTED the earlier mud splats with boot prints ("too unrealistic, wanted mudwater puddles").
+- **Meshy models** (`sp_m_*.glb`, placed via `mp()` in `build_lounge.py`, solid via `SOLID`): two giant trees (`sp_mtree_1/2`, glowing mushrooms), sofas, wingback armchairs, card tables, stools, barrels, benches, coffee tables, 4 market-stall booths, stone fireplace, pond rim, waterfall grottos (+ rock basins).
+- Waterfalls flow continuously (4 sliding sheets `water_fall2.png`, glow `fall_glow.png`, foam `foam.png`).
+- **Animated fireplace** (flame cards `fire_flame.png` flicker, embers rise, floor glow pulses: `spire_src.html` "the fireplace").
+- Iron lanterns (`sp_lantern_a/b/c`) + big lantern rings (`sp_lantern_ring`) + soft light pools under them; big framed MUDWATER signs on the round bar; gold MUDWATER plaque inlaid in the floor.
+- Banners with the real card-back emblem (`tex/banner_mw.jpg`). The old "sun" symbol was made up. The owner LIKES these banners.
+- Squared timber trusses. The owner disliked the earlier round "logs"; the thick green moss cones were removed.
+- Tall glowing arched windows; floor glow veins removed from the lounge (Hall of Fakes keeps its teal glow).
+- Z-fighting fixed (floor layers stacked at different heights: decals ~Y+0.022.., light pools Y+0.065, rugs Y+0.078, dance floor Y+0.09).
 
-## 9. FILE GUIDE (`src/`)
+**Lifts:** the owner said they "teleport, one door opens, can't get out". Now:
+- **Only 2 lifts, the back corners** (`build_rect.py` `LIFTS`: B east, D west). The front ones blocked the Hall of Fakes ramp.
+- The cab glides with a synced timed `m-attr-anim` (`glider` → `tween` in `spire_src.html`). **Otherside ignores `m-attr-lerp`**: that was the teleporting.
+- Both door leaves open together; invisible gate walls follow the leaves; thick cab floor; speed 1.8 m/s; floor buttons ordered lounge (bottom) → roof (top).
+- `viewer/lifttest.py` (40 bots, 15 simulated min) → NO PROBLEMS FOUND. **Still needs a real multi-player ride in Otherside.**
 
+**Hall of Fakes:**
+- **400 portraits** (two rows round both laps; `build_fakes.py` `ROW_Y`), 1 real (#62, forgery 821). The owner asked for at least 400.
+- **No wood crossing portraits anywhere**: battens and plates are off on walls inside the hall (`rustic_wall(..., battens=False, plates=False)`).
+- A ramp continues from the top landing (gallery, y 24.9) up to the stair tower's half landing so you can keep climbing to floor 3 (`build_rect.py` `gallery_ramp`). Render-checked only before it was lengthened, so walk it in Otherside.
+
+**Characters:** NPCs are solid (`pad` in `npc()`); lines updated for 400 portraits, 2 lifts, sign-up book, Mud Royale, Mudroom Escape (`npc.py`).
+
+**Outside (v20, partly reverted in v21).** Currently in:
+- deep-brown facade (`plank_ext` in `kit.py`), arched glowing windows (`window(... arch)` in `kit.py`)
+- wraparound balconies with carved railings + moss (`belts()` in `build_rect.py`)
+- lanterns under every balcony edge, Meshy moss clumps
+- two big lounge-style banners on the front (`sp_frontbanner.glb`). The owner asked for these to match the lounge banners exactly.
+- gold baroque Meshy frame around the MUDWATER logo; Meshy double doors standing open; no pole in the doorway
+- wet dark boardwalk with Meshy carved railings + glowing lantern posts; glowing teal Meshy crystals; Meshy lily pads; mist
+- all placed in **`outside.py`** (called from `build_html.py`); `CARTOON` list no longer used
+- The floating cards (galaxy) are UNCHANGED — the owner said leave them as is.
+
+## 4. Things the owner REJECTED (never bring back)
+Everything in the old list still holds (neon/cosmic, pop-out holograms, blue card backs, rune circles, entrance columns, finals dome, wood across portraits, cards over lift/stair doors, plain/empty floors, wasted space, guard + stealing in the heist, secret room below floor, unrealistic animals). New this session:
+- Mud splats with boot prints (wanted real puddles).
+- Round pipe-like ceiling "logs"; thick green moss cones.
+- Any wood across the portraits (again!).
+- The floating book replacing the Mudwater pack on top.
+- Meshy floating islands / bonsai near the walkway (circled in their screenshot).
+- Removing the original water GLBs.
+- A glass lift for hosts in the escape game ("useless, we can't stop and watch").
+- Lifts that teleport or only open one door.
+
+## 5. Open to-do list (priority order, as the owner set it)
+1. **Ask the owner what to keep** on the outside (v21). Render the porch with the sign-up book outside and send it.
+2. **Railings on every open stair edge** (owner screenshot: stair tower landing edge at the lift side, so people don't fall). `stairs()` in `build_rect.py`: add collider + railing on the open landing edges next to the shafts.
+3. "**I'm able to walk into this thing**": the owner's screenshot never arrived; ask what it was. Most Meshy furniture + NPCs are now solid; the booths/pond/grotto/trees use hand colliders.
+4. **Make the building ~2x bigger floor plan** (owner chose "bigger floor plan", real-size furniture) for 100+ players. Big job: `X1, Z1` in `build_rect.py` (now 42.5 × 30), then everything placed from them; the lounge furniture lists in `build_lounge.py` have fixed coordinates and need spreading; `build_fakes.py` band/runs.
+5. **Mud Royale** (floor 3, y 32): spec in the old handoff/§5.2 of git history (territory card game, team version, 2-minute timer, most squares wins, MVP). Ask 3 or 4 teams.
+6. **Mudroom Escape** (replaces the old Heist), notes in `src/ESCAPE_TOWER_NOTES.md`: make the tower taller with 6 escape floors × 6 team rooms; solve a puzzle to unlock the door to the next floor (~6 puzzles); players pick one of 6 coloured doors; hosts take an express lift to a Victory Hall at the top; first team out wins → raffle. Hosts watch via a **stair with landings around a glass core** (rooms' inner glass walls kept clear, rooms bright / stair dim) + a 6-screen watch wall. (Proposed; the owner hasn't confirmed the glass-core stair.)
+7. **Way cooler NPCs — LAST** (the owner said so). The current ones look "stubby low effort". Pipeline: `meshy_npcs.py` (text/image → 3D → rig → animations), `split_clips.py`. Keep the owner's own ape #5413 as the lift operator; every other character must be an original creature.
+8. A real multi-player lift test in Otherside; then push to `main` with a version bump when the owner approves.
+
+## 6. Meshy (how it was used)
+- `src/gen.py out.png "prompt" [aspect]`: text-to-image (nano-banana-pro, 9 credits). Aspect ratios: 1:1, 9:16 (1:2 is invalid).
+- `src/batch3d.py items.json`: for each item, reference image → image-to-3D (textured PBR, 30 credits) in parallel → `/home/claude/meshy/models/<name>.glb`; log in `models/batch.log`. Item lists: `src/lounge_items*.json`, `src/outside_items.json`, `src/door_items.json`, `src/book_items.json`.
+- `src/remesh.py`: Meshy remesh to lower triangle counts (5 credits each) for repeated pieces.
+- `meshy_props.py`: shrink textures, add glow (`glow_mask.py`: warm mushrooms/flames, teal crystals, gold), write `out/glb/sp_m_<name>.glb` + `meshy_meta.json` (bounding boxes used for placement/scale).
+- Reference images that made each model: `src/meshy_refs/`. Raw Meshy GLBs are NOT in the repo (only the processed `sp_m_*.glb` in the repo root).
+- Models made: armchair, balcony, barrel, bench, bonsai, booth, cardtable, cliff, coffeetable, crystals, door, doorleaf, archway, fireplace, grotto, island, lanternpost, lectern, lily, mossclump, pond, railing, signframe, sofa, stool, tome (+ trees `sp_mtree_1/2`). Unused now: tome, island, cliff, bonsai, archway, balcony, door.
+
+## 7. File guide (new/changed this session; the rest as before)
 | File | What it does |
 |---|---|
-| glb.py | numpy GLB writer + shapes (lathe, tube, box, quads, merge with matrices) |
-| kit.py | materials (M_), timber parts, decks, slab colliders |
-| textures.py | seamless textures + normal maps → tex/ |
-| build_rect.py | the building shell, roofs, stairs, porch, boardwalk, neon string lights, layout.json (backups: build_rect_v9.py / _v12.py) |
-| build_lift.py | lift shafts, cab, gates, gears, ropes, colliders, sounds |
-| build_fakes.py | the Hall of Fakes (stair band, portraits, finals hall, moat, frost) |
-| build_lounge.py | floor 1 (bar, stage, garden, fireplace, NEW trees, puddles, banners, trusses, waterfalls, booths) |
-| build_cards.py | the 120 floating Mudwater cards |
-| build_fx.py | wisps, moonbeams, fx textures |
-| forge.py | makes the forged portraits |
-| npc.py / sprites.py | NPC speech bubbles / glowing words and signboards |
-| meshy_npcs.py, fix_ape.py, shrink_glb.py, split_clips.py | NPC model pipeline |
-| lift_music.py | lift music |
-| mudwater_sim.py, read_cards.py, cards/ | the Mudwater card game rules and card data (for Mud Royale) |
-| build_html.py | collects every layout into the data object `D` and writes out/spire.html + spire_remote.html |
-| spire_src.html / spire_remote_src.html | the world and remote templates (all game logic lives here) |
-| sync_to_repo.py | **pushes new or changed files to GitHub** (§2) |
-| build_f1/f2/f3.py, build_shell.py, build_hall.py, build_match.py | OLD octagon-tower versions, kept for reference only |
-| viewer/ | tests + render tools |
+| `src/outside.py` | ALL outside dressing (railings, lantern posts, crystals, lilies, mist, banners, sign frame, doors, balcony lanterns, moss); flags `ISLANDS`, `BONSAI` |
+| `src/build_lounge.py` | lounge; `mp()` places Meshy props; `SOLID` colliders; `place_lanterns`, `light_pools`, `wet_floor` (puddle decals), `trusses`, `bar_sign`, `floor_plaque`, `iron_lantern`, `lantern_ring` |
+| `src/build_rect.py` | shell; `LIFTS` (2), `belts()` = wraparound balconies, arched windows, `plank_ext` outer wood, gallery ramp, wet boardwalk |
+| `src/build_fakes.py` | Hall of Fakes, `ROW_Y` two portrait rows (400) |
+| `src/spire_src.html` | world logic: lifts (`glider`/`tween`), fireplace, waterfalls, sign-up book, solid NPCs, front banners, sky islands |
+| `src/spire_remote_src.html` | remote (lift panel now B + D) |
+| `src/npc.py` | character lines (updated) |
+| `src/kit.py` / `glb.py` | materials (`wetfloor`, `plank_ext`, warm self-glow), `window(arch)`; `glb.write` supports `mr` roughness maps |
+| `src/meshy_props.py`, `glow_mask.py`, `shrink_glb.py` | Meshy model prep |
+| `src/wet_tex.py`, `photo_floor.py`, `tile_photo.py`, `bio_amber.py` | texture makers (photo floor/wood/water, amber glow, light pools) |
+| `src/viewer/mmlshot.py` + `mmlrender.js` | render the real page |
+| `src/viewer/chrometest.py` | run jsdom tests in Chrome |
+| `src/viewer/lifttest.py` | 40-bot lift test |
+| `src/sync_to_repo.py` | push changed files (now runs the ref check in Chrome; handles branch URLs) |
+| `src/ESCAPE_TOWER_NOTES.md` | the Mudroom Escape spec so far |
+| repo root `sp_m_*.glb`, `sp_mtree_*.glb`, `sp_lantern_*.glb`, `sp_frontbanner.glb`, `fire_*.png`, `water_fall2.png`, `foam.png`, `fall_glow.png`, `bio/*_amber.png` | the new world assets |
 
----
-
-## 10. REFERENCE IMAGES (`reference/`)
-
-| # | File | What it shows / why it matters |
-|---|---|---|
-| 04 | 04_spawn_circle.png | Old build: a yellow glowing ring on the boardwalk (circled). Unwanted circle effects |
-| 05, 12 | 05_other_build_neon.png, 12_… | **Someone else's** flashy neon event build. The owner's "look how crazy this is, we need to elevate super hard". Matches the ambition, NOT the neon style |
-| 06 | 06_old_lounge_bar.png | Old lounge bar with the MUDWATER sign (bar was "randomly on the left") |
-| 07 | 07_floor_glitch.png | Lounge: a circled odd floating/blue shape (one of the "weird thing" complaints) |
-| 08 | 08_old_hall_helix.png | Old helix Hall of Fakes with counters |
-| 09 | 09_old_finals_vault.png | Old small finals vault (too claustrophobic, so it was made huge) |
-| 10 | 10_framed_cards_liked.png | Framed Mudwater cards on a wall. **Liked**, keep this decoration |
-| 11 | 11_spiral_portraits.png | The spiral with portraits ("put the finals in the centre, way bigger") |
-| 13 | 13_sky_test.png | Sky test with neon lightning ("what is this"). Rejected cosmic look |
-| 14 | 14_blue_card_backs.png | Floating cards circled: blue backs. **Rejected**, must be real black/gold backs |
-| 15 | 15_neon_beams.png | Pink neon beams on the water. Rejected |
-| 16 | 16_entrance_columns.png | Columns circled blocking the entrance. Removed |
-| 17 | 17_beam_through_portraits.png | Wooden beam through the portraits, plain wood. Led to the Pandora glow idea and no battens |
-| 18 | **18_lounge_concept.png** | **THE LOUNGE TARGET** (§6.1) |
-| 19 | **19_outside_concept.png** | **THE OUTSIDE TARGET** (§6.2), the newest message |
-| — | Mudwater_Rules_Sheet.pdf | The official Mudwater card rules (for Mud Royale) |
-| — | territory_v12.html | The owner's territory card game, the basis for Mud Royale |
-
-Images 01–03 were the owner's own Meshy, ElevenLabs and GitHub dashboard screenshots. They're not needed and are left out of the public repo on purpose.
-
----
-
-## 11. TO-DO LIST (priority order)
-
-1. **Lounge:** render, compare with concept 18, fix; add the big MUDWATER bar sign, the floor logo inlay and big lantern rings; run all 4 tests.
-2. **Outside** to match concept 19:
-   - lit windows on every storey, wraparound vine balconies
-   - 2 green gold-emblem banners on the front, a big glowing MUDWATER sign
-   - an arched double door and wide steps, a wet boardwalk with lantern posts
-   - lily pads, glowing crystals, waterfalls
-   - gold light-strands linking the galaxy cards
-   - a giant card in turning gold rings over the roof
-   - Ask about the starry sky and floating islands. Stay warm gold, not neon.
-3. Send renders, then push to branch, then the owner tests, then push to `main` with a version bump.
-4. **Mud Royale** (floor 3): ask 3 or 4 teams, then build the board, cards, capture rules, 2-minute timer, scoreboard, MVP and remote panel.
-5. **Heist / Group Mud** (floor 4): 6 hideouts, a dark warehouse, clues, a code console per team, a winner raffle, a remote panel. No guard, no stealing.
-6. **Roof:** put something there (the owner said upper floors must not be empty).
-7. Optional: secret bookcase room (offered, no answer); ElevenLabs voices (needs the sk_ key); photoreal wildlife only if it can truly look real.
-8. A multi-player lift test in Otherside (the owner).
-
-**Triangle and size budget:** shell ~222k triangles; lounge 195k / 18.6 MB; Hall of Fakes ~? (see `/tmp/bf.log` after a build). Everyone on the event has to load this, so prefer textures and instancing (the same GLB placed many times) over unique heavy meshes.
+**Size budget:** shell ~392k triangles / 46 MB (grew with balconies + arched windows: watch it); lounge ~127k / 19 MB; Meshy props 0.7–5 MB each. Everyone downloads this, so prefer the same GLB placed many times.

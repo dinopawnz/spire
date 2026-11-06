@@ -25,7 +25,7 @@ D = {
             'appraiser': [29.0, Y2, 15.5, 240], 'skipper': [8.0, FL['roof'], 12.0, 200], 'dealer': [0.0, FL['cards'], 0.0, 0]},
   'taps': [[t[0], r(t[1] + 0.07), t[2], t[3]] for t in F1['taps']],
   'barTop': r(Y1 + 1.165), 'trayTop': r(Y1 + 1.195), 'barRound': F1['bar'],
-  'books': [[0.0, FL['lounge'], 26.6, 0]],          # ONE sign-up book, in the middle of the main entrance (owner)
+  'books': [[0.0, FL['lounge'], 37.0, 0]],          # ONE sign-up book, OUTSIDE on the porch in front of the doors (owner, v21)          # ONE sign-up book, in the middle of the main entrance (owner)
   'chand': F1['rings'],
   'chand2': [],
   'lifts': LL['lifts'], 'sheaveY': LL['sheave_y'], 'hitch': LL['hitch'], 'rope': LL['rope'], 'sheaveR': LL['sheave_r'], 'cwZ': LL['cw_z'], 'cabApo': L['cab_apo'],

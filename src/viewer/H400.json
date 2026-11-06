@@ -1,0 +1,1 @@
+{"page": "/home/claude/spire/out/spire.html", "pos": [38, 25.5, 24], "opts": {"w": 1280, "h": 720, "env": 0.22, "hemi": 0.5, "sun": 0.3, "bloomThreshold": 0.88, "bloom": 0.5, "skip": ["portraits/pv_", "gc_", "mw_sky", "water.glb", "mwm_lake", "cypress", "sp_m_", "sp_mtree"]}, "shots": [{"out": "/home/claude/shots/H400.png", "cam": [20, 22, 0], "at": [34.4, 21, -2], "fov": 70}]}

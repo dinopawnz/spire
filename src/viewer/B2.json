@@ -1,0 +1,1 @@
+{"page": "/home/claude/spire/out/spire.html", "pos": [0, 3.5, 20], "opts": {"w": 1280, "h": 720, "env": 0.22, "hemi": 0.5, "sun": 0.3, "bloomThreshold": 0.88, "bloom": 0.5}, "shots": [{"out": "/home/claude/shots/B2_book.png", "cam": [1.2, 4.7, 29.6], "at": [0, 5.2, 24], "fov": 66}]}
