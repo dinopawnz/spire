@@ -235,3 +235,13 @@
   panel 0.55 m in from the wall. NPC bubbles: D.npcCap (operator bubble rides inside his cab).
 - STAIRS signs over every stair door. Galaxy: 120 holo_NNN.glb (mudwater repo) on 3 tilted spinning rings (D.galaxy).
 - Next: Mud Royale (team version, 2-minute timer, like the user's territory_v12.html), the Heist (awaiting yes), wow items.
+
+## Session 5b (v11): swamp magic
+- Finals room moved into the hall floor at the centre of the spiral: glass rotunda r 11, 9.5 m walls + 3.2 m dome, 10 radial screens 4-9.6 m out.
+  The top of the stair is now a balcony ring (r 11.6-14.3) looking down on the dome. Old top vault is gone (lift stop "gallery" = balcony).
+- Galaxy uses gc_001..120.glb (real card art front, Mudwater card back, gold rim, glow) built by build_cards.py, each card slowly turning.
+- Show (D.fx): mw_sky dome x3, floating mw_pack x4 over the roof with fx rings + diskbeam, 2 faint moonbeams (sp_moonbeam), 70 will-o'-wisps
+  (sp_wisp_t/g) wandering over the water, 42 rising sky lanterns, rune circle + ring on the water, rings round the steeple, motes + fireflies.
+  sp_neon.glb = warm string lights under every eave and down the steeple + glowing mud channel round the porch and boardwalk.
+  User rejected neon/cosmic looks for the swamp theme (no neon streaks, no disco beams, no cosmic sky).
+- Game 3 (Heist): keep lights-out + clues, NO guard, NO stealing. Living swamp only if photoreal. No speakeasy below the floor.
