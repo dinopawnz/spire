@@ -48,10 +48,15 @@ def sd(f, x, y, z, ry=0, s=1.0): SDECO.append([f, r(x), r(y), r(z), round(ry, 1)
 def dz(f, x, y, z, ry=0, s=1.0): DECO.append([f, r(x), r(y), r(z), round(ry, 1), round(s, 3)])
 # (v48, owner: "this dome is massive when it probably doesn't need to be that big") the swamp water + lake shrunk to sit inside the
 # smaller sky dome (water 178 m each way from the middle, was 196; the lake 182 m, was 874 m out over the world's own swamp)
-dz('water', 0, 0.0, 25, 0, 2.1); dz('mwm_lake', 0, 0.0, 25, 0, 0.48)
+# (v52, owner: "i want the other water under the bridge, not this shiny mudwater. that can be behind the start of the bridge") the
+# shiny Mudwater lake is a RING with a round hole in the middle (hole ~108 m wide x its scale). At 0.48 the hole was only ~52 m, so the
+# shiny water covered the dark swamp water under the bridge. At 0.95 the hole reaches ~103 m from the middle: the dark water fills
+# everything round the building and under the whole bridge, and the shiny lake starts just behind the start of the bridge (z 120.5,
+# 95.5 m out). Its far edge runs on past the sky dome wall, where it can't be seen.
+dz('water', 0, 0.0, 25, 0, 2.1); dz('mwm_lake', 0, 0.0, 25, 0, 0.95)
 # (v48, owner: "make all this surrounding water solid so people don't fall through") one big invisible floor just under the water
 # surface (you wade ankle-deep), covering the whole water; the building, boardwalk and islands stand on it as before
-D.setdefault('pads', []).append([0.0, -0.75, 25.0, 356.0, 1.0, 356.0, 0])
+D.setdefault('pads', []).append([0.0, -0.75, 25.0, 520.0, 1.0, 520.0, 0])      # (v52) solid out to the dome wall (the shiny lake reaches it now)
 for f, x, z, ry in [('bog_mangrove_tree_a_lite', -78, -40, 30), ('bog_mangrove_tree_b_lite', 82, -30, 200), ('bog_mangrove_tree_a_lite', -86, 58, 120), ('bog_mangrove_tree_b_lite', 90, 64, 300),
                     ('bog_acorn_house_lite', -46, 88, 140), ('bog_giant_acorn_lite', 52, 95, 220), ('bog_giant_tree_trunk_lite', -32, -80, 0), ('bog_giant_trunk_lite', 42, -82, 90),
                     ('bog_tree_trunk_a_lite', -22, 98, 45), ('bog_tree_trunk_b_lite', 24, 124, 160), ('bog_root_pathway_lite', -72, 128, 30), ('bog_tree_trunk_b_lite', -100, 10, 250),

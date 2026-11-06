@@ -227,6 +227,21 @@ def apply(D, L, FL):
                    c=[r3(X(13.0)), r3(YU + 2.8), r3(zc - 9.0)])
         keypad(18, -1, -4.1, YU)
         for (u, v) in ((6, -11), (16, 6)): sdeco.append(['sp_lantern_%s' % 'abc'[rng.randrange(3)], r3(X(u)), r3(YT - 0.3), r3(zc + v), rng.uniform(0, 360), 1.0])
+        # (v52, owner: "add clickable things to the room to trick players into thinking there is something they're supposed to be
+        # deciphering... and to waste their time") a crystal ball (shows random numbers), 5 potion bottles (change colour), a spell book
+        # (strange pages). None of them mean anything. Kept out of the lines of sight from the 3 hidden spots.
+        bx_, bz_ = X(6.0), zc - 10.4                                                    # crystal ball pedestal
+        cyl(vis, 'dark', 0.32, 0.08, 16, m=T(bx_, YU, bz_)); cyl(vis, 'dark', 0.12, 0.95, 12, m=T(bx_, YU, bz_)); cyl(vis, 'gold', 0.26, 0.1, 16, m=T(bx_, YU + 0.95, bz_), r2=0.2)
+        box(col, 'col', 0.6, 1.1, 0.6, m=T(bx_, YU + 0.55, bz_))
+        px_ = X(0.42)                                                                   # potion shelf on the outer wall
+        bevel_box(vis, 'dark', 0.4, 0.06, 2.6, 0.02, m=T(px_, YU + 1.3, zc - 8.0), uvs=1.2)
+        for dz_ in (-1.1, 1.1): box(vis, 'iron', 0.3, 0.3, 0.05, m=T(X(0.3), YU + 1.12, zc - 8.0 + dz_))
+        lx_, lz_ = X(8.0), zc + 4.0                                                     # spell book lectern, the book faces the outer wall
+        box(vis, 'dark', 0.5, 0.06, 0.5, m=T(lx_, YU + 0.03, lz_)); box(vis, 'dark', 0.12, 1.05, 0.12, m=T(lx_, YU + 0.55, lz_))
+        bevel_box(vis, 'plank', 0.7, 0.05, 0.55, 0.02, m=M(T(lx_, YU + 1.12, lz_), Ry(ryo), Rx(-25)), uvs=0.8)
+        box(col, 'col', 0.7, 1.2, 0.6, m=T(lx_, YU + 0.6, lz_))
+        decoy = dict(ball=[r3(bx_), r3(YU + 1.33), r3(bz_)], potions=[[r3(X(0.42)), r3(YU + 1.33), r3(zc - 8.0 + (j - 2) * 0.5)] for j in range(5)],
+                     book=[r3(lx_), r3(YU + 1.2), r3(lz_), ryo])
         cyl(vis, 'black', 0.55, 0.7, 18, m=T(X(16.0), YU, zc - 10.8), r2=0.62); cyl(vis, 'glow', 0.5, 0.02, 18, m=T(X(16.0), YU + 0.62, zc - 10.8))   # the witch's cauldron (out of the way)
         box(col, 'col', 1.2, 0.7, 1.2, m=T(X(16.0), YU + 0.35, zc - 10.8))
         # ---- R4 WARDEN'S RIDDLE: a bar with 5 numbered stools, the question board, 8 clue notes on the walls, 6 chests
@@ -243,8 +258,8 @@ def apply(D, L, FL):
             stools.append([r3(sx_), r3(YU + 2.1), r3(zc + HALF - WT / 2 - 0.05), 180.0])     # big stool number on the wall over it
             bevel_box(vis, 'dark', 0.8, 0.8, 0.06, 0.02, m=T(sx_, YU + 2.1, zc + HALF - WT / 2 - 0.02)); bevel_box(vis, 'gold', 0.9, 0.9, 0.04, 0.02, m=T(sx_, YU + 2.1, zc + HALF - WT / 2 - 0.005))
         board = frame_on_x(18, 1, 3.5, YU + 2.45, 4.2, 2.0)
-        wnotes = [frame_on_z(-HALF + WT / 2, 1, u, YU + 1.95, 1.7, 0.57) for u in (20.5, 23.0, 25.5, 28.0, 30.5, 33.0)]
-        wnotes += [frame_on_x(18, 1, v, YU + 1.95, 1.7, 0.57) for v in (7.4, 9.9)]
+        wnotes = [frame_on_z(-HALF + WT / 2, 1, u, YU + 1.95, 1.7, 0.57) for u in (21.0, 24.5, 28.0, 31.5)]      # (v52) 5 clue frames (6-10 clues now)
+        wnotes += [frame_on_x(18, 1, v, YU + 1.95, 1.7, 0.57) for v in (8.4,)]
         for (u, v, f) in ((35.4, -9.0, '-u'), (35.4, -5.5, '-u'), (35.4, 6.5, '-u'), (35.4, 9.3, '-u'), (24.5, -2.5, '-u'), (29.5, 3.5, '-u')):
             chest(3, u, v, f, YU)
         keypad(36, -1, 2.75, YU)
@@ -255,7 +270,7 @@ def apply(D, L, FL):
             k=key, c=hx, side=s, zc=zc, word='e_' + key,
             rug=[r3(X(7.25)), r3(Y0), zc, 12.5, 21.5],
             doors=[[r3(X(0)), Y0, zc], [r3(X(18)), Y0, zc - 7], [r3(X(18)), Y0, zc + 10], [r3(X(18)), YU, zc - 7], [r3(X(36)), YU, zc]],
-            kp=kp, chests=chests, paint=paint, msg=msg, board=board, wnotes=wnotes, stools=stools, eye=eye,
+            kp=kp, chests=chests, paint=paint, msg=msg, board=board, wnotes=wnotes, stools=stools, eye=eye, decoy=decoy,
             rsigns=[[r3(X(0.25)), r3(Y0 + 2.7), r3(zc - 6.0), ryi, 'esc_r1'], [r3(X(27)), r3(Y0 + 3.1), r3(zc - HALF + WT / 2 + 0.06), 0.0, 'esc_r2'],
                     [r3(X(0.25)), r3(YU + 2.6), r3(zc + 0.5), ryi, 'esc_r3'], [r3(X(18.2)), r3(YU + 2.45), r3(zc - 2.6), ryi, 'esc_r4']],
             hint=[[r3(X(9)), r3(Y0 + 3.6), zc, ryi], [r3(X(27)), r3(Y0 + 3.6), zc, ryi], [r3(X(9)), r3(YU + 3.6), zc, ryi], [r3(X(27)), r3(YU + 3.6), zc, ryi]]))
@@ -267,12 +282,12 @@ def apply(D, L, FL):
         wall_z(zz, -XC, XC, YU, YT)
         blk('dark', 0.0, YU - 0.35, zz, 2 * XC, 0.7, WT + 0.1)
     # the progress boards (corridor + Victory Hall): a dark board with a gold rim; the lamps/clock are drawn by the game
-    boards = [[0.0, Y0 + 2.6, -ZB + 0.6, 0.0], [0.0, YU + 2.6, -ZB + 0.6, 0.0]]
+    # (v52, owner: "this board too uses a very primitive design") the boards are a painted picture now (esc/board_bg.jpg: frame, title,
+    # team plates, room rows, gem sockets, the winner plaque); the game lays glowing gems, counts, the clock, medals and the winner on it
+    boards = [[0.0, Y0 + 2.55, -ZB + 0.6, 0.0], [0.0, YU + 2.37, -ZB + 0.6, 0.0]]
     for (bx, by, bz, _) in boards:
-        bevel_box(vis, 'dark', 9.4, 4.0, 0.16, 0.05, m=T(bx, by, bz - 0.1), uvs=2.0)
-        bevel_box(vis, 'gold', 9.6, 0.1, 0.2, 0.02, m=T(bx, by + 2.02, bz - 0.1)); bevel_box(vis, 'gold', 9.6, 0.1, 0.2, 0.02, m=T(bx, by - 2.02, bz - 0.1))
-        for k in range(6):
-            box(vis, 'esc%d' % k, 1.1, 0.16, 0.04, m=T(bx + (k - 2.5) * 1.45, by + 1.25, bz))
+        bevel_box(vis, 'dark', 8.9, 4.6, 0.16, 0.05, m=T(bx, by, bz - 0.1), uvs=2.0)
+        bevel_box(vis, 'gold', 9.0, 0.1, 0.2, 0.02, m=T(bx, by + 2.32, bz - 0.1)); bevel_box(vis, 'gold', 9.0, 0.1, 0.2, 0.02, m=T(bx, by - 2.32, bz - 0.1))
     # Victory Hall dressing: a gold-rimmed dais in the middle, lantern rings of light
     cyl(vis, 'dark', 3.2, 0.18, 32, m=T(0, YU, 0)); cyl(vis, 'gold', 3.3, 0.04, 32, m=T(0, YU + 0.15, 0))
     box(col, 'col', 6.0, 0.18, 6.0, m=T(0, YU + 0.09, 0))
@@ -288,7 +303,7 @@ def apply(D, L, FL):
     D['escape'] = dict(y0=Y0, yu=YU, teams=teams, boards=boards, vh=[0.0, r3(YU + 0.2), 0.0], slide=SLIDE, dw=DW, dh=DH, lock=30000,
                        sums=[dict(notes=p['notes'], paint=p['paint'], code=p['code'], fake=p['fake']) for p in pools['sums']],
                        cipher=[dict(msg=p['msg'], mh=p['mh'], keys=p['keys'], code=p['code'], q=p['q']) for p in pools['cipher']],
-                       riddle=[dict(notes=p['notes'], code=p['code']) for p in pools['riddle']], empty=pools['empty'],
+                       riddle=[dict(notes=p['notes'], code=p['code']) for p in pools['riddle']], empty=pools['empty'], pages=pools['pages'],
                        signs=[[r3(s * (XO + 1.2)), r3(Y0 + 2.4), z, 90 * s] for s in (-1, 1) for z in (-12.0, 12.0)])
     print('escape: 6 teams x 4 code rooms, victory hall at y %.1f; pools %d sums, %d ciphers, %d riddles' % (YU, len(pools['sums']), len(pools['cipher']), len(pools['riddle'])))
 

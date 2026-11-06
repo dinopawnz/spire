@@ -565,7 +565,11 @@
     if (D.royale) {
       const R = D.royale, N = R.n, TS = R.ts, HB = R.half, TOP = R.top, TM = R.teams, CARDS = R.cards, NT = TM.length;
       const LV = R.lv || CARDS.map(() => 1), LV1 = LV.map((v, i) => v === 1 ? i : -1).filter((i) => i >= 0);
-      const deal = (n1) => (Math.random() < (n1 ? 1 : 0.55) ? LV1[Math.floor(Math.random() * LV1.length)] : Math.floor(Math.random() * CARDS.length));   // level 1 more often
+      // (v52, owner: "we get way too many level 1 cards") about 3 cards in 4 were level I. Now each new card picks its LEVEL first:
+      // I 35%, II 28%, III 17%, IV 12%, V 8% (so there are cards to upgrade with), then a random card of that level. A hand with no level I
+      // still always gets one (you can always place something).
+      const BYLV = [1, 2, 3, 4, 5].map((l) => LV.map((v, i) => v === l ? i : -1).filter((i) => i >= 0)), LW = [0.35, 0.28, 0.17, 0.12, 0.08];
+      const deal = (n1) => { if (n1) return LV1[Math.floor(Math.random() * LV1.length)]; let r = Math.random(), l = 0; while (l < 4 && (r -= LW[l]) > 0) l++; const P = BYLV[l].length ? BYLV[l] : LV1; return P[Math.floor(Math.random() * P.length)]; };
       const CW = 1.78, CH = 2.47;                                            // a card on its square (the art is 720 x 1000)
       const rg = el("m-group", {}); rg._global = true;
       const tileXZ = (i) => [-HB + TS * (i % N + 0.5), -HB + TS * (Math.floor(i / N) + 0.5)];
@@ -606,7 +610,11 @@
         const cols = TM.map((t, k) => { word(t[1], 0.33, { x: COLX(k), y: 1.78 }, fg); return el("m-group", { x: COLX(k), y: 1.0 }, fg); });
         const bar = el("m-cube", { y: 0.2, width: 6.2, height: 0.09, depth: 0.03, color: "#d9a441", collide: "false", "cast-shadows": "false" }, fg);
         const big = el("m-group", { sx: 0.72, sy: 0.72, sz: 0.72, y: 0.15 }, fg);   // winner / tie over the columns
-        return { fg, clock, cap, cols, bar, big, lead, shown: {} };
+        // (v52, owner: "the bar for all the teams is the same even though crawdads had like 30 squares and everyone else had 0") each
+        // team's colour bar over its column now GROWS with its squares (the leader's bar is full width, a team with 0 has a stub)
+        const tbars = TM.map((t, k) => el("m-cube", { x: COLX(k) - 0.66, y: 2.02, z: 0.0, width: 0.04, height: 0.08, depth: 0.04, color: t[2], emissive: 0.9, collide: "false", "cast-shadows": "false" }, fg));
+        const end = el("m-group", {}, fg);                                         // the end-of-game lines (winner, MVP)
+        return { fg, clock, cap, cols, bar, big, lead, tbars, end, shown: {} };
       });
       const setNum = (g, n, h, key, cache) => { if (cache[key] === n) return; cache[key] = n; Array.from(g.children).forEach((c) => c.remove()); digits(n, h, {}, g); };
       function rCounts() {
@@ -616,8 +624,10 @@
         penCount.forEach((g, k) => setNum(g, players[k], 1.55, "p" + k, faces[0].shown));
         faces.forEach((F, fi) => {
           F.cols.forEach((g, k) => setNum(g, per[k], 0.85, "c" + k, F.shown));
-          const best = Math.max(...per), lead = live && per.filter((v) => v === best).length === 1 && best > 0 ? per.indexOf(best) : -1;   // the leader glows
+          const best = Math.max(...per), lead = RY.ph === "live" && per.filter((v) => v === best).length === 1 && best > 0 ? per.indexOf(best) : -1;   // the leader glows
           if (F.shown.lead !== lead) { F.shown.lead = lead; if (lead < 0) F.lead.setAttribute("visible", "false"); else { F.lead.setAttribute("x", String(COLX(lead))); F.lead.setAttribute("visible", "true"); } }
+          const top = Math.max(1, ...per);
+          F.tbars.forEach((b, k) => { const w = per[k] > 0 ? Math.max(0.08, 1.35 * per[k] / top) : 0.04; if (F.shown["b" + k] === w) return; F.shown["b" + k] = w; b.setAttribute("width", String(r3(w))); b.setAttribute("x", String(r3(COLX(k) - 0.675 + w / 2))); });
           const capKey = live ? "r_squares" : "r_players";
           if (F.shown.cap !== capKey) { F.shown.cap = capKey; Array.from(F.cap.children).forEach((c) => c.remove()); word(capKey, 0.2, {}, F.cap); }
         });
@@ -631,7 +641,7 @@
           digits(m, 0.85, { x: -0.62 }, F.clock); word("r_colon", 0.85, { x: -0.17 }, F.clock); digits(Math.floor(sc / 10), 0.85, { x: 0.3 }, F.clock); digits(sc % 10, 0.85, { x: 0.84 }, F.clock);
         });
       }
-      function rBig(keys) { faces.forEach((F) => { Array.from(F.big.children).forEach((c) => c.remove()); (keys || []).forEach(([k, h, x, y]) => word(k, h * 1.4, { x, y }, F.big)); F.cols.forEach((g) => g.setAttribute("visible", keys && keys.length ? "false" : "true")); if (keys && keys.length) F.lead.setAttribute("visible", "false"); else F.shown.lead = undefined; }); }
+      function rBig(keys) { faces.forEach((F) => { Array.from(F.big.children).forEach((c) => c.remove()); Array.from(F.end.children).forEach((c) => c.remove()); F.cols.forEach((g) => g.setAttribute("y", "1.0")); (keys || []).forEach(([k, h, x, y]) => word(k, h * 1.4, { x, y }, F.big)); F.cols.forEach((g) => g.setAttribute("visible", keys && keys.length ? "false" : "true")); if (keys && keys.length) F.lead.setAttribute("visible", "false"); else F.shown.lead = undefined; }); }
       // ---- the four YOUR HAND boards (each player's cards are shown only to that player)
       const HANDS = R.hands.map(([hx, hy, hz, hry, tilt]) => {
         const o = el("m-group", { x: hx, y: R.y + hy, z: hz, ry: hry }); o._global = true;
@@ -686,7 +696,7 @@
         rClearBoard(); rClearHands(); rBig(null);
         RY.ph = "live"; RY.t0 = now(); RY.full = false; const tok = ++RY.tok;
         faces.forEach((F) => F.bar.setAttribute("color", "#d9a441"));
-        ids.forEach((id) => { RY.hands.set(id, { cards: Array.from({ length: R.hand }, (_, j) => deal(j < 2)), sel: 0, els: [], next: 0 }); handDraw(id); handMsg(id, ["r_go"], 2500); });
+        ids.forEach((id) => { RY.hands.set(id, { cards: Array.from({ length: R.hand }, (_, j) => deal(j < 1)), sel: 0, els: [], next: 0 }); handDraw(id); handMsg(id, ["r_go"], 2500); });
         faces.forEach((F) => tween(F.bar, "sx", 1, 0.001, R.secs * 1000, "linear"));
         sfx("finals.mp3", 0, R.y + 4, 0, 0.8);
         rClock(R.secs); rCounts();
@@ -723,10 +733,17 @@
         let mvp = null, mv = 0; held.forEach((v, id) => { if (v > mv) { mv = v; mvp = id; } });
         RY.winner = top.length === 1 ? top[0] : null;
         rClock(0);
-        if (best === 0) rBig([["r_time", 0.9, 0, 1.2]]);
-        else if (top.length === 1) rBig([[TM[top[0]][1], 0.85, 0, 1.45], ["r_wins", 0.6, 0, 0.7]]);
-        else rBig([["r_tie", 0.8, 0, 1.2]]);
-        if (mvp !== null) faces.forEach((F) => { word("r_mvp", 0.32, { x: -3.0, y: 0.32 }, F.big); const lab = el("m-label", { x: 0.55, y: 0.32, width: 5.4, height: 0.5, content: nameOf(pl(mvp)) + "  (" + mv + ")", "font-size": 30, alignment: "left", color: "#0d0907", "font-color": "#ffe6a8", emissive: 0.35, collide: "false" }, F.big); later(30000, () => lab.remove()); });
+        // (v52, owner: "is the screen working?... the mvp has no name next to it") the final square counts stay up under the team names, the
+        // winner goes on one line under them and the MVP's name under that - and it stays until the next game (it used to vanish after 30 s)
+        rBig(null);
+        const wd = (k, h) => (ASP[k] || 2) * h * 0.8;
+        faces.forEach((F) => {
+          F.lead.setAttribute("visible", "false"); F.shown.lead = -2; F.cols.forEach((g) => g.setAttribute("y", "1.16"));
+          if (best === 0) word("r_time", 0.44, { y: 0.64 }, F.end);
+          else if (top.length === 1) { const k1 = TM[top[0]][1], w1 = wd(k1, 0.44), w2 = wd("r_wins", 0.36), x0 = -(w1 + 0.12 + w2) / 2; word(k1, 0.44, { x: x0 + w1 / 2, y: 0.64 }, F.end); word("r_wins", 0.36, { x: x0 + w1 + 0.12 + w2 / 2, y: 0.64 }, F.end); }
+          else word("r_tie", 0.4, { y: 0.64 }, F.end);
+          if (mvp !== null) { word("r_mvp", 0.26, { x: -2.4, y: 0.32 }, F.end); el("m-label", { x: 0.35, y: 0.3, z: 0.02, width: 4.6, height: 0.42, content: nameOf(pl(mvp)) + "  -  " + mv + " SQUARES", "font-size": 18, alignment: "left", color: "#1a120c", "font-color": "#ffe6a8", emissive: 0.45, collide: "false" }, F.end); }
+        });
         RY.hands.forEach((H, id) => { H.els.forEach((e) => e.remove()); H.els = []; handMsg(id, ["r_time"], 3000); });
         sfx("winner.mp3", 0, R.y + 4, 0, 0.9);
         hostMsg("MUD ROYALE OVER: " + TM.map((t, k) => t[0].toUpperCase() + " " + per[k]).join(", ") + (mvp !== null ? " - MVP " + nameOf(pl(mvp)) + " (" + mv + ")" : ""));
@@ -826,19 +843,30 @@
       const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
       const inTeam = (k) => Array.from(ES.roster.entries()).filter(([id, t]) => t === k && ONLINE.has(id)).map(([id]) => id);
       // ---- the boards (corridor + Victory Hall): 4 lamps per team, the clock, the winner
+      const img = (src, attrs, parent) => el("m-image", Object.assign({ src: BASE + "esc/" + src + VER, emissive: 0.45, collide: "false", "cast-shadows": "false" }, attrs), parent);
+      const clearKids = (g, keep) => Array.from(g.children).forEach((c) => { if (c !== keep) c.remove(); });
+      // (v52, owner: "this board too uses a very primitive design") a painted board (esc/board_bg.jpg: frame, title, team plates, room rows,
+      // empty gem sockets, the winner plaque). On top: a glowing gem in a team's socket for every room it solves, player counts, the clock,
+      // place medals, and the winner banner. Positions are the picture's pixels (1880 x 960) turned into metres.
+      const BS = 8.6 / 1880, BX = (px) => (px - 940) * BS, BY = (py) => (480 - py) * BS, BCOL = (k) => 270 + (1840 - 270) / 6 * (k + 0.5), BROWS = [272, 357, 442, 527];
       const BOARDS = E.boards.map(([bx, by, bz, bry]) => {
         const g = el("m-group", { x: bx, y: by, z: bz, ry: bry }, eg);
-        word("e_title", 0.5, { y: 1.62 }, g);
-        const lamps = TM.map((t, k) => [0, 1, 2, 3].map((r) => el("m-sphere", { x: (k - 2.5) * 1.45, y: 0.75 - r * 0.52, radius: 0.17, color: "#2a2018", emissive: 0, collide: "false", "cast-shadows": "false" }, g)));
-        const cnt = TM.map((t, k) => el("m-group", { x: (k - 2.5) * 1.45, y: -1.55 }, g));
-        const clock = el("m-group", { x: 3.6, y: 1.62, sx: 0.7, sy: 0.7, sz: 0.7 }, g);
-        const big = el("m-group", { y: 0.0, z: 0.25 }, g);
-        return { g, lamps, cnt, clock, big };
+        img("board_bg.jpg", { width: 8.6, height: 4.392, emissive: 0.55 }, g);
+        const gems = TM.map((t, k) => BROWS.map((py) => img("gem_" + k + ".png", { x: BX(BCOL(k)), y: BY(py), z: 0.02, width: 0.44, height: 0.44, emissive: 1.0, visible: "false" }, g)));
+        const cnt = TM.map((t, k) => el("m-group", { x: BX(BCOL(k)), y: BY(628), z: 0.03 }, g));
+        const medals = TM.map((t, k) => el("m-group", { x: BX(BCOL(k) + 100), y: BY(628), z: 0.03 }, g));
+        const clock = el("m-group", { x: BX(1730), y: BY(92), z: 0.03 }, g);
+        const big = el("m-group", { x: 0, y: BY(822), z: 0.03 }, g);
+        return { g, gems, cnt, medals, clock, big, shown: {} };
       });
-      const clockShow = (secs) => BOARDS.forEach((B) => { Array.from(B.clock.children).forEach((c) => c.remove()); const m = Math.min(99, Math.floor(secs / 60)), s = secs % 60; digits(m, 0.42, { x: -0.55 }, B.clock); word("r_colon", 0.42, { x: -0.1 }, B.clock); word("d" + Math.floor(s / 10), 0.42, { x: 0.18 }, B.clock); word("d" + (s % 10), 0.42, { x: 0.46 }, B.clock); });
-      const lampsShow = () => BOARDS.forEach((B) => ES.teams.forEach((T, k) => B.lamps[k].forEach((l, r) => { const on = T.stage > r; l.setAttribute("color", on ? TM[k].c : "#2a2018"); l.setAttribute("emissive", on ? "1.4" : "0"); })));
+      const clockShow = (secs) => BOARDS.forEach((B) => { Array.from(B.clock.children).forEach((c) => c.remove()); const m = Math.min(99, Math.floor(secs / 60)), s = secs % 60; digits(m, 0.34, { x: -0.36 }, B.clock); word("r_colon", 0.34, { x: -0.05 }, B.clock); word("d" + Math.floor(s / 10), 0.34, { x: 0.16 }, B.clock); word("d" + (s % 10), 0.34, { x: 0.38 }, B.clock); });
+      const lampsShow = () => BOARDS.forEach((B) => ES.teams.forEach((T, k) => {
+        B.gems[k].forEach((gm, r) => { const v = T.stage > r ? "true" : "false"; if (gm.getAttribute("visible") !== v) gm.setAttribute("visible", v); });
+        const place = ES.order.indexOf(k), key = "m" + k;
+        if (B.shown[key] !== place) { B.shown[key] = place; clearKids(B.medals[k]); if (place >= 0) img("medal_" + Math.min(5, place) + ".png", { width: 0.4, height: 0.4, emissive: 0.8 }, B.medals[k]); }
+      }));
       const countsShow = () => {
-        BOARDS.forEach((B) => TM.forEach((t, k) => { Array.from(B.cnt[k].children).forEach((c) => c.remove()); digits(inTeam(k).length, 0.34, {}, B.cnt[k]); }));
+        BOARDS.forEach((B) => TM.forEach((t, k) => { const n = inTeam(k).length; if (B.shown["c" + k] === n) return; B.shown["c" + k] = n; clearKids(B.cnt[k]); digits(n, 0.36, {}, B.cnt[k]); }));
         ES.teams.forEach((T, k) => { if (!T.doorCnt) return; const n = inTeam(k).length; if (T.doorCnt._n === n) return; T.doorCnt._n = n; Array.from(T.doorCnt.children).forEach((c) => c.remove()); digits(n, 0.75, {}, T.doorCnt); });
       };
       every(3000, () => countsShow());                          // people who log off drop off the counts
@@ -847,8 +875,7 @@
       // Every keypad has 1-9, CLR, 0, OK; a wrong code locks that keypad for 30 s (so guessing/spamming is slow). Each team gets a
       // different puzzle set every game (pools made by escape_puzzles.py, checked to have exactly one answer).
       const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "C", "0", "K"];
-      const img = (src, attrs, parent) => el("m-image", Object.assign({ src: BASE + "esc/" + src + VER, emissive: 0.45, collide: "false", "cast-shadows": "false" }, attrs), parent);
-      const clearKids = (g, keep) => Array.from(g.children).forEach((c) => { if (c !== keep) c.remove(); });
+      const PCOL = ["#8a3cff", "#3cff8a", "#ff3c5a", "#3caeff", "#ffcf3c"];         // potion colours (R3 time-waster)
       TM.forEach((t, k) => {
         const T = { k, stage: 0, doors: [], kp: [], chests: [], codes: ["", "", "", ""], si: [0, 0, 0], shown: [], bars: null, eyes: [], eyeI: 0, hints: [], hintN: 0 };
         ES.teams.push(T);
@@ -893,8 +920,35 @@
           [lid, hb].forEach((n) => n.addEventListener("click", (e) => chestOpen(T, C, e.detail && e.detail.connectionId)));
           T.chests.push(C);
         });
-        // R3: three eyes painted on the floor (one is true, picked every game)
-        t.eye.spots.forEach(([x, y, z]) => T.eyes.push(img("eye.png", { x, y: y + 0.03, z, rx: -90, width: 1.3, height: 1.3, emissive: 0.8 }, eg)));
+        // R3: (v52, owner: "remove all the eyes from the floor. dont make it that easy for them") nothing marks the spot any more: one of
+        // 3 hidden spots is picked every game, and the floating paint only lines up into numbers seen from there
+        // R3 time-wasters (v52, owner: "add clickable things to the room to trick players into thinking there is something they're supposed
+        // to be deciphering... and to waste their time"): a crystal ball that shows random numbers, 5 potions that change colour, a spell
+        // book of strange pages. None of it means anything. Silent (no sound spam).
+        const DC = t.decoy;
+        if (DC) {
+          const ball = el("m-sphere", { x: DC.ball[0], y: DC.ball[1], z: DC.ball[2], radius: 0.28, color: "#b58cff", emissive: 1.2, opacity: 0.85, collide: "false", "cast-shadows": "false" }, eg);
+          const bnum = el("m-group", { x: DC.ball[0], y: DC.ball[1] + 0.75, z: DC.ball[2] }, eg);
+          const bh = hitBox({ x: DC.ball[0], y: DC.ball[1], z: DC.ball[2], width: 0.7, height: 0.7, depth: 0.7 }, eg);
+          const gaze = (e) => {
+            if (ES.ph !== "live" || T.stage < 2 || (e.detail && e.detail.connectionId) === undefined || now() - (T._ball || 0) < 1500) return;
+            T._ball = now(); clearKids(bnum); ball.setAttribute("emissive", "3");
+            const n = String(Math.floor(Math.random() * 10000)).padStart(4, "0");
+            n.split("").forEach((c, j) => word("d" + c, 0.4, { x: (j - 1.5) * 0.3 }, bnum));
+            const tk = T._ball; later(4000, () => { if (T._ball === tk) { clearKids(bnum); ball.setAttribute("emissive", "1.2"); } });
+          };
+          [ball, bh].forEach((n) => n.addEventListener("click", gaze));
+          T.potions = DC.potions.map(([x, y, z], j) => {
+            const p = el("m-cylinder", { x, y: y + 0.16, z, radius: 0.09, height: 0.32, color: PCOL[j], emissive: 0.8, opacity: 0.9, collide: "false", "cast-shadows": "false" }, eg);
+            el("m-cylinder", { x, y: y + 0.36, z, radius: 0.035, height: 0.1, color: "#3a2a1a", collide: "false", "cast-shadows": "false" }, eg);
+            p._c = j; p.addEventListener("click", (e) => { if (ES.ph !== "live" || (e.detail && e.detail.connectionId) === undefined) return; p._c = (p._c + 1) % PCOL.length; p.setAttribute("color", PCOL[p._c]); });
+            return p;
+          });
+          const bg = el("m-group", { x: DC.book[0], y: DC.book[1], z: DC.book[2], ry: DC.book[3] }, eg);
+          T.page = img(E.pages[0], { rx: -65, width: 0.62, height: 0.42, emissive: 0.4 }, bg); T.pageI = 0;
+          const flip = (e) => { if (ES.ph !== "live" || (e.detail && e.detail.connectionId) === undefined) return; T.pageI = (T.pageI + 1) % E.pages.length; T.page.setAttribute("src", BASE + "esc/" + E.pages[T.pageI] + VER); };
+          [T.page, hitBox({ y: 0.05, width: 0.75, height: 0.35, depth: 0.65 }, bg)].forEach((n) => n.addEventListener("click", flip));
+        }
         // R4: stool numbers on the bar, the question board (the same every game)
         t.stools.forEach(([x, y, z, ry], j) => word("d" + (j + 1), 1.0, { x, y, z, ry }, eg));
         img("w_board.jpg", { x: t.board[0], y: t.board[1], z: t.board[2], ry: t.board[3], width: 4.2, height: 2.0, emissive: 0.5 }, eg);
@@ -912,23 +966,60 @@
         if (room === 3) finish(T); else reveal(T, room + 1);
       }
       function finish(T) {
-        ES.order.push(T.k); const secs = Math.round((now() - ES.t0) / 1000);
+        ES.order.push(T.k); const secs = Math.round((now() - ES.t0) / 1000); lampsShow();
         if (ES.order.length === 1) {
-          BOARDS.forEach((B) => { Array.from(B.big.children).forEach((c) => c.remove()); word(TM[T.k].word, 0.75, { y: -0.2 }, B.big); word("r_wins", 0.5, { y: -0.85 }, B.big); });
-          confetti(TM[T.k].c);
+          BOARDS.forEach((B) => { clearKids(B.big); img("win_" + T.k + ".jpg", { width: 1700 * BS, height: 210 * BS, emissive: 0.8 }, B.big); });
+          confetti(TM[T.k].c, T.k);
           hostMsg("MUDWATER ESCAPE: " + TM[T.k].k.toUpperCase() + " ESCAPED FIRST! (" + Math.floor(secs / 60) + ":" + String(secs % 60).padStart(2, "0") + ") - " + inTeam(T.k).length + " PLAYERS");
         } else hostMsg("MUDWATER ESCAPE: " + TM[T.k].k.toUpperCase() + " OUT IN PLACE " + ES.order.length + " (" + Math.floor(secs / 60) + ":" + String(secs % 60).padStart(2, "0") + ")");
       }
-      function confetti(c) {
-        const [vx, vy, vz] = E.vh; sfx("winner.mp3", vx, vy + 2, vz, 0.45);
-        for (let b = 0; b < 6; b++) later(b * 700, () => {
-          const g = el("m-group", { x: vx, y: vy + 3.2, z: vz + (b - 2.5) * 9 }, eg);
-          for (let i = 0; i < 16; i++) {
-            const a = i / 16 * Math.PI * 2, s = el("m-sphere", { radius: 0.12, color: i % 3 ? c : "#ffe08a", emissive: 3, collide: "false", "cast-shadows": "false" }, g);
-            tween(s, "x", 0, Math.cos(a) * 3.2, 1300, "easeOutQuad"); tween(s, "z", 0, Math.sin(a) * 3.2, 1300, "easeOutQuad"); tween(s, "y", 0, -2.4 + Math.random() * 1.4, 1300, "easeOutQuad");
-          }
-          later(1500, () => g.remove());
+      // (v52, owner: "can the confetti for the winning team look way cooler? ... extremely primitive confetti") a proper celebration in the
+      // Victory Hall: shock rings of light from the dais, two confetti cannons, star bursts of light streaks under the ceiling, and a
+      // rain of fluttering paper confetti (team colour + gold + white) over the whole hall. Every piece is thrown away when it lands.
+      function confetti(c, k) {
+        const [vx, vy, vz] = E.vh, top = E.yu + 4.4; sfx("winner.mp3", vx, vy + 2, vz, 0.45);
+        const COLS = [c, c, c, "#ffe08a", "#ffffff", "#ffd27a"], pick = () => COLS[Math.floor(Math.random() * COLS.length)];
+        const A = (n, attr, a, b, ms, ease, loop, pp) => el("m-attr-anim", Object.assign({ attr, start: r3(a), end: r3(b), duration: Math.round(ms), loop: loop ? "true" : "false", easing: ease || "linear", "start-time": Math.round(now()) }, pp ? { "ping-pong": "true" } : {}), n);
+        const fx = el("m-group", {}, eg); later(9000, () => fx.remove());
+        // shock rings from the dais
+        for (let r = 0; r < 3; r++) later(r * 300, () => {
+          const ring = el("m-cylinder", { x: vx, y: vy + 0.3, z: vz, radius: 1, height: 0.05, color: r === 1 ? "#ffe08a" : c, emissive: 4, opacity: 0.9, collide: "false", "cast-shadows": "false" }, fx);
+          A(ring, "radius", 1, 7.5, 1300, "easeOutQuad"); A(ring, "opacity", 0.9, 0, 1300, "easeInQuad"); later(1350, () => ring.remove());
         });
+        // a fluttering paper piece: falls from (x, y, z) to the floor in ms, spinning and swaying
+        const paper = (x, y, z, ms) => {
+          const p = el("m-cube", { x, y, z, width: 0.2 + Math.random() * 0.08, height: 0.006, depth: 0.12, color: pick(), emissive: 0.9, rx: Math.random() * 360, ry: Math.random() * 360, collide: "false", "cast-shadows": "false" }, fx);
+          A(p, "y", y, vy + 0.03, ms, "linear"); A(p, "rx", 0, 360, 500 + Math.random() * 700, "linear", true); A(p, "rz", 0, 360, 700 + Math.random() * 900, "linear", true);
+          A(p, "x", x - 0.35, x + 0.35, 700 + Math.random() * 500, "easeInOutSine", true, true);
+          later(ms + 100, () => p.remove());
+        };
+        // confetti cannons: two at the door the winners burst out of (aimed into the hall) and two at the dais; each burst flies up, then
+        // flutters down
+        const W = (k !== undefined && TM[k]) ? TM[k] : null, wd = W ? W.doors[4] : null, ws = W ? W.side : 1;
+        const guns = [[vx - 3.6, vz, 1], [vx + 3.6, vz, -1]].concat(wd ? [[wd[0] - ws * 1.2, wd[2] - 2.2, -ws], [wd[0] - ws * 1.2, wd[2] + 2.2, -ws]] : []);
+        guns.forEach(([gx, gz, dir]) => [0, 900].forEach((dl) => later(dl, () => {
+          for (let i = 0; i < 24; i++) {
+            const sx = gx, sz = gz + (Math.random() - 0.5) * 1.2, tx = sx + dir * (1 + Math.random() * 4.5), tz = sz + (Math.random() - 0.5) * 8, ty = top - Math.random() * 1.2;
+            const p = el("m-cube", { x: sx, y: vy + 0.5, z: sz, width: 0.22, height: 0.006, depth: 0.13, color: pick(), emissive: 0.9, collide: "false", "cast-shadows": "false" }, fx);
+            const up = 650 + Math.random() * 250;
+            A(p, "x", sx, tx, up, "easeOutQuad"); A(p, "z", sz, tz, up, "easeOutQuad"); A(p, "y", vy + 0.5, ty, up, "easeOutQuad"); A(p, "rx", 0, 720, up, "linear");
+            later(up, () => { p.remove(); paper(tx, ty, tz, 2600 + Math.random() * 1600); });
+          }
+        })));
+        // star bursts of light streaks under the ceiling
+        [[-4.5, -9], [4.5, 2], [0, 12], [-3, 22], [3, -20]].forEach(([bx, bz], bi) => later(400 + bi * 450, () => {
+          const g = el("m-group", { x: vx + bx, y: top - 0.9, z: vz + bz }, fx);
+          const core = el("m-sphere", { radius: 0.25, color: "#fff6d8", emissive: 6, collide: "false", "cast-shadows": "false" }, g);
+          A(core, "radius", 0.25, 0.9, 500, "easeOutQuad"); later(450, () => core.remove());
+          for (let i = 0; i < 14; i++) {
+            const o = el("m-group", { ry: i * 360 / 14 + Math.random() * 10 }, g), o2 = el("m-group", { rz: -50 + Math.random() * 70 }, o);
+            const st = el("m-cube", { x: 0.3, width: 0.5, height: 0.05, depth: 0.05, color: i % 3 ? c : "#ffe08a", emissive: 5, collide: "false", "cast-shadows": "false" }, o2);
+            A(st, "x", 0.3, 2.4 + Math.random(), 900, "easeOutQuad"); A(st, "opacity", 1, 0, 900, "easeInQuad");
+          }
+          later(1000, () => g.remove());
+        }));
+        // the rain: paper confetti drifting down over the whole hall for a few seconds
+        for (let i = 0; i < 90; i++) later(300 + Math.random() * 3200, () => { const near = wd && i % 3 === 0; paper(near ? wd[0] - ws * (1 + Math.random() * 5) : vx + (Math.random() - 0.5) * 14, top, near ? wd[2] + (Math.random() - 0.5) * 8 : vz + (Math.random() - 0.5) * 56, 3200 + Math.random() * 1800); });
       }
       // ---- keypads. Key presses are silent (20 people clicking = no sound storm); only OK makes a sound.
       function padShow(P) { clearKids(P.disp); P.typed.forEach((v, j) => word("d" + v, 0.3, { x: (j - (P.typed.length - 1) / 2) * 0.22 }, P.disp)); }
@@ -975,7 +1066,7 @@
         if (r === 0) { const p = t.paint; T.shown.push(img(E.sums[T.si[0]].paint, { x: p[0], y: p[1], z: p[2], ry: p[3], width: 2.5, height: 1.05, emissive: 0.5 }, eg)); }
         if (r === 1) { const p = t.msg, c = E.cipher[T.si[1]], w = Math.min(5.0, 1.7 / c.mh); T.shown.push(img(c.msg, { x: p[0], y: p[1], z: p[2], ry: p[3], width: w, height: w * c.mh, emissive: 0.5 }, eg)); }
         if (r === 2) witchBuild(T);
-        if (r === 3) { const R4 = E.riddle[T.si[2]]; t.wnotes.forEach(([x, y, z, ry], j) => T.shown.push(img(R4.notes[T.wall3[j]], { x, y, z, ry, width: 1.7, height: 0.567, emissive: 0.5 }, eg))); }
+        if (r === 3) { const R4 = E.riddle[T.si[2]]; t.wnotes.forEach(([x, y, z, ry], j) => T.shown.push(img(j < T.wall3.length ? R4.notes[T.wall3[j]] : E.empty[(j + 3) % E.empty.length], { x, y, z, ry, width: 1.7, height: 0.567, emissive: 0.5 }, eg))); }     // a spare frame gets a junk note
       }
       // ---- R3 the witch's eye: 4 digits drawn as paint strokes, each stroke pushed a random distance along the line from the
       // true eye (and made bigger/smaller to match), so they only line up into numbers seen from that eye. Plus stray strokes.
@@ -1022,11 +1113,13 @@
         byRoom.forEach((L) => L.forEach((C, j) => { C.j = j; }));
         T.map0 = shuffle(R1.notes.map((_, j) => j)).slice(0, byRoom[0].length);
         T.map1 = shuffle(R2.keys.map((_, j) => j)).slice(0, byRoom[1].length);
-        const cl = shuffle(R4.notes.map((_, j) => j));             // 8 clues on the walls, the rest in chests (others hold junk)
-        T.wall3 = cl.slice(0, t.wnotes.length);
-        const inCh = cl.slice(t.wnotes.length), m3 = byRoom[2].map((_, j) => (j < inCh.length ? inCh[j] : -1));
+        const cl = shuffle(R4.notes.map((_, j) => j));             // (v52) clues on the walls (up to 5), the rest in chests (other chests hold junk)
+        T.wall3 = cl.slice(0, Math.min(t.wnotes.length, cl.length - 2));     // at least 2 clues in chests
+        const inCh = cl.slice(T.wall3.length), m3 = byRoom[2].map((_, j) => (j < inCh.length ? inCh[j] : -1));
         T.map3 = shuffle(m3);
         T.eyeI = Math.floor(Math.random() * t.eye.spots.length);
+        (T.potions || []).forEach((p) => { p._c = Math.floor(Math.random() * PCOL.length); p.setAttribute("color", PCOL[p._c]); });
+        if (T.page) { T.pageI = 0; T.page.setAttribute("src", BASE + "esc/" + E.pages[0] + VER); }
         T.codes = [R1.code, R2.code, Array.from({ length: 4 }, () => Math.floor(Math.random() * 10)).join(""), R4.code];
       }
       function eOpen() {
@@ -1084,7 +1177,7 @@
           const [x, y, z] = t.eye.spots[T.eyeI];
           const b = el("m-cylinder", { x, y: y + 3, z, radius: 0.25, height: 6, color: "#c77dff", emissive: 2, opacity: 0.35, collide: "false", "cast-shadows": "false" }, eg);
           T.hints.push(b); later(30000, () => b.remove());
-          return nm + " HINT: A BEAM SHOWS THE TRUE EYE (30 s)";
+          return nm + " HINT: A BEAM SHOWS WHERE TO STAND (30 s)";
         }
         if (T.stage === 3) {
           const code = E.riddle[T.si[2]].code, i = T.hintN++ % 5, b = t.board;
@@ -1099,7 +1192,7 @@
         if (!ES.order.length) return "NO TEAM HAS ESCAPED YET";
         const ids = inTeam(ES.order[0]); if (!ids.length) return "NOBODY FROM THE WINNING TEAM IS ONLINE";
         const id = ids[Math.floor(Math.random() * ids.length)], nm = nameOf(pl(id));
-        BOARDS.forEach((B) => { const lab = el("m-label", { y: -1.5, z: 0.06, width: 7.5, height: 0.6, content: "RAFFLE: " + nm, "font-size": 34, alignment: "center", color: "#0d0907", "font-color": "#ffe6a8", emissive: 0.4, collide: "false" }, B.big); later(60000, () => lab.remove()); });
+        BOARDS.forEach((B) => { const lab = el("m-label", { y: 0.6, z: 0.02, width: 5.0, height: 0.24, content: "RAFFLE WINNER: " + nm, "font-size": 24, alignment: "center", color: "#0d0907", "font-color": "#ffe6a8", emissive: 0.4, collide: "false" }, B.big); later(60000, () => lab.remove()); });
         return "RAFFLE WINNER (" + TM[ES.order[0]].k.toUpperCase() + "): " + nm;
       }
       ES.open = eOpen; ES.start = eStart; ES.end = eEnd; ES.hint = eHint; ES.skip = eSkip; ES.raffle = eRaffle; ES.teamArg = teamArg;
@@ -1114,7 +1207,10 @@
     const BAND = { on: true, last: new Map(), live: 0, gk: 0 };
     // (v32, owner: "when one person is playing an instrument, the other instrument sounds kind of stop working") every instrument
     // has its OWN voice limit now (it was one shared limit, so one fast player used up every voice)
-    const CAP = { drum: 4, guitar: 2, piano: 5, harp: 5 }, LIVE = { drum: 0, guitar: 0, piano: 0, harp: 0 };
+    // (v52, owner: "a little hard to click the cymbals and individual drums") a drummer could only get ~4 hits in 2.4 s (every hit held a
+    // voice for 2.4 s); now each hit holds its voice only as long as its sound rings, and the kit has 8 voices
+    const CAP = { drum: 8, guitar: 2, piano: 5, harp: 5 }, LIVE = { drum: 0, guitar: 0, piano: 0, harp: 0 };
+    const DRUM_MS = { hihat: 800, kick: 1200, snare: 1200, tom_hi: 1400, tom_lo: 1600, crash: 3200 };
     function bandPlay(inst, k, id, x, y, z) {
       if (!BAND.on || id === undefined) return;
       const t = now(), key = inst + id; if (t - (BAND.last.get(key) || 0) < 140) return; BAND.last.set(key, t);
@@ -1122,7 +1218,7 @@
       const f = inst === "guitar" ? "band_guitar_" + (BAND.gk++ % 4) : "band_" + inst + "_" + k;
       LIVE[inst]++;
       const a = el("m-audio", { src: BASE + f + ".mp3" + VER, x, y, z, loop: "false", volume: inst === "drum" ? 0.5 : 0.45, "start-time": Math.round(now()) });
-      later(inst === "guitar" ? 3300 : 2400, () => { a.remove(); LIVE[inst]--; });
+      later(inst === "guitar" ? 3300 : inst === "drum" ? (DRUM_MS[k] || 1500) : 2400, () => { a.remove(); LIVE[inst]--; });
     }
     // the castle grand piano (every key) and harp (every string), each with its own recorded note
     function notePlay(file, id, x, y, z) {
@@ -1934,7 +2030,7 @@
     // ==================================================== THE HALL OF FAKES
     const HL = D.hall, VT = D.vault;
     const fz = el("m-group", { "data-zone": "f2" });              // the 200 portraits only go to players on Floor 2
-    const H = { ph: "idle", round: 0, auto: true, nextAt: 0, tok: 0, map: [], removed: new Set(), fin: [], vmap: [], vremoved: new Set(), winner: null, t0: 0, finT0: 0 };
+    const H = { ph: "idle", round: 0, auto: false, nextAt: 0, tok: 0, map: [], removed: new Set(), fin: [], vmap: [], vremoved: new Set(), winner: null, t0: 0, finT0: 0 };
     const shuffled = (n) => { const a = Array.from({ length: n }, (_, i) => i); for (let i = n - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
     H.map = D.hallImgs.slice(); H.vmap = Array.from({ length: VT.length }, (_, i) => i);
     const HALLM = HL.map(([x, y, z, ry], s) => {

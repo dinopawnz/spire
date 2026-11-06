@@ -42,7 +42,10 @@ def apply(D, F1):
             wx, wz = ox * c + oz * sn, -ox * sn + oz * c
             # (v44, owner: "all the instruments work on stage except for the drums") the click box used to sit INSIDE each drum, so the
             # drum itself caught the click; now it sits on top of the piece and reaches up 0.5 m (click the top of the drum)
-            hits.append([round(wx, 3), round(y + (ly - mn[1]) * s_ + 0.2, 3), round(zb + 3.0 + wz, 3), round(sz * s_ * 0.6, 3), 0.55, round(sz * s_ * 0.6, 3), 0, 'drum', k])
+            # (v52, owner: "a little hard to click the cymbals and individual drums") bigger click boxes that WRAP each piece (drum head /
+            # cymbal in the middle of the box, 0.35 m below it to 0.45 m above it, 95% of the piece's width) so a click anywhere on the
+            # piece you can see lands on that piece's own box, not on the kit model
+            hits.append([round(wx, 3), round(y + (ly - mn[1]) * s_ + 0.05, 3), round(zb + 3.0 + wz, 3), round(sz * s_ * 0.95, 3), 0.8, round(sz * s_ * 0.95, 3), 0, 'drum', k])
         # ...and the drum kit model itself is clickable too: the click's spot on the model picks the nearest piece
         ek = D['sdeco'].pop(); D['bandDrum'] = dict(e=ek, pieces=[[k, lx, ly, lz] for (k, lx, ly, lz, _) in PIECES])
     # the grand piano and the harp from the owner's castle build (Dippy's Lost Crown): every key / string plays its own recorded

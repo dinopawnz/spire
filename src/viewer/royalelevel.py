@@ -23,7 +23,9 @@ with sync_playwright() as p:
     say("royale start"); time.sleep(0.5)
     LV = pg.evaluate("() => __RLV"); team = lambda id: id % 4
     hands = lambda: pg.evaluate("() => Object.fromEntries(Array.from(__RY.hands.entries()).map(([id, H]) => [id, H.cards]))")
-    ok(all(sum(1 for c in cs if c is not None and LV[c] == 1) >= 2 for cs in hands().values()), "every starting hand has 2+ level-1 cards")
+    hh = hands().values(); allc = [c for cs in hh for c in cs if c is not None]; sh1 = sum(1 for c in allc if LV[c] == 1) / max(1, len(allc))
+    ok(all(sum(1 for c in cs if c is not None and LV[c] == 1) >= 1 for cs in hh), "every starting hand has a level-1 card")
+    ok(sh1 < 0.6, "not too many level-1 cards (%.0f%% of starting cards; was ~80%%)" % (100 * sh1))
     board = lambda: pg.evaluate("() => __RY.board.map(b => b ? [b.c, b.team, b.rock ? 1 : 0, b.by] : null)")
     lvl = lambda sq: 1 if sq[2] else LV[sq[0]]
     seen = [0]

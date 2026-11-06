@@ -34,7 +34,7 @@
 | Where | Version | What |
 |---|---|---|
 | branch `main` | v13 | the old LIVE build. Untouched. Push to main ONLY when the owner says. |
-| branch **`handoff-v14`** | **v51** | everything from sessions 6–11. This is what the owner tests. |
+| branch **`handoff-v14`** | **v52** | everything from sessions 6–11. This is what the owner tests. |
 
 The owner's files load assets from `https://raw.githubusercontent.com/dinopawnz/spire/handoff-v14/` (baked into spire.html by `build_html.py`), so **assets must be pushed to `handoff-v14` before the owner's HTML works.** Remote PIN: **7747**, then press LIVE BUILD.
 
@@ -266,6 +266,17 @@ Raised dark-timber photo stage with steps, Meshy photo arch (8 m) with the Mudwa
 - Hints (remote HINT): R1 opens + marks the 2 fake sums "FAKE"; R2 shows the first half of the message; R3 a beam on the true eye for 30 s; R4 tells one pet's stool (press again for the next pet). SKIP still opens the current door.
 - Chests: the body is baked into sp_escape.glb, the lid is `sp_esc_lid.glb` (hinge origin, opens with stepped rx); the note floats above the chest for everyone.
 - Tests: `viewer/escapetest.py` (45 bots: chests, notes, CLR, wrong code -> 30 s lock (even the right code is ignored while locked), every code, witch strokes line up only from the true eye, hints, skip, raffle, end, open = fresh different sets) -> 45 OK. `viewer/clicktest/escclick.py` casts click rays at all 288 keypad buttons + 75 closed chests from straight on / the sides / above: all clear except a few steep side rays that pass through a real wall (a player just stands in front).
+
+### v52 (session 11)
+- **Water** (owner: "i want the other water under the bridge, not this shiny mudwater. that can be behind the start of the bridge"): `mwm_lake` is a RING with a round hole (~108 m x its scale). v48's 0.48 made the hole ~52 m, so the shiny lake covered the dark swamp water under the bridge. Now 0.95: the hole reaches ~103 m from (0, 25), the dark water fills everything round the building and under the whole bridge, the shiny lake starts just behind the bridge start (z 120.5). The solid water floor pad is 520 m (out to the dome wall).
+- **Drums easier**: click boxes now wrap each drum/cymbal (95% of its width, 0.35 m below the head to 0.45 m above); the kit has 8 voices and each hit only holds its voice as long as its sound rings (was 4 voices x 2.4 s = ~1.7 hits a second). `viewer/drumtest.py` clicks every piece.
+- **Hall of Fakes**: auto next round is OFF by default (owner starts each round from the remote).
+- **Mud Royale**: fewer level I cards (was ~76%): each card picks its level first (I 35%, II 28%, III 17%, IV 12%, V 8%), a starting hand gets 1 guaranteed level I, an all-upgrade hand still always gets a level I. Score signs: each team's colour bar now GROWS with its squares (was a fixed strip in sp_royale.glb - removed); at the end the counts stay up, the winner goes on one line under them, the MVP name + squares under that and it stays until the next game (it used to vanish after 30 s - why the owner saw "MVP" with no name).
+- **Escape room 3 (Witch's Eye)**: no eyes on the floor any more; sign is vague ("The numbers reveal themselves only to those who see as she saw"). Time-wasters that mean nothing: a crystal ball (shows random 4-digit numbers for 4 s - tempting wrong codes!), 5 potions (click = colour change), a spell book (6 pages of strange marks, `wb_page*.jpg`). Hint = a beam on the hidden spot.
+- **Escape room 4 easier**: PET + HAT only (no drinks), 6-10 clues (most 6-7), up to 2 "sat on stool N" clues, no "was NOT" / "not at either end" clues; 5 wall frames (clues, a spare frame gets a junk note), at least 2 clues in chests. Board says "Tip: draw a 5 x 2 grid".
+- **Escape progress boards redesigned**: a painted board (`esc/board_bg.jpg`: gold frame, title, team plates, room rows, gem sockets, winner plaque) + glowing gems per solved room (`gem_k.png`), place medals (`medal_j.png`), the winner banner (`win_k.jpg`), counts and clock on top. Board backing resized (8.9 x 4.6 m; the hall upstairs is only 4.7 m tall).
+- **Escape celebration**: shock rings from the dais, 4 confetti cannons (2 at the door the winners come out of, 2 at the dais), 5 star bursts of light streaks under the ceiling, 90 fluttering paper pieces raining over the hall (team colour + gold + white). Everything is removed after 9 s.
+- Tests: escapetest 47 OK (gems/medal/banner checks), royalelevel OK (level I share check), drumtest 8/8, v51 click-ray test unchanged.
 
 ### Tests that pass on v32
 `chrometest.py simtest.js` → ERRORS none · `bandtest.js` (instruments off blocks sounds) · `musictest.js` (13 speakers in sync, next/off/on, 6 Kodas animated, frogs croak on click) · `pooltest.js` (break shot works).

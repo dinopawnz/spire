@@ -198,7 +198,9 @@ def cipher_pool(seed=21):
 PETS = ['GATOR', 'FROG', 'CRAWDAD', 'CATFISH', 'TURTLE']
 HATS = ['RED', 'GOLD', 'GREEN', 'BLUE', 'PURPLE']
 DRINKS = ['MOONSHINE', 'SWAMP TEA', 'ROOT BEER', 'MUD COFFEE', 'LEMONADE']
-CATS = [('pet', PETS), ('hat', HATS), ('drink', DRINKS)]
+# (v52, owner: "the wardens riddle is way too hard... can we make it slightly easier") two things per ape now (PET + HAT, no drinks),
+# simpler clue kinds, up to 2 straight 'sat on stool N' clues, 6-10 clues in all
+CATS = [('pet', PETS), ('hat', HATS)]
 PERMS = np.array(list(itertools.permutations(range(5))))        # PERMS[p][v] = seat (0-4) of value v
 
 
@@ -212,7 +214,7 @@ def riddle_pool(n_sets=12, seed=31):
     # seat arrays for every combination: S[c] has shape (120,) per value -> broadcast to (120,120,120)
     def seat(cat, v):
         a = PERMS[:, v]
-        return a.reshape([-1 if i == cat else 1 for i in range(3)])
+        return a.reshape([-1 if i == cat else 1 for i in range(2)])
     def mask(cl):
         t = cl[0]
         if t == 'at': return seat(cl[1], cl[2]) == cl[3]
@@ -224,7 +226,7 @@ def riddle_pool(n_sets=12, seed=31):
         if t == 'notend': return (seat(cl[1], cl[2]) != 0) & (seat(cl[1], cl[2]) != 4)
         if t == 'end': return (seat(cl[1], cl[2]) == 0) | (seat(cl[1], cl[2]) == 4)
     def count(cls):
-        m = np.ones((120, 120, 120), bool)
+        m = np.ones((120, 120), bool)
         for cl in cls: m &= np.broadcast_to(mask(cl), m.shape)
         return int(m.sum())
     def text(cl):
@@ -238,10 +240,10 @@ def riddle_pool(n_sets=12, seed=31):
         if t == 'notend': return '%s did not sit at either end.' % who(cl[1], cl[2]).capitalize()
         if t == 'end': return '%s sat at one of the two ends.' % who(cl[1], cl[2]).capitalize()
     while len(sets) < n_sets:
-        sol = [rng.sample(range(5), 5) for _ in range(3)]           # sol[cat][v] = seat
+        sol = [rng.sample(range(5), 5) for _ in range(2)]           # sol[cat][v] = seat
         def rand_clue():
-            t = rng.choices(['at', 'same', 'diff', 'left', 'next', 'before', 'notend', 'end'], [1, 5, 2, 4, 3, 3, 2, 1])[0]
-            c1, c2 = rng.randrange(3), rng.randrange(3); v1, v2 = rng.randrange(5), rng.randrange(5)
+            t = rng.choices(['at', 'same', 'diff', 'left', 'next', 'before', 'notend', 'end'], [2, 6, 0, 4, 2, 2, 0, 1])[0]
+            c1, c2 = rng.randrange(2), rng.randrange(2); v1, v2 = rng.randrange(5), rng.randrange(5)
             if t in ('at',): return ('at', c1, v1, sol[c1][v1])
             if t in ('notend', 'end'):
                 s = sol[c1][v1]
@@ -259,7 +261,7 @@ def riddle_pool(n_sets=12, seed=31):
         for cl in list(cls):                                        # drop clues that aren't needed (keeps it tight)
             rest = [c for c in cls if c != cl]
             if count(rest) == 1: cls = rest
-        if not (9 <= len(cls) <= 14) or sum(1 for c in cls if c[0] == 'at') > 1: continue
+        if not (6 <= len(cls) <= 10) or sum(1 for c in cls if c[0] == 'at') > 2: continue
         k = len(sets); rng.shuffle(cls); notes = []
         for j, cl in enumerate(cls):
             W, H = 900, 300; im = parchment(W, H, 700 + k * 20 + j); d = ImageDraw.Draw(im); f = font(INTERB, 46)
@@ -277,12 +279,12 @@ def riddle_pool(n_sets=12, seed=31):
     # the question board (same for every set)
     W, H = 1600, 760; im = parchment(W, H, 77); d = ImageDraw.Draw(im)
     d.text((W / 2, 70), "THE WARDEN'S RIDDLE", font=font(LORA, 76), fill=(110, 40, 14), anchor='mm')
-    body = ["Five Apes sat on the five stools at this bar.", "Each wore a different HAT, drank a different DRINK", "and brought a different PET.",
+    body = ["Five Apes sat on the five stools at this bar.", "Each wore a different HAT and brought a different PET.",
             "The clues are pinned around the room - and hidden in chests.", "WHICH STOOL DID EACH PET SIT ON?",
             "Type the stool numbers in this order:", "GATOR  -  FROG  -  CRAWDAD  -  CATFISH  -  TURTLE",
-            "Left and right = as you face the bar (stool 1 is on the left)."]
+            "Left and right = as you face the bar (stool 1 is on the left).", "Tip: draw a 5 x 2 grid and fill it in together!"]
     for i, ln in enumerate(body):
-        d.text((W / 2, 170 + i * 72), ln, font=font(INTERB if i not in (4, 6) else INTERX, 44 if i not in (4, 6) else 50), fill=(46, 26, 10) if i not in (4, 6) else (110, 40, 14), anchor='mm')
+        d.text((W / 2, 170 + i * 72), ln, font=font(INTERB if i not in (3, 5) else INTERX, 44 if i not in (3, 5) else 50), fill=(46, 26, 10) if i not in (3, 5) else (110, 40, 14), anchor='mm')
     im.save(OUT + 'w_board.jpg', quality=86)
     return sets
 
@@ -322,9 +324,26 @@ def keypad_png():
     im.save(OUT + 'keypad.jpg', quality=88)
 
 
+def witch_pages(n=6, seed=61):
+    """(v52) the witch's spell book: pages of strange marks, moons and numbers that mean nothing (a time-waster)"""
+    rng = random.Random(seed); out = []
+    for k in range(n):
+        W, H = 700, 480; im = parchment(W, H, 1600 + k); d = ImageDraw.Draw(im)
+        d.text((W / 2, 40), ['OF SIGHT', 'OF THE MOON', 'OF EYES', 'OF THE MARSH', 'OF SECRETS', 'OF SEEING'][k % 6], font=font(LORA, 40), fill=(90, 30, 60), anchor='mm')
+        for r in range(4):
+            for c in range(7): glyph(d, rng.randrange(26), 40 + c * 92, 90 + r * 80, 44, (50, 20, 40), 5)
+        for j in range(5):
+            x = 90 + j * 130; ph = rng.random()
+            d.ellipse([x - 26, 418 - 26, x + 26, 418 + 26], fill=(240, 230, 200), outline=(50, 20, 40), width=3)
+            d.ellipse([x - 26 + ph * 52 - 26, 392, x + ph * 52, 444], fill=(60, 40, 50))
+        d.text((W - 40, H - 22), str(rng.randrange(10, 99)), font=font(INTERB, 26), fill=(90, 30, 60), anchor='rm')
+        p = 'wb_page%d.jpg' % k; im.save(OUT + p, quality=82); out.append(p)
+    return out
+
+
 def build_all():
-    eye_png(); keypad_png()
-    return dict(sums=sums_pool(), cipher=cipher_pool(), riddle=riddle_pool(), counts=COUNTS, empty=empty_notes())
+    eye_png(); keypad_png(); board_art()
+    return dict(sums=sums_pool(), cipher=cipher_pool(), riddle=riddle_pool(), counts=COUNTS, empty=empty_notes(), pages=witch_pages())
 
 
 if __name__ == '__main__':
@@ -333,3 +352,88 @@ if __name__ == '__main__':
     print('sums', len(P['sums']), P['sums'][0]['code'], '| cipher', len(P['cipher']), [c['code'] for c in P['cipher']],
           '| riddle', len(P['riddle']), [r['n'] for r in P['riddle']], '%.0f s' % (time.time() - t))
     print(P['riddle'][0]['clues'], P['riddle'][0]['code'])
+
+
+# ------------------------------------------------------------------ (v52, owner: "this board too uses a very primitive design") the
+# progress board art: one big picture (frame, title, team plates, room labels, empty gem sockets, the winner plaque) + small pictures the
+# game lays on top (a glowing gem per solved room, place medals, the winner banner). Layout in px (1880 x 960 = 9.4 x 4.8 m, 200 px/m).
+BTEAMS = [('RED', (229, 83, 61)), ('GOLD', (242, 182, 50)), ('GREEN', (86, 211, 100)), ('BLUE', (61, 139, 253)), ('PURPLE', (176, 108, 240)), ('ORANGE', (255, 140, 46))]
+BW, BH, BL = 1880, 960, 270                  # size, left margin (room labels)
+def bcol(k): return BL + (BW - 40 - BL) / 6 * (k + 0.5)
+BROWS = [272, 357, 442, 527]; BPLAY, BTITLE, BHEAD, BBAN = 628, 78, 190, 822
+
+
+def glow_text(im, xy, txt, f, col, glow=(255, 190, 80), r=10, anchor='mm'):
+    g = Image.new('RGBA', im.size, (0, 0, 0, 0)); ImageDraw.Draw(g).text(xy, txt, font=f, fill=glow + (255,), anchor=anchor)
+    g = g.filter(ImageFilter.GaussianBlur(r)); im.alpha_composite(g); im.alpha_composite(g)
+    ImageDraw.Draw(im).text(xy, txt, font=f, fill=col + (255,), anchor=anchor)
+
+
+def board_art():
+    rng = np.random.default_rng(5)
+    yy, xx = np.mgrid[0:BH, 0:BW]
+    base = np.zeros((BH, BW, 3), np.float32) + np.array([22, 30, 22], np.float32)
+    base += (np.sin(xx / 37.0 + np.sin(yy / 53.0) * 2.2) * 3 + rng.normal(0, 2.2, (BH, BW)))[..., None]       # faint swirls (bog water)
+    v = 1 - 0.55 * (((xx - BW / 2) / (BW / 2)) ** 2 + ((yy - BH / 2) / (BH / 2)) ** 2) / 2
+    base *= v[..., None]
+    im = Image.fromarray(np.clip(base, 0, 255).astype(np.uint8)).convert('RGBA'); d = ImageDraw.Draw(im)
+    gold, gold2 = (214, 168, 66), (150, 112, 40)
+    for (o, w, c) in ((10, 8, gold2), (24, 4, gold), (36, 2, gold2)): d.rounded_rectangle([o, o, BW - o, BH - o], 28 - o // 3, outline=c, width=w)
+    for (cx, cy) in ((44, 44), (BW - 44, 44), (44, BH - 44), (BW - 44, BH - 44)):
+        d.ellipse([cx - 22, cy - 22, cx + 22, cy + 22], fill=(30, 24, 14), outline=gold, width=4); d.ellipse([cx - 8, cy - 8, cx + 8, cy + 8], fill=gold)
+    glow_text(im, (BW / 2, BTITLE), 'MUDWATER  ESCAPE', font(LORA, 92), (255, 226, 150))
+    d = ImageDraw.Draw(im)
+    for sx in (-1, 1): d.line([(BW / 2 + sx * 420, BTITLE + 4), (BW / 2 + sx * 580, BTITLE + 4)], fill=gold, width=3); d.ellipse([BW / 2 + sx * 592 - 7, BTITLE - 3, BW / 2 + sx * 592 + 7, BTITLE + 11], fill=gold)
+    d.text((1730, 42), 'TIME', font=font(INTERB, 24), fill=(200, 170, 110), anchor='mm')
+    d.line([(60, 130), (BW - 60, 130)], fill=gold2, width=2)
+    # room labels + rows
+    names = ['CRITTER SUMS', 'SWAMP CIPHER', "WITCH'S EYE", "WARDEN'S RIDDLE"]
+    for r, y in enumerate(BROWS):
+        d.text((70, y - 14), 'ROOM %d' % (r + 1), font=font(INTERX, 30), fill=(255, 226, 150), anchor='lm')
+        d.text((70, y + 18), names[r], font=font(INTERB, 21), fill=(190, 160, 110), anchor='lm')
+        d.line([(BL - 10, y + 42), (BW - 60, y + 42)], fill=(60, 52, 34), width=1)
+    d.text((70, BPLAY), 'PLAYERS', font=font(INTERX, 30), fill=(255, 226, 150), anchor='lm')
+    for k, (nm, c) in enumerate(BTEAMS):
+        x = bcol(k)
+        plate = Image.new('RGBA', (240, 74), (0, 0, 0, 0)); pd = ImageDraw.Draw(plate)
+        pd.rounded_rectangle([3, 3, 236, 70], 16, fill=tuple(int(v * 0.28) for v in c) + (255,), outline=c + (255,), width=4)
+        im.alpha_composite(plate, (int(x - 120), BHEAD - 37))
+        glow_text(im, (x, BHEAD), nm, font(INTERX, 40), tuple(min(255, int(v * 1.1 + 40)) for v in c), glow=c, r=6)
+        d = ImageDraw.Draw(im)
+        for y in BROWS:                                                    # an empty, engraved gem socket
+            d.ellipse([x - 36, y - 36, x + 36, y + 36], fill=(14, 12, 8), outline=gold2, width=4)
+            d.ellipse([x - 26, y - 26, x + 26, y + 26], outline=(40, 34, 22), width=3)
+        d.rounded_rectangle([x - 70, BPLAY - 34, x + 70, BPLAY + 34], 12, fill=(14, 12, 8), outline=(70, 58, 34), width=2)
+    # the winner plaque (empty until a team escapes)
+    d.rounded_rectangle([90, BBAN - 104, BW - 90, BBAN + 104], 30, fill=(16, 14, 10), outline=gold, width=5)
+    d.rounded_rectangle([104, BBAN - 90, BW - 104, BBAN + 90], 24, outline=gold2, width=2)
+    d.text((BW / 2, BBAN), 'WHO WILL ESCAPE FIRST?', font=font(LORA, 64), fill=(120, 100, 66), anchor='mm')
+    im.convert('RGB').save(OUT + 'board_bg.jpg', quality=88)
+    # gems (one per team colour): faceted, glowing
+    for k, (nm, c) in enumerate(BTEAMS):
+        S = 160; g = Image.new('RGBA', (S, S), (0, 0, 0, 0)); gl = Image.new('RGBA', (S, S), (0, 0, 0, 0))
+        ImageDraw.Draw(gl).ellipse([10, 10, S - 10, S - 10], fill=c + (200,)); gl = gl.filter(ImageFilter.GaussianBlur(14)); g.alpha_composite(gl)
+        gd = ImageDraw.Draw(g); cx = S / 2; R = 50
+        pts = [(cx + R * math.cos(math.radians(a)), cx + R * math.sin(math.radians(a))) for a in range(-90, 270, 45)]
+        gd.polygon(pts, fill=c + (255,), outline=(255, 236, 170, 255))
+        for i, p in enumerate(pts):
+            shade = tuple(min(255, int(v * (1.35 if i % 2 else 0.8))) for v in c)
+            gd.polygon([(cx, cx), p, pts[(i + 1) % 8]], fill=shade + (255,))
+        gd.polygon([(cx - 22, cx - 30), (cx + 4, cx - 38), (cx - 6, cx - 14)], fill=(255, 255, 255, 200))
+        g.save(OUT + 'gem_%d.png' % k)
+    # place medals
+    MED = [((255, 210, 80), '1ST'), ((210, 214, 224), '2ND'), ((205, 128, 60), '3RD'), ((120, 104, 80), '4TH'), ((120, 104, 80), '5TH'), ((120, 104, 80), '6TH')]
+    for j, (c, t) in enumerate(MED):
+        S = 140; m = Image.new('RGBA', (S, S), (0, 0, 0, 0)); md = ImageDraw.Draw(m)
+        md.polygon([(40, 0), (64, 0), (78, 40), (56, 46)], fill=(180, 40, 40, 255)); md.polygon([(100, 0), (76, 0), (62, 40), (84, 46)], fill=(40, 70, 180, 255))
+        md.ellipse([22, 34, 118, 130], fill=c + (255,), outline=(60, 40, 10, 255), width=4); md.ellipse([34, 46, 106, 118], outline=(255, 255, 255, 120), width=3)
+        md.text((70, 83), t, font=font(INTERX, 30), fill=(40, 26, 8, 255), anchor='mm'); m.save(OUT + 'medal_%d.png' % j)
+    # the winner banners
+    for k, (nm, c) in enumerate(BTEAMS):
+        W, H = 1700, 210; b = Image.new('RGBA', (W, H), (16, 12, 8, 255)); bd = ImageDraw.Draw(b)
+        bd.rounded_rectangle([4, 4, W - 4, H - 4], 26, fill=tuple(int(v * 0.22) for v in c) + (255,), outline=c + (255,), width=8)
+        for cx in (150, W - 150):                                             # crowns
+            bd.polygon([(cx - 70, 150), (cx - 70, 70), (cx - 35, 110), (cx, 52), (cx + 35, 110), (cx + 70, 70), (cx + 70, 150)], fill=(255, 210, 80, 255), outline=(120, 80, 20, 255))
+            for jx in (-70, 0, 70): bd.ellipse([cx + jx - 10, (52 if jx == 0 else 70) - 10, cx + jx + 10, (52 if jx == 0 else 70) + 10], fill=c + (255,))
+        glow_text(b, (W / 2, H / 2 - 4), nm + ' ESCAPED FIRST!', font(INTERX, 96), (255, 240, 200), glow=c, r=12)
+        b.convert('RGB').save(OUT + 'win_%d.jpg' % k, quality=88)

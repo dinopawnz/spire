@@ -168,8 +168,7 @@ def score_glb(m, mats, Y):
         bevel_box(m, 'face', SC_W, SC_H, 0.05, 0.01, m=L_(0, SC_B + SC_H / 2, 0.11), uvs=2.0)
         for yy in (SC_B + 0.04, SC_B + SC_H - 0.04):
             bevel_box(m, 'gold', SC_W + 0.35, 0.06, 0.28, 0.01, m=L_(0, yy, 0))
-        for k in range(4):                                                    # a colour strip over each team's column
-            bevel_box(m, 'tstrip%d' % k, 1.35, 0.07, 0.04, 0.01, m=L_(-2.4 + 1.6 * k, SC_B + 2.02, 0.15))
+        # (v52) the colour strip over each team's column is drawn by the game now and grows with the team's squares
         bevel_box(m, 'dark', SC_W + 0.9, 0.16, 0.6, 0.03, m=L_(0, SC_B + SC_H + 0.3, 0), uvs=2.0)   # a little roof
 
 
