@@ -1324,7 +1324,7 @@
         P.bg.setAttribute("color", ok ? "#1f6b2a" : "#7a1a12"); P.bg.setAttribute("emissive", "0.8");
         if (ok) { sfx("lift_chime.mp3", x, y + 1, z, 0.45); later(900, () => { P.bg.setAttribute("color", "#0d0907"); P.bg.setAttribute("emissive", "0"); clearKids(P.disp); solved(T, r); }); return; }
         sfx("pool_rail.mp3", x, y + 1, z, 0.6);
-        P.lock = t + E.lock; const tok = ES.tok, end = P.lock;
+        P.lock = t + (r === 3 ? 15000 : E.lock); const tok = ES.tok, end = P.lock;      // (v59, owner) the last room's lock: 15 s, not 30
         const tick = () => {
           if (ES.tok !== tok || P.lock !== end) return;
           const left = Math.ceil((end - now()) / 1000); clearKids(P.disp);
