@@ -543,9 +543,9 @@
       // it); at most 5000 dots on the wall for everyone's frame rate - past that the oldest dots fade away. The eraser clears a small patch.
       const DOT = 0.1, DCOLS = Math.round(W / DOT), DROWS = Math.round(H / DOT), MAXD = 5000;
       ART.dots = new Map();
-      const dotAt = (lx, ly, id) => {
+      const dotAt = (lx, ly, id, noWait) => {
         if (ART.locked || id === undefined) return;
-        const t = now(); if (t - (ART.last.get(id) || 0) < 90) return; ART.last.set(id, t);
+        const t = now(); if (!noWait) { if (t - (ART.last.get(id) || 0) < 90) return; ART.last.set(id, t); }
         const c = Math.floor((lx + W / 2) / DOT), r = Math.floor(ly / DOT);
         if (c < 0 || r < 0 || c >= DCOLS || r >= DROWS) return;
         const col = PAL[ART.brush.has(id) ? ART.brush.get(id) : 2];
@@ -613,24 +613,46 @@
       // square. Now: 30 cm squares (80 x 27), and the dot goes EXACTLY in the middle of the square you clicked - the same click always
       // paints the same spot, so lines and letters come out where you aim. If Otherside does tell us the spot inside the little
       // square, the dot goes right there instead.
-      const FC = 0.3, FCOLS = Math.round(W / FC), FROWS = Math.ceil(H / FC - 0.01);
+      // (v58b, owner: "it's still too hard to draw... I want every part of the board clickable" / "looking at the wall doesn't drop
+      // my frame rate") 15 cm squares now (160 x 53 = 8480), so the clickable spots touch; the dot goes in the middle of the square.
+      // The net goes up by itself 20 s after the build (Otherside never sends the spot of a click), 600 squares at a time.
+      const FC = 0.15, FCOLS = Math.round(W / FC), FROWS = Math.ceil(H / FC - 0.01);
       ART.fineExact = 0;
+      const fineDot = (c, r, id) => {
+        if (ART.locked || id === undefined) return;
+        const t = now(); if (t - (ART.last.get(id) || 0) < 90) return; ART.last.set(id, t);
+        const col = PAL[ART.brush.has(id) ? ART.brush.get(id) : 2];
+        if (col === "erase") {
+          for (let dc = -3; dc <= 3; dc++) for (let dr = -3; dr <= 3; dr++) { const k = "f" + ((r + dr) * FCOLS + (c + dc)), d = ART.dots.get(k); if (d) { d.remove(); ART.dots.delete(k); } }
+          dotAt(-W / 2 + FC * (c + 0.5), FC * (r + 0.5), id, true);              // (old 10 cm dots too)
+          return;
+        }
+        const k = "f" + (r * FCOLS + c), have = ART.dots.get(k);
+        if (have) { if (have.getAttribute("color") !== col) have.setAttribute("color", col); ART.dots.delete(k); ART.dots.set(k, have); return; }
+        ART.dots.set(k, el("m-cylinder", { x: -W / 2 + FC * (c + 0.5), y: FC * (r + 0.5), z: 0.02, rx: 90, radius: DOT * 0.55, height: 0.01, color: col, collide: "false", "cast-shadows": "false" }, AG));
+        if (ART.dots.size > MAXD) { const [k0, e0] = ART.dots.entries().next().value; e0.remove(); ART.dots.delete(k0); }
+      };
       const toFine = () => {
         if (ART.fine) return; ART.fine = true; if (big.parentNode) big.remove();
-        for (let r = 0; r < FROWS; r++) for (let c = 0; c < FCOLS; c++) {
+        const cells = [];
+        for (let r = 0; r < FROWS; r++) for (let c = 0; c < FCOLS; c++) if (FC * (r + 0.5) <= H) cells.push([c, r]);
+        const chunk = (i) => { cells.slice(i, i + 600).forEach(([c, r]) => mkCell(c, r)); if (i + 600 < cells.length) later(400, () => chunk(i + 600)); };
+        chunk(0);
+      };
+      const mkCell = (c, r) => {
+        {
           const cx = -W / 2 + FC * (c + 0.5), cy = FC * (r + 0.5);
-          if (cy > H) continue;
           const hb = hitBox({ x: cx, y: cy, z: 0.06, width: FC - 0.004, height: FC - 0.004, depth: 0.05 }, AG);
           hb.addEventListener("click", (e) => {
             const dt = e.detail || {}; ART.fineClicks = (ART.fineClicks || 0) + 1;
             ART.raw.push(JSON.stringify(Object.assign({}, dt, { connectionId: undefined })).slice(0, 160)); if (ART.raw.length > 3) ART.raw.shift();
             const q = (dt.elementRelative && dt.elementRelative.position) || dt.position;
-            let px = cx, py = cy;
-            if (q && typeof q.x === "number" && typeof q.y === "number" && (Math.abs(q.x) > 1e-4 || Math.abs(q.y) > 1e-4) && Math.abs(q.x) <= FC / 2 + 0.02 && Math.abs(q.y) <= FC / 2 + 0.02) { px = cx + q.x; py = cy + q.y; ART.fineExact++; }
-            dotAt(px, py, dt.connectionId);
+            if (q && typeof q.x === "number" && typeof q.y === "number" && (Math.abs(q.x) > 1e-4 || Math.abs(q.y) > 1e-4) && Math.abs(q.x) <= FC / 2 + 0.02 && Math.abs(q.y) <= FC / 2 + 0.02) { ART.fineExact++; dotAt(cx + q.x, cy + q.y, dt.connectionId); return; }
+            fineDot(c, r, dt.connectionId);
           });
         }
       };
+      later(20000, toFine);
       ART.toFine = toFine;
       // the paint stands: a row of paint pots (13 colours + the eraser) on each table; click one to load your brush
       AW.stands.forEach(([sx, sy, sz, sry]) => {
@@ -2115,7 +2137,12 @@
       pad({ y: -0.13, z: D.cabApo + 0.13, width: D.doorW + 0.1, height: 0.26, depth: 0.3 }, CG);               // the sill
       const cgatePad = pad({ y: D.cabGateH / 2, z: D.cabApo - 0.02, width: D.doorW + 0.2, height: D.cabGateH, depth: 0.12 }, CG);
       // elevator music, playing softly inside the cab (riders hear it; it fades a few metres outside the glass)
-      const music = el("m-audio", { src: BASE + "lift_music.mp3" + VER, y: 2.3, loop: "true", volume: 0.6,     /* (v57) louder: it was lost under the jazz */ "start-time": -9000 * "ABCD".indexOf(id) }, CG);
+      // (v58, owner: "did we not have elevator music at one point?") it played once when the build started, then went quiet: Otherside
+      // doesn't repeat a looping sound by itself. Now the song (37 s) is started again by the game every time it ends, for ever.
+      const MUS_MS = 36963; let musT = Math.round(now()) - 9000 * Math.max(0, "ABCD".indexOf(id));
+      const music = el("m-audio", { src: BASE + "lift_music.mp3" + VER, y: 2.3, loop: "true", volume: 0.6, "start-time": musT }, CG);
+      const musLoop = () => { while (musT + MUS_MS <= now() + 50) musT += MUS_MS; music.setAttribute("start-time", String(musT)); later(musT + MUS_MS - now(), musLoop); };
+      later(musT + MUS_MS - now(), musLoop);
       st.music = music; st.musicHome = CG;
       // the operator (the host's own ape) rides the Grand Cage
       if (id === OP_LIFT) npc("operator", ci.operator[0], ci.operator[1], ci.operator[2], ci.operator_ry, CG);
@@ -2613,7 +2640,7 @@
           if (a1 === "lock") { ART.locked = true; return "ART WALL LOCKED - NOBODY CAN PAINT OR SIGN"; }
           if (a1 === "unlock") { ART.locked = false; return "ART WALL OPEN FOR PAINTING"; }
           if (a1 === "grid") { ART.toGrid(); return "ART WALL SWITCHED TO BIG SQUARES (FALLBACK) - REBUILD TO GO BACK TO DOTS"; }
-          if (a1 === "fine") { ART.toFine(); return "ART WALL SWITCHED TO THE FINE CLICK NET (2160 SQUARES OF 30 CM, EACH CLICK PAINTS A DOT IN THE MIDDLE OF THE SQUARE CLICKED)"; }
+          if (a1 === "fine") { ART.toFine(); return "ART WALL SWITCHED TO THE FINE CLICK NET (8480 SQUARES OF 15 CM, EACH CLICK PAINTS A DOT IN THE MIDDLE OF THE SQUARE CLICKED)"; }
           return "ART WALL: " + (ART.dots ? ART.dots.size : 0) + " DOTS + " + ART.cells.size + " SQUARES PAINTED, " + ART.names.length + " NAMES" + (ART.locked ? " (LOCKED)" : "") + (ART.grid ? " [GRID MODE]" : "") + " | clicks that painted " + ART.okClicks + ", that missed " + ART.noPos + (ART.fine ? " | FINE NET ON (" + (ART.fineClicks || 0) + " clicks, " + (ART.fineExact || 0) + " with an exact spot)" : "") + ((ART.raw || []).length ? " | LAST CLICK SENT: " + ART.raw[ART.raw.length - 1] : "");
         }
         if (cmd === "pool") { POOL.forEach((T) => { T.busy = false; POOL.rack(T); }); return "BOTH POOL TABLES RACKED"; }
