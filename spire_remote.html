@@ -661,7 +661,7 @@ details.cheat dl { margin: 8px 0 0; } details.cheat dt { color: var(--sky); font
       // many are actually in the building; connections the game has never seen near the building (other people elsewhere in the
       // Otherside world, or extra connections) are listed last as "never seen here"
       const PA = R.data.players || [], seen = PA.filter((q) => q[2] !== "?"), P = seen.concat(PA.filter((q) => q[2] === "?")), ghosts = PA.length - seen.length;
-      setText(ui.pp.note, (G.inside || 0) + " in the building" + (ghosts ? "  -  " + ghosts + " more connected but never seen here" : ""));
+      setText(ui.pp.note, (G.inside || 0) + " in the building" + (ghosts ? "  -  " + ghosts + " more connected but never seen here" : "") + (G.ruN ? "  -  " + G.ruN + " reading in Russian" : ""));
       ui.pl.render(P, (q) => q[0], () => {
         const r = { el: h("tr"), id: h("td", { class: "num" }), nm: h("td"), z: h("td"), hall: h("td", { class: "hero" }), w: h("td", { class: "num" }), a: h("td") };
         r.fb = R.mini(r.a, "Make finalist", () => R.say(r.fin ? "hall unfinalist " + r.pid : "finalist " + r.pid), { confirm: () => (r.fin ? "Take this player OUT of the finals?" : "Put this player into the finals?") });
