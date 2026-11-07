@@ -34,7 +34,7 @@
 | Where | Version | What |
 |---|---|---|
 | branch `main` | v13 | the old LIVE build. Untouched. Push to main ONLY when the owner says. |
-| branch **`handoff-v14`** | **v52** | everything from sessions 6–11. This is what the owner tests. |
+| branch **`handoff-v14`** | **v53** | everything from sessions 6–11. This is what the owner tests. |
 
 The owner's files load assets from `https://raw.githubusercontent.com/dinopawnz/spire/handoff-v14/` (baked into spire.html by `build_html.py`), so **assets must be pushed to `handoff-v14` before the owner's HTML works.** Remote PIN: **7747**, then press LIVE BUILD.
 
@@ -277,6 +277,9 @@ Raised dark-timber photo stage with steps, Meshy photo arch (8 m) with the Mudwa
 - **Escape progress boards redesigned**: a painted board (`esc/board_bg.jpg`: gold frame, title, team plates, room rows, gem sockets, winner plaque) + glowing gems per solved room (`gem_k.png`), place medals (`medal_j.png`), the winner banner (`win_k.jpg`), counts and clock on top. Board backing resized (8.9 x 4.6 m; the hall upstairs is only 4.7 m tall).
 - **Escape celebration**: shock rings from the dais, 4 confetti cannons (2 at the door the winners come out of, 2 at the dais), 5 star bursts of light streaks under the ceiling, 90 fluttering paper pieces raining over the hall (team colour + gold + white). Everything is removed after 9 s.
 - Tests: escapetest 47 OK (gems/medal/banner checks), royalelevel OK (level I share check), drumtest 8/8, v51 click-ray test unchanged.
+
+### v53 (session 11) - lift trap fix
+- Owner: "i went to hall of fakes and the elevator door opened but the 2nd door didnt open and im trapped in the elevator" (the screenshot showed the ESCAPE floor through the cab glass = his screen still had the cab at the floor he LEFT). Cause: every ride ended by REMOVING its m-attr-anim, and removing an anim can snap a client back to the anim's start value. Fix: `glider()` now leaves a finished ride's anim in place (it holds the end value) and removes it only at the start of the next ride, right after the new anim is added. `resync()` adds an already-finished here-to-here anim: used by heal() and when someone presses the button of the floor the cab is already at (so a trapped player can press their floor's button to fix their screen). `viewer/liftanim.py` checks exactly one y/sy anim stays on each lift part after rides; lifttest.py (30 bots, 15 min) no problems.
 
 ### Tests that pass on v32
 `chrometest.py simtest.js` → ERRORS none · `bandtest.js` (instruments off blocks sounds) · `musictest.js` (13 speakers in sync, next/off/on, 6 Kodas animated, frogs croak on click) · `pooltest.js` (break shot works).

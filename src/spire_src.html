@@ -1858,13 +1858,26 @@
       // jumped to the destination and back - riders fell through. Now the animation starts from where the cab is and the final height is
       // only written under it once the ride has finished (the finished animation still holds the end value, so nothing jumps), and the
       // animation is taken off after that.
+      // (v52, owner: "the elevator door opened but the 2nd door didnt open and im trapped") a ride used to END by removing its animation -
+      // and some screens then put the cab back where the ride STARTED (removing an m-attr-anim snaps back to its start value). That player
+      // saw the cab, and stood in it, at the old floor, while the real cab opened its doors at the new floor: cab gates open, landing gate
+      // shut, trapped. Now a finished ride's animation is LEFT in place (it holds the end value forever) and is only removed at the start
+      // of the next ride, right after the new animation is added (so there is never a moment with no animation to snap back from).
       const glider = (n, attr) => (to, ms) => {
-        const from = parseFloat(n.getAttribute(attr) || "0");
-        if (n._lg) { cancel(n._lg.h1); cancel(n._lg.h2); n._lg.a.remove(); n._lg = null; }
+        const from = parseFloat(n.getAttribute(attr) || "0"), prev = n._lg;
+        if (prev) { cancel(prev.h1); cancel(prev.h2); }
         const a = el("m-attr-anim", { attr, start: r3(from), end: r3(to), duration: Math.round(ms), loop: "false", easing: "easeInOutSine", "start-time": Math.round(now()) }, n);
         const rec = { a }; n._lg = rec;
-        rec.h1 = later(ms + 120, () => { if (n._lg === rec) n.setAttribute(attr, String(r3(to))); });
-        rec.h2 = later(ms + 450, () => { if (n._lg !== rec) return; a.remove(); n._lg = null; n.setAttribute(attr, String(r3(to) + 0.001)); later(70, () => { if (!n._lg) n.setAttribute(attr, String(r3(to))); }); });
+        if (prev && prev.a && prev.a.parentNode) prev.a.remove();                // the old one goes only once the new one is in place
+        rec.h1 = later(ms + 120, () => { if (n._lg === rec) n.setAttribute(attr, String(r3(to))); });   // the plain value matches too
+      };
+      // re-send where something is to every screen without moving it on a screen that already has it right: a fresh, already-finished
+      // animation from here to here (used when someone presses the button of the floor the cab is already at)
+      const resync = (n, attr) => {
+        const v = parseFloat(n.getAttribute(attr) || "0"), prev = n._lg;
+        if (prev) { cancel(prev.h1); cancel(prev.h2); }
+        const a = el("m-attr-anim", { attr, start: r3(v), end: r3(v), duration: 50, loop: "false", easing: "linear", "start-time": Math.round(now()) - 100 }, n);
+        n._lg = { a }; if (prev && prev.a && prev.a.parentNode) prev.a.remove();
       };
       model("sp_lift_cab.glb", { collide: "false" }, CG);
       const cgR = model("sp_lift_cgate.glb", { x: ci.gate_r[0], z: ci.gate_r[2], collide: "false" }, CG);
@@ -2000,6 +2013,7 @@
         fin(needleIn, "rz", Lf.dial_rz[k]); fin(needleOut, "rz", Lf.dial_rz[k]); fin(lever, "rx", 0);
         LANDS.forEach((l) => { fin(l.nd, "rz", Lf.dial_rz[k]); fin(l.gR, "sx", 1); fin(l.gL, "sx", 1); l.gp.setAttribute("y", l.gpY); });
         fin(cgR, "sx", 1); fin(cgL, "sx", 1); cgatePad.setAttribute("y", D.cabGateH / 2);
+        resync(CG, "y"); resync(cabRope, "sy"); resync(cwRope, "sy"); resync(CW, "y");      // (v52) a finished animation holds the place
         st.tok = (st.tok || 0) + 1; st.at = k; st.target = undefined; st.open = false; st.busy = false; st.heals = (st.heals || 0) + 1; st.lastHeal = why;
         return true;
       }
@@ -2012,6 +2026,8 @@
           // Re-send the open doors (re-inserting the leaves makes every client take their current state) and chime, and keep them open longer.
           const l = LANDS[k];
           [cgR, cgL, l.gR, l.gL].forEach((g) => { const par = g.parentNode, nx = g.nextSibling; g.remove(); if (nx && nx.parentNode === par) par.insertBefore(g, nx); else par.appendChild(g); });
+          // (v52) and re-send the cab's position (a screen that had the cab at the wrong floor gets it right)
+          resync(CG, "y"); resync(cabRope, "sy"); resync(cwRope, "sy"); resync(CW, "y");
           sfx("lift_chime.mp3", l.po.call[0], l.po.call[1] + 1.5, l.po.call[2], 0.9);
           return;
         }
