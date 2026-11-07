@@ -619,12 +619,11 @@ details.cheat dl { margin: 8px 0 0; } details.cheat dt { color: var(--sky); font
 
       p = R.panel(R.left, "The art wall", "the big canvas in the roof's back-left corner");
       g = R.grid(p);
-      R.btn(g, "CLEAR WALL", "wipe all the paint and names", () => R.say("art clear"), { cls: "b-warn", confirm: "Wipe the whole art wall?" });
-      R.btn(g, "LOCK WALL", "nobody can paint or sign", () => R.say("art lock"), { cls: "b-sky" });
-      R.btn(g, "UNLOCK WALL", "painting allowed again", () => R.say("art unlock"), { cls: "b-go" });
-      R.btn(g, "ART WALL CHECK", "shows what the last click on the wall sent", () => R.say("art"), { cls: "b-sky" });
-      R.btn(g, "ART WALL: CLICK NET", "if painting still doesn't work: 50 cm click squares, each click paints a dot", () => R.say("art fine"), { cls: "b-warn" });
-      R.note(p, "Players pick a paint pot on one of the two tables, then click the canvas to paint small dots where they click (the pink block is the eraser; the wall keeps the newest 5000 dots). Names typed at the lectern go on the board along the top.");
+      R.btn(g, "CLEAR WALL", "take every name off the wall", () => R.say("art clear"), { cls: "b-warn", confirm: "Take every name off the art wall?" });
+      R.btn(g, "LOCK WALL", "no new names go on it", () => R.say("art lock"), { cls: "b-sky" });
+      R.btn(g, "UNLOCK WALL", "new names go on it again", () => R.say("art unlock"), { cls: "b-go" });
+      R.btn(g, "HOW MANY NAMES?", "names on the wall + the newest", () => R.say("art"), { cls: "b-sky" });
+      R.note(p, "Everyone who signs the sign-up book on the porch (or the lectern by the wall) gets their name painted on the canvas in a random paint colour and one of 8 font styles, at a random spot. Up to 100 names; after that the oldest name makes room for the newest. Signing again repaints your name.");
 
       p = R.panel(R.left, "If people lag", "nobody loses progress");
       g = R.grid(p);
