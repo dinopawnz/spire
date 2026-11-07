@@ -2521,21 +2521,52 @@
       const ok = (v) => v && typeof v.x === "number" && !isNaN(v.x);
       const pos = ok(er) ? er : ok(dr) ? { x: dr.x, y: dr.y, z: dr.z + FRONT } : null;
       if (!pos) return;
+      posAt(id, pos);
+    };
+    function posAt(id, pos, fromTouch) {
       const p = pl(id); p.pos = { x: pos.x, y: pos.y, z: pos.z };
       if (inside(pos.x, pos.z, 6) && pos.y > -5 && pos.y < 60) INSIDE.add(id); else INSIDE.delete(id);
       zoneSee(id, p.pos);
       if (tagOn && id === H.winner) tagTo(p.pos);                   // (v57) the WINNER tag follows the champion
-      POSH.forEach((f) => { try { f(id, p.pos); } catch (e2) {} });
+      if (!fromTouch) POSH.forEach((f) => { try { f(id, p.pos); } catch (e2) {} });     // (the Royale pad backup trusts only the real position tracker)
       greetCheck(p);
       bioStep(p);
+    }
+    // (v58, owner: "the remote shows so many people... it says 0 in the building but there are 3 of us in here") Otherside does not
+    // report players to the position probe, so nobody was ever counted. Now a player counts as IN THE BUILDING when they stand on
+    // any of its floors, stairs, pads or colliders (Otherside does send those "touch" events - the Mud Royale pads run on them),
+    // or click anything in it. If the touch also says WHERE (on the big floor models), that feeds the floor shown on the remote too.
+    // Stepping off everything for 5 s (jumping, falling, walking away) takes them off the count; leaving the world does too.
+    const TOUCH_FLOORS = /sp_(shell_col|f1_col|f2_col|f2_vaultcol|lift_col|escape_col)\.glb/;
+    function touched(id, e, src, n) {
+      if (typeof id !== "number" || REMOTES.has(id) || !ONLINE.has(id)) return;
+      const p = pl(id); p.touchT = now(); if (n) (p.touching || (p.touching = new Set())).add(n);
+      if (!INSIDE.has(id)) { INSIDE.add(id); zoneAll(id); }
+      const q = e && e.detail && (e.detail.position || (e.detail.elementRelative && e.detail.elementRelative.position));
+      if (src && TOUCH_FLOORS.test(src) && q && typeof q.x === "number" && !isNaN(q.x) && (Math.abs(q.x) > 1e-4 || Math.abs(q.z) > 1e-4) && inside(q.x, q.z, 30) && q.y > -3 && q.y < 75) posAt(id, q, true);
+    }
+    function untouched(id, n) {
+      if (typeof id !== "number") return; const p = pl(id); if (p.touching) p.touching.delete(n);
+      later(5000, () => { if ((!p.touching || !p.touching.size) && now() - (p.touchT || 0) >= 4900 && INSIDE.has(id)) INSIDE.delete(id); });
+    }
+    const hookTouch = (n) => {
+      if (n._touch) return; n._touch = true;
+      const src = n.getAttribute("src") || "";
+      if (!n.hasAttribute("collision-interval")) n.setAttribute("collision-interval", TOUCH_FLOORS.test(src) ? "700" : "500");
+      n.addEventListener("collisionstart", (e) => touched(e.detail && e.detail.connectionId, e, src, n));
+      n.addEventListener("collisionmove", (e) => touched(e.detail && e.detail.connectionId, e, src, n));
+      n.addEventListener("collisionend", (e) => untouched(e.detail && e.detail.connectionId, n));
     };
+    later(1500, () => { if (WORLD) WORLD.querySelectorAll('[collide="true"]').forEach(hookTouch); });
+    later(9000, () => { if (WORLD) WORLD.querySelectorAll('[collide="true"]').forEach(hookTouch); });       // the parts built a little later
+    WORLD.addEventListener("click", (e) => touched(e.detail && e.detail.connectionId, null, ""));
     probe.addEventListener("positionenter", onPos); probe.addEventListener("positionmove", onPos);
     probe.addEventListener("positionleave", (e) => { INSIDE.delete(e.detail && e.detail.connectionId); zoneOut(e.detail && e.detail.connectionId); });
     onWin("disconnected", (e) => INSIDE.delete(e.detail && e.detail.connectionId));
     onWin("connected", () => doorFix());
 
     // ==================================================== host commands + what the remote shows
-    const zoneOf = (p) => (p.pos ? zKey(p.pos.x, p.pos.y, p.pos.z) : "?");
+    const zoneOf = (p) => (p.pos ? zKey(p.pos.x, p.pos.y, p.pos.z) : INSIDE.has(p.id) ? "in" : "?");
     const inVaultRoom = (p) => !!(p.pos && Math.abs(p.pos.x) < D.room[0] && Math.abs(p.pos.z) < D.room[1] && Math.abs(p.pos.y - D.yv) < 3);
     return {
       _P: P,
