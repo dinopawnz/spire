@@ -502,15 +502,15 @@ details.cheat dl { margin: 8px 0 0; } details.cheat dt { color: var(--sky); font
       ui.buildNote = R.note(p, "");
 
       // (v59) the boat ride
-      p = R.panel(R.left, "The boats", "12 lantern boats (8 people each) from the pier at the start of the boardwalk to the Spire");
+      p = R.panel(R.left, "The boats", "12 lantern boats from the start pier (where the build is placed) straight to the Spire's bridge");
       ui.boatNow = R.note(p, "");
       g = R.grid(p);
       ui.boatGo = R.btn(g, "GO! SEND THE BOATS", "all 12 leave the pier together", () => R.say("boats go"), { cls: "b-go big1" });
-      R.btn(g, "BRING THE BOATS BACK", "they sink into the swamp and come up at the pier (~10 s)", () => R.say("boats back"), { cls: "b-sky" });
+      R.btn(g, "BRING THE BOATS BACK", "they sink into the lake and come up at the start pier (~10 s)", () => R.say("boats back"), { cls: "b-sky" });
       ui.boatStay = R.btn(g, "BOATS GO BACK BY THEMSELVES", "40 s after landing", () => R.say(ui.bStay ? "boats auto" : "boats stay"), { cls: "b-sky" });
-      R.btn(g, "PUT ALL BOATS AT THE PIER NOW", "emergency: every boat straight back to its spot", () => R.say("boats reset"), { cls: "b-warn", confirm: "Snap all 12 boats back to the pier right now? Anyone on a boat out on the water drops into the (ankle-deep) water." });
-      R.note(p, ["Players hop into the boats at the pier (8 to a boat). Press ", { b: "GO" }, " and all 12 glide off together - six round the west side, six round the east - and land at the two stairs up to the porch. ",
-        "After landing they wait 40 s for everyone to get off, then sink into the swamp and come back up at the pier for the next group (or press BRING THE BOATS BACK)."]);
+      R.btn(g, "PUT ALL BOATS AT THE PIER NOW", "emergency: every boat straight back to the start pier", () => R.say("boats reset"), { cls: "b-warn", confirm: "Snap all 12 boats back to the pier right now? Anyone on a boat out on the water drops into the (ankle-deep) water." });
+      R.note(p, ["The build now starts at a pier out on the lake (the spot where you place it), with 12 boats in a row in front of it. Players pile into the boats (8 or more each). Press ", { b: "GO" }, " and all 12 glide straight ahead together, smoothly, for 50 seconds and stop at the landing pier at the foot of the Spire's bridge. ",
+        "After landing they wait 40 s for everyone to get off, then sink into the lake and come back up at the start pier for the next group (or press BRING THE BOATS BACK)."]);
 
       p = R.panel(R.left, "Hall of Fakes - Mud Match", "the tower - find the real Founder");
       ui.phase = h("span", { class: "chip" }); ui.big = h("span", { class: "big" }); ui.what = h("span", { class: "note", style: { margin: 0 } });
@@ -645,6 +645,7 @@ details.cheat dl { margin: 8px 0 0; } details.cheat dt { color: var(--sky); font
       setText(ui.liteB.lab, G.lite ? "LITE MODE: ON" : "LITE MODE: OFF"); R.lit(ui.liteB, !!G.lite);
       ui.npcMode.set(G.npcMode);
       if (ui.royNow) setText(ui.royNow, G.roy ? "LIVE: " + G.roy : "");
+      if (ui.boatNow) ui.boatNow.closest(".panel") && (ui.boatNow.closest(".panel").style.display = G.boats ? "" : "none");    // (no boats in this build: no panel)
       if (G.boats && ui.boatNow) {
         const n = G.boats.aboard.reduce((a, b) => a + b, 0);
         setText(ui.boatNow, "THE BOATS: " + G.boats.where + "  -  " + n + " aboard" + (n ? " (" + G.boats.aboard.filter((x) => x).length + " boats in use)" : ""));
