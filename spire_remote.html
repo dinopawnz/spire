@@ -511,11 +511,14 @@ details.cheat dl { margin: 8px 0 0; } details.cheat dt { color: var(--sky); font
       ui.autoB = R.btn(g, "AUTO NEXT ROUND: ON", "next round starts by itself 10 s after a finalist is found", () => R.say("hall auto"), { cls: "big1" });
       R.btn(g, "THIN THE FAKES", "take half the forgeries down (never below 10)", () => R.say("hall thin"), { cls: "b-warn big1" });
       ui.doorB = R.btn(g, "OPEN THE VAULT DOOR", "let the finalists (only) walk into the glass room", () => R.say("hall door " + (ui.door ? "close" : "open")), { cls: "b-go big1" });
-      ui.finB = R.btn(g, "START THE FINALS", "unfrost the vault - find the real Black Flag", () => R.say("hall finals"), { cls: "b-sky big1", confirm: () => (!ui.door && ui.inV < ui.nFin ? "The vault door is still LOCKED and only " + ui.inV + " of the " + ui.nFin + " finalists are inside. Start anyway?" : ui.inV < ui.nFin ? "Only " + ui.inV + " of the " + ui.nFin + " finalists are inside the glass room. Start anyway?" : "Unfrost the glass room and start the finals?") });
+      ui.finB = R.btn(g, "START THE FINALS", "opens the vault door for the finalists + unfrosts the glass", () => R.say("hall finals"), { cls: "b-sky big1", confirm: "Start the finals? The vault door opens for the finalists and the glass unfrosts." });
+      // (v57, owner: "GIVE ME CONTROL TO OPEN THE DOOR IN CASE THE GAME BREAKS") the emergency door: gone for everyone, no lists involved
+      ui.doorAllB = R.btn(g, "OPEN THE DOOR FOR EVERYONE", "emergency: the glass door + its invisible wall vanish for ALL players", () => R.say(ui.doorAll ? "hall door close" : "hall door all"), { cls: "b-warn big1", confirm: () => (ui.doorAll ? "Put the vault door back (locked for everyone)?" : "Open the vault door for EVERYONE (not just finalists)? Use this if the door is stuck.") });
       R.btn(g, "Reset Mud Match", "back to closed", () => R.say("hall reset"), { cls: "b-stop", confirm: "Reset Mud Match? Finalists and the champion are cleared." });
       R.note(p, [{ b: "4 rounds." }, " Each round, the first player to click the real #62 Founder becomes a finalist. Then the 400 portraits are shuffled and the next round starts by itself 10 seconds later (turn AUTO off to start each round yourself with NEXT ROUND NOW). A wrong pick costs that player ", { b: "5 seconds" }, " (", { b: "10 seconds" }, " in the vault). ",
-        "The vault door stays ", { b: "locked for everyone" }, " until you press OPEN THE VAULT DOOR - then it opens for the finalists only (everyone else still bumps into it). ",
-        "The glass stays ", { b: "frosted" }, " until you press START THE FINALS - wait until the finalists are all inside (the count shows below), then you can lock the door again if you like. ", { b: "THIN" }, " works on whichever round is running (the walls, or the glass room)."]);
+        "The vault door stays ", { b: "locked" }, " until you press START THE FINALS (or OPEN THE VAULT DOOR) - then it opens for the finalists only (everyone else still bumps into it). ",
+        "If the door ever gets stuck, press ", { b: "OPEN THE DOOR FOR EVERYONE" }, " - the door disappears for all players; press it again to put the door back. ",
+        "The glass stays ", { b: "frosted" }, " until you press START THE FINALS. ", { b: "THIN" }, " works on whichever round is running (the walls, or the glass room)."]);
       ui.finList = R.note(p, "");
       ui.finBox = R.grid(p, "narrow"); ui.finKeys = "";
       ui.intr = R.note(p, "");
@@ -641,6 +644,7 @@ details.cheat dl { margin: 8px 0 0; } details.cheat dt { color: var(--sky); font
       ui.inV = G.inVault || 0; ui.nFin = G.fin || 0;
       setText(ui.finList, ((G.finalists || []).length ? "Finalists: " + G.finalists.map((n, i) => (i + 1) + ". " + n).join("   ") + "   -   inside the glass room: " + ui.inV + " / " + ui.nFin : "No finalists yet.") + (G.ready ? "   -   ALL FOUND: PRESS START THE FINALS" : ""));
       R.lit(ui.finB, !!G.ready); R.lit(ui.nextB, G.ph === "between"); R.lit(ui.autoB, !!G.auto);
+      ui.doorAll = !!G.vaultDoorAll; setText(ui.doorAllB.lab, ui.doorAll ? "PUT THE VAULT DOOR BACK" : "OPEN THE DOOR FOR EVERYONE"); setText(ui.doorAllB.sub, ui.doorAll ? "the door is GONE for everyone - press to put it back (locked)" : "emergency: the glass door + its invisible wall vanish for ALL players"); R.lit(ui.doorAllB, ui.doorAll);
       ui.door = !!G.vaultDoor; setText(ui.doorB.lab, ui.door ? "LOCK THE VAULT DOOR" : "OPEN THE VAULT DOOR"); setText(ui.doorB.sub, ui.door ? "the door is OPEN for the finalists - press to lock it for everyone" : "LOCKED for everyone - press to let the finalists (only) in"); R.lit(ui.doorB, ui.door);
       const fk = (G.finIds || []).join(",") + "|" + (G.finalists || []).join(",");
       if (fk !== ui.finKeys) { ui.finKeys = fk; ui.finBox.textContent = ""; (G.finIds || []).forEach((pid, i) => R.btn(ui.finBox, "REMOVE " + (G.finalists[i] || "#" + pid), "take them out of the finals", () => R.say("hall unfinalist " + pid), { cls: "b-stop", confirm: "Take " + (G.finalists[i] || "#" + pid) + " out of the finals?" })); }
