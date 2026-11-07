@@ -656,8 +656,7 @@
               if (i < 3 || i > PC - 4 || j < 3 || j > PR - 4) patchAt(id, c, r);      // near the edge: slide the patch along
             });
           }
-          const gold = { color: "#ffd257", emissive: 1.2, collide: "false", "cast-shadows": "false" };       // the outline (only you see it)
-          [[PC * FC / 2, 0, PC * FC, 0.025], [PC * FC / 2, PR * FC, PC * FC, 0.025], [0, PR * FC / 2, 0.025, PR * FC], [PC * FC, PR * FC / 2, 0.025, PR * FC]].forEach(([x, y, w, h]) => el("m-cube", Object.assign({ x, y, z: 0.03, width: w, height: h, depth: 0.01 }, gold), g));
+          // (v58, owner: "don't make the box visible to people who are painting") no outline: the patch is invisible
           const idle = () => { const Q = ART.patches.get(id); if (Q !== P) return; if (!ONLINE.has(id) || now() - P.used > 90000) { P.g.remove(); ART.patches.delete(id); return; } later(10000, idle); };
           later(10000, idle);
         } else if (P.c0 === c0 && P.r0 === r0) { P.used = now(); return; }
