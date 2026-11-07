@@ -501,6 +501,12 @@ details.cheat dl { margin: 8px 0 0; } details.cheat dt { color: var(--sky); font
         { cls: "big1", confirm: () => (ui.built ? "Fold the whole Spire back into the placer cube? Every game is reset and everyone inside drops to the water." : "") });
       ui.buildNote = R.note(p, "");
 
+      // (v63) the front doors
+      p = R.panel(R.left, "The front doors", "the Spire's grand entrance - shut when the build goes up");
+      g = R.grid(p);
+      ui.fdB = R.btn(g, "OPEN THE FRONT DOORS", "let everyone into the Spire", () => R.say("frontdoor " + (ui.fdOpen ? "close" : "open")), { cls: "b-go big1", confirm: () => (ui.fdOpen ? "Shut the front doors? Anyone in the doorway gets pushed out." : "") });
+      R.note(p, "The doors start SHUT every time you place the build, so players sign the book on the porch first. Press OPEN when you're ready to let them in.");
+
       // (v59) the boat ride
       p = R.panel(R.left, "The boats", "12 lantern boats from the start pier (where the build is placed) straight to the Spire's bridge");
       ui.boatNow = R.note(p, "");
@@ -645,6 +651,7 @@ details.cheat dl { margin: 8px 0 0; } details.cheat dt { color: var(--sky); font
       setText(ui.liteB.lab, G.lite ? "LITE MODE: ON" : "LITE MODE: OFF"); R.lit(ui.liteB, !!G.lite);
       ui.npcMode.set(G.npcMode);
       if (ui.royNow) setText(ui.royNow, G.roy ? "LIVE: " + G.roy : "");
+      if (ui.fdB) { ui.fdOpen = !!G.frontDoor; setText(ui.fdB.lab, ui.fdOpen ? "CLOSE THE FRONT DOORS" : "OPEN THE FRONT DOORS"); setText(ui.fdB.sub, ui.fdOpen ? "the doors are OPEN - press to shut them" : "the doors are SHUT - press to let everyone in"); }
       if (ui.boatNow) ui.boatNow.closest(".panel") && (ui.boatNow.closest(".panel").style.display = G.boats ? "" : "none");    // (no boats in this build: no panel)
       if (G.boats && ui.boatNow) {
         const n = G.boats.aboard.reduce((a, b) => a + b, 0);
