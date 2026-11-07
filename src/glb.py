@@ -289,6 +289,7 @@ def write(path, mesh, mats, name='spire', quantize=False):
         P = np.vstack(bk[0]).astype(np.float32); N = np.vstack(bk[1]).astype(np.float32); U = np.vstack(bk[2]).astype(np.float32)
         C = np.vstack(bk[3]).astype(np.float32); I = np.concatenate(bk[4])
         attrs = {'POSITION': add_acc(P, 5126, 'VEC3', 34962, True), 'NORMAL': add_acc(N, 5126, 'VEC3', 34962), 'TEXCOORD_0': add_acc(U, 5126, 'VEC2', 34962)}
+        if md.get('no_normals'): del attrs['NORMAL']          # (v56) unlit glow (fireworks) needs no normals: a third smaller
         if not np.allclose(C, 1.0): attrs['COLOR_0'] = add_acc(np.round(np.clip(C, 0, 1) * 255).astype(np.uint8), 5121, 'VEC4', 34962, normalized=True)   # (v24) 4 bytes a vertex, not 16 (core glTF, no extension)
         if P.shape[0] < 65536: ia = add_acc(I.astype(np.uint16), 5123, 'SCALAR', 34963)
         else: ia = add_acc(I.astype(np.uint32), 5125, 'SCALAR', 34963)

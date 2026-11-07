@@ -34,7 +34,7 @@
 | Where | Version | What |
 |---|---|---|
 | branch `main` | v13 | the old LIVE build. Untouched. Push to main ONLY when the owner says. |
-| branch **`handoff-v14`** | **v55** | everything from sessions 6–11. This is what the owner tests. |
+| branch **`handoff-v14`** | **v56** | everything from sessions 6–11. This is what the owner tests. |
 
 The owner's files load assets from `https://raw.githubusercontent.com/dinopawnz/spire/handoff-v14/` (baked into spire.html by `build_html.py`), so **assets must be pushed to `handoff-v14` before the owner's HTML works.** Remote PIN: **7747**, then press LIVE BUILD.
 
@@ -295,6 +295,10 @@ Raised dark-timber photo stage with steps, Meshy photo arch (8 m) with the Mudwa
 - **Fireworks** (CELEBRATE): `build_fireworks.py` makes 14 shell types (peony with pistil + colour change, chrysanthemum with crackle, golden willow, double ring, palm) x 3 stages (_a burst, _b droop/colour change, _c embers) + a rocket; the game launches a 30 s silent show (16 volleys + an 18-shell finale) over the tower; every piece removed after. ~13 MB of models, downloaded the first time a show runs.
 - **Roof photo arch** 45% wider (sdeco entry gets an 8th field: x stretch), so its two lanterns hang outside the MUDWATER sign.
 - Mud Match: confirmed the real Founder hangs in a new random spot every round (v55check).
+
+### v56 (session 11)
+- **Art wall** (owner: "still not working... nothing gets painted"): the click-ray test shows clicks DO reach the wall's big click box, so Otherside must be sending no usable click spot. Now: the click spot is also tried as a whole-document position; and if a click comes with NO spot (or 0,0,0), or two clicks fit nowhere, the wall switches itself (for everyone, once) to a CLICK NET of 768 invisible 50 cm squares - a click paints a small dot inside the clicked square. Remote: ART WALL CHECK (shows what the last click sent) and ART WALL: CLICK NET (force it; `art fine`). `viewer/arttest.py` (6 spot formats + no spot + 0,0,0, each in a fresh world). `clicktest/artclick.py`: rays to the wall and paint pots, none blocked.
+- **Fireworks** (owner: "a little glitchy... 100 people tomorrow"): bursts popped in late / skipped stages because each model downloaded only when first needed. Now all shells are preloaded (microscopic, 160 m above the tower) 3 s after build for 12 s, and again for 7 s before every show; the show starts 5 s after CELEBRATE. Files ~half the size: 11 shell types, no normals (`no_normals` in glb.write), 2-quad sparkles: 34 files, 7.2 MB.
 
 ### Tests that pass on v32
 `chrometest.py simtest.js` → ERRORS none · `bandtest.js` (instruments off blocks sounds) · `musictest.js` (13 speakers in sync, next/off/on, 6 Kodas animated, frogs croak on click) · `pooltest.js` (break shot works).

@@ -513,7 +513,7 @@
       // Unreal's axes (x forward, z up). Now every reading is tried and the one that lands ON the canvas (closest to its surface) wins.
       // The last few raw clicks are kept for the remote ("ART WALL" status) so we can see exactly what Otherside sends.
       const aRy = (AW.ry || 0) * Math.PI / 180, cR = Math.cos(aRy), sR = Math.sin(aRy);
-      ART.raw = []; ART.fmt = [0, 0, 0, 0, 0, 0, 0, 0];
+      ART.raw = []; ART.fmt = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
       const spotOf = (p) => {
         const cands = [];
         for (const k of [1, 0.01]) {
@@ -522,10 +522,14 @@
           cands.push([x * cR - z * sR, y, x * sR + z * cR]);              // the world's axes, from the wall's centre
           cands.push([y, z, x]); cands.push([-y, z, x]);                  // Unreal's axes (x forward, y right, z up)
         }
+        for (const dz of [0, FRONT]) {                                    // a spot in the WHOLE document (not from the wall): take the wall's centre off
+          const x = p.x - AW.cx, y = p.y - (AW.y0 + H / 2), z = (p.z || 0) + dz - AW.z;
+          cands.push([x * cR - z * sR, y, x * sR + z * cR]);
+        }
         // metres first, centimetres only if no metre reading fits; among the readings that land on the canvas, the one that has worked
         // most often so far wins (Otherside always sends the same kind, so after the first clicks the wall knows which it is), then the
         // one closest to the canvas surface
-        for (const [a, b] of [[0, 4], [4, 8]]) {
+        for (const [a, b] of [[0, 4], [8, 10], [4, 8]]) {                  // metres from the wall, then whole-document metres, then centimetres
           let best = null, bi = -1;
           for (let i = a; i < b; i++) { const [lx, ly, d] = cands[i];
             if (!(Math.abs(lx) <= W / 2 + 0.05 && Math.abs(ly) <= H / 2 + 0.05 && Math.abs(d) < 0.2)) continue;
@@ -538,13 +542,27 @@
         const dt = e.detail || {}, id = dt.connectionId;
         const p = dt.position || (dt.hit && dt.hit.position) || (dt.elementRelative && dt.elementRelative.position) || (dt.documentRelative && dt.documentRelative.position);
         ART.raw.push(JSON.stringify(Object.assign({}, dt, { connectionId: undefined })).slice(0, 160)); if (ART.raw.length > 3) ART.raw.shift();
-        if (!p || typeof p.x !== "number") { ART.noPos++; return; }
+        if (!p || typeof p.x !== "number" || (Math.abs(p.x) < 1e-6 && Math.abs(p.y) < 1e-6 && Math.abs(p.z || 0) < 1e-6)) { ART.noPos++; toFine(); return; }      // no spot (or an empty 0,0,0)
         const b = spotOf(p);
-        if (!b) { ART.noPos++; return; }
+        if (!b) { ART.noPos++; if (ART.noPos >= 2 && !ART.okClicks) toFine(); return; }
         ART.okClicks++;
         dotAt(b[0], b[1] + H / 2, id);
       });
       ART.toGrid = toGrid;
+      // (v56, owner: "huge bug. the art wall is still not working... nothing gets painted") if Otherside does not tell us WHERE on the
+      // wall a click landed (no spot, or none that fits), the wall switches itself - for everyone, once - to a fine net of 768 small
+      // invisible click squares (50 cm each). A click on one paints a small dot inside that square (a slightly different spot each
+      // time), so it is still dots, and you still paint where you click. The host can also switch it with "art fine".
+      const FC = 0.5, FCOLS = Math.round(W / FC), FROWS = Math.round(H / FC);
+      const toFine = () => {
+        if (ART.fine) return; ART.fine = true; if (big.parentNode) big.remove();
+        for (let r = 0; r < FROWS; r++) for (let c = 0; c < FCOLS; c++) {
+          const cx = -W / 2 + FC * (c + 0.5), cy = FC * (r + 0.5);
+          const hb = hitBox({ x: cx, y: cy, z: 0.06, width: FC - 0.01, height: FC - 0.01, depth: 0.05 }, AG);
+          hb.addEventListener("click", (e) => { ART.fineClicks = (ART.fineClicks || 0) + 1; dotAt(cx + (Math.random() - 0.5) * (FC - 0.12), cy + (Math.random() - 0.5) * (FC - 0.12), e.detail && e.detail.connectionId); });
+        }
+      };
+      ART.toFine = toFine;
       // the paint stands: a row of paint pots (13 colours + the eraser) on each table; click one to load your brush
       AW.stands.forEach(([sx, sy, sz, sry]) => {
         const g = el("m-group", { x: sx, y: sy, z: sz, ry: sry || 0 }); g._global = true;
@@ -1633,19 +1651,32 @@
         });
       });
     }
+    // (v56, owner: "the fireworks seem a little glitchy... tomorrow when there are 100 people") the glitch: each burst's model (and its
+    // droop / ember stages) was only downloaded the moment it was needed, so on a first show bursts popped in late or skipped a stage.
+    // Now every shell is loaded first - for a few seconds all of them sit, microscopic, high above the tower (at build, and again 5 s
+    // before every show for anyone who joined since) - so when they burst they are already on every screen.
+    function fwPreload(ms) {
+      const SH = D.fwShells || []; if (!SH.length) return;
+      const pre = el("m-group", { x: 0, y: D.L.roof + 160, z: -10, sx: 0.002, sy: 0.002, sz: 0.002 }, FWG);
+      ["fw_rocket"].concat(...SH.map((n) => [n + "_a", n + "_b", n + "_c"])).forEach((f) => model(f + ".glb", { collide: "false" }, pre));
+      later(ms, () => pre.remove());
+    }
+    later(3000, () => fwPreload(12000));
     function celebrate() {
       const tok = ++FW_TOK, SH = D.fwShells || [], pick = () => SH[Math.floor(Math.random() * SH.length)], Y = D.L.roof;
       if (!SH.length) return "NO FIREWORKS IN THIS BUILD";
+      fwPreload(7000);
+      const T0 = 5000;                                               // the show starts once every screen has had 5 s to load the shells
       const spot = () => [(Math.random() - 0.5) * 140, Y + 36 + Math.random() * 26, -10 + (Math.random() - 0.5) * 120];      // all round the tower, high over the roof
       let t = 0;
       for (let v = 0; v < 16; v++) {                                 // the show: volleys of 1-3 shells every ~1.5 s
         const n = 1 + Math.floor(Math.random() * 3), nm = pick();
-        for (let i = 0; i < n; i++) { const [x, y, z] = spot(); fwShell(Math.random() < 0.6 ? nm : pick(), x, y, z, t + i * 180, tok); }
+        for (let i = 0; i < n; i++) { const [x, y, z] = spot(); fwShell(Math.random() < 0.6 ? nm : pick(), x, y, z, T0 + t + i * 180, tok); }
         t += 1200 + Math.random() * 700;
       }
       t += 800;
-      for (let i = 0; i < 18; i++) { const [x, y, z] = spot(); fwShell(pick(), x, y, z, t + i * 160, tok); }   // the finale
-      return "CELEBRATION! A 30-SECOND FIREWORK SHOW OVER THE ROOF (SILENT - THE MUSIC PLAYS ON)";
+      for (let i = 0; i < 18; i++) { const [x, y, z] = spot(); fwShell(pick(), x, y, z, T0 + t + i * 160, tok); }   // the finale
+      return "CELEBRATION! FIREWORKS START IN 5 SECONDS - A 30-SECOND SHOW OVER THE ROOF (SILENT - THE MUSIC PLAYS ON)";
     }
     if (D.fire) {
       const [fx, fy, fz] = D.fire;
@@ -2387,7 +2418,8 @@
           if (a1 === "lock") { ART.locked = true; return "ART WALL LOCKED - NOBODY CAN PAINT OR SIGN"; }
           if (a1 === "unlock") { ART.locked = false; return "ART WALL OPEN FOR PAINTING"; }
           if (a1 === "grid") { ART.toGrid(); return "ART WALL SWITCHED TO BIG SQUARES (FALLBACK) - REBUILD TO GO BACK TO DOTS"; }
-          return "ART WALL: " + (ART.dots ? ART.dots.size : 0) + " DOTS + " + ART.cells.size + " SQUARES PAINTED, " + ART.names.length + " NAMES" + (ART.locked ? " (LOCKED)" : "") + (ART.grid ? " [GRID MODE]" : "") + " | clicks that painted " + ART.okClicks + ", that missed " + ART.noPos + ((ART.raw || []).length ? " | LAST CLICK SENT: " + ART.raw[ART.raw.length - 1] : "");
+          if (a1 === "fine") { ART.toFine(); return "ART WALL SWITCHED TO THE FINE CLICK NET (768 SQUARES OF 50 CM, EACH CLICK PAINTS A DOT)"; }
+          return "ART WALL: " + (ART.dots ? ART.dots.size : 0) + " DOTS + " + ART.cells.size + " SQUARES PAINTED, " + ART.names.length + " NAMES" + (ART.locked ? " (LOCKED)" : "") + (ART.grid ? " [GRID MODE]" : "") + " | clicks that painted " + ART.okClicks + ", that missed " + ART.noPos + (ART.fine ? " | FINE NET ON (" + (ART.fineClicks || 0) + " clicks)" : "") + ((ART.raw || []).length ? " | LAST CLICK SENT: " + ART.raw[ART.raw.length - 1] : "");
         }
         if (cmd === "pool") { POOL.forEach((T) => { T.busy = false; POOL.rack(T); }); return "BOTH POOL TABLES RACKED"; }
         if (cmd === "music" && (a1 === "vol" || a1 === "volume" || a1 === "up" || a1 === "down" || a1 === "louder" || a1 === "softer")) {

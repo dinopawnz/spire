@@ -29,11 +29,7 @@ with sync_playwright() as p:
                 ('world axes (metres)', {'x': lx * math.cos(ry) + 0.03 * math.sin(ry), 'y': ly, 'z': -lx * math.sin(ry) + 0.03 * math.cos(ry)}),
                 ('wall axes (centimetres)', {'x': lx * 100, 'y': ly * 100, 'z': 3}),
                 ('Unreal axes (cm, z up)', {'x': 3, 'y': lx * 100, 'z': ly * 100})]
-    for k in range(4):
-        nm, pos = forms(-5 + 3 * k, -1.5 + k)[k]
-        n0 = dots(); click(pos, 3 + k)
-        ok(dots() == n0 + 1, "art wall paints a dot when the click spot comes as %s" % nm)
-    n0 = dots(); click({'x': 900, 'y': 900, 'z': 900}, 2); ok(dots() == n0, "a click spot far off the canvas paints nothing")
+    # (the click-spot formats are tested one per fresh world in arttest.py - mixing them in one world confuses the wall's learning)
     print('   ', say("art")[:200])
     # sign the art wall / guest book: no chime
     a0 = audios()

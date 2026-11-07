@@ -36,7 +36,7 @@ def grad_png(tail, head, dim=1.0, dots=False):
 
 def mat(col, dim=1.0, dots=False):
     t, h = COLS[col]; png = grad_png(t, h, dim, dots)
-    return dict(tex=png, emis_tex=png, emis=(1.0, 1.0, 1.0), emis_strength=7.0 * dim, color=(1, 1, 1, 1), rough=1.0, alpha='BLEND', double=True, unlit=True)
+    return dict(tex=png, emis_tex=png, emis=(1.0, 1.0, 1.0), emis_strength=7.0 * dim, color=(1, 1, 1, 1), rough=1.0, alpha='BLEND', double=True, unlit=True, no_normals=True)
 
 
 def perp(d):
@@ -61,7 +61,7 @@ def ribbon(m, mt, pts, w0, w1, u0=0.0, u1=1.0):
 
 def sparkle(m, mt, p, s):
     """a little 4-point star of light (3 crossed quads), for embers / crackle"""
-    for e1, e2 in (((1, 0, 0), (0, 1, 0)), ((0, 1, 0), (0, 0, 1)), ((1, 0, 0), (0, 0, 1))):
+    for e1, e2 in (((1, 0, 0), (0, 1, 0)), ((0, 1, 0), (0, 0, 1))):          # (v56) 2 crossed quads (was 3): smaller files
         e1, e2 = np.array(e1, float) * s, np.array(e2, float) * s; n = np.cross(e1, e2)
         P = [p - e1 - e2, p + e1 - e2, p + e1 + e2, p - e1 + e2]
         m.add(mt, P, [n] * 4, [[0.9, 0.1], [1.0, 0.1], [1.0, 0.9], [0.9, 0.9]], [0, 1, 2, 0, 2, 3])
@@ -101,21 +101,21 @@ def shell(kind, col, col2=None):
             for i, d in enumerate(sphere_dirs(320)):
                 if st == 'a': ribbon(m, 's', path(d, R * 1.1, 0.8, 3, 0.08, 1.0), 0.03, 0.16); sparkle(m, 'w', path(d, R * 1.1, 0.8, 2)[-1], 0.14)
                 elif st == 'b':
-                    ribbon(m, 's', path(d, R * 1.18, 2.8, 5, 0.4, 1.0), 0.03, 0.11)
+                    ribbon(m, 's', path(d, R * 1.18, 2.8, 4, 0.4, 1.0), 0.035, 0.12)
                     tip = path(d, R * 1.18, 2.8, 2)[-1]
                     for _ in range(2): sparkle(m, 't', tip + rng.normal(0, 0.5, 3), 0.11)
                 else:
                     tip = path(d, R * 1.22, 4.2, 2)[-1]
                     for _ in range(3): sparkle(m, 'w', tip + rng.normal(0, 0.8, 3), 0.08 + 0.06 * rng.random())
         elif kind == 'willow':                                     # golden kamuro: thick glittering trails that hang right down
-            for i, d in enumerate(sphere_dirs(240, 0.08)):
-                if st == 'a': ribbon(m, 's', path(d, R * 0.95, 1.4, 5, 0.05, 1.0), 0.05, 0.18); sparkle(m, 'g', path(d, R * 0.95, 1.4, 2)[-1], 0.15)
+            for i, d in enumerate(sphere_dirs(170, 0.08)):
+                if st == 'a': ribbon(m, 's', path(d, R * 0.95, 1.4, 4, 0.05, 1.0), 0.06, 0.2); sparkle(m, 'g', path(d, R * 0.95, 1.4, 2)[-1], 0.15)
                 elif st == 'b':
-                    ribbon(m, 's', path(d, R * 1.05, 7.5, 9, 0.0, 1.0), 0.05, 0.14)
-                    for p in path(d, R * 1.05, 7.5, 6)[2:]: sparkle(m, 'g', p + rng.normal(0, 0.25, 3), 0.07)
+                    ribbon(m, 's', path(d, R * 1.05, 7.5, 6, 0.0, 1.0), 0.06, 0.16)
+                    for p in path(d, R * 1.05, 7.5, 5)[3:]: sparkle(m, 'g', p + rng.normal(0, 0.25, 3), 0.08)
                 else:
-                    ribbon(m, 's', path(d, R * 1.1, 12.0, 9, 0.35, 1.0), 0.04, 0.1)
-                    for p in path(d, R * 1.1, 12.0, 5)[2:]: sparkle(m, 'g', p + rng.normal(0, 0.4, 3), 0.07)
+                    ribbon(m, 's', path(d, R * 1.1, 12.0, 6, 0.35, 1.0), 0.05, 0.12)
+                    for p in path(d, R * 1.1, 12.0, 4)[2:]: sparkle(m, 'g', p + rng.normal(0, 0.4, 3), 0.08)
         elif kind == 'ring':                                       # a double halo (tilted by the game) + a sparkling heart
             for (rr, n, mt) in ((1.0, 140, 's'), (0.62, 90, 't')):
                 for i in range(n):
@@ -153,9 +153,10 @@ def rocket():
 
 if __name__ == '__main__':
     made = rocket()
-    for (k, c, c2) in (('peony', 'red', 'gold'), ('peony', 'blue', 'silver'), ('peony', 'green', 'gold'), ('peony', 'purple', 'pink'), ('peony', 'teal', 'silver'),
-                       ('chrys', 'gold', 'silver'), ('chrys', 'red', 'gold'), ('chrys', 'blue', 'teal'),
-                       ('willow', 'gold', None), ('ring', 'pink', 'gold'), ('ring', 'teal', 'blue'), ('ring', 'gold', 'red'), ('palm', 'gold', 'silver'), ('palm', 'green', 'gold')):
+    # (v56, owner: "the fireworks seem a little glitchy... tomorrow with 100 people") 11 shells (was 14) and no normals: ~1/2 the download
+    for (k, c, c2) in (('peony', 'red', 'gold'), ('peony', 'blue', 'silver'), ('peony', 'green', 'gold'), ('peony', 'purple', 'pink'),
+                       ('chrys', 'gold', 'silver'), ('chrys', 'red', 'gold'),
+                       ('willow', 'gold', None), ('ring', 'pink', 'gold'), ('ring', 'gold', 'red'), ('palm', 'gold', 'silver'), ('palm', 'green', 'gold')):
         made += shell(k, c, c2)
     import os
     print(len(made), 'files,', sum(os.path.getsize(OUT + f) for f in made) // 1024, 'KB')
