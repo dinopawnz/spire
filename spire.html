@@ -286,6 +286,7 @@
     const everyone = () => Array.from(ONLINE);
     const hideFrom = (n, a) => { if (!a.length) { n.removeAttribute("visible-to"); return; } const skip = new Set(a.map(String)); const keep = everyone().filter((id) => !skip.has(String(id))); n.setAttribute("visible-to", keep.length ? keep.join(" ") : "-1"); };
     const showTo = (n, a) => n.setAttribute("visible-to", a.length ? a.join(" ") : "-1");
+    const POSH = [];                           // (v57) things that want every position report (the Mud Royale pads' backup)
     const priv = el("m-group", {});            // per-player pieces (each carries its own visible-to)
     priv._global = true;
 
@@ -653,8 +654,28 @@
         word("r_players", 0.36, { x: 2.55, y: 3.25, z: -pd / 2 - 0.12 }, g);
         const step = (e) => { const id = e.detail && e.detail.connectionId; if (typeof id === "number") rJoin(ti, id); };
         slab.addEventListener("collisionstart", step); slab.addEventListener("collisionmove", step);
-        penSlab[ti] = slab;
+        penSlab[ti] = slab; slab._home = g;
       });
+      // (v57, owner: "people stood on the pads and they weren't getting placed onto teams until I clicked team counts... make sure
+      // these pads will work tomorrow and give me tools in case it breaks") TWO ways to join now: the pad's own step detection (as
+      // before) AND a backup from the position tracker - anyone standing inside a pad's rectangle joins that team even if the step
+      // never fires. REFRESH THE TEAM PADS (royale pads) re-sends the four pads and re-checks where everyone is standing.
+      function padAt(pos) {
+        if (!pos || pos.y < R.y - 1.2 || pos.y > R.y + 2.6) return -1;
+        for (let ti = 0; ti < R.pens.length; ti++) {
+          const [px, pz, pry, pw, pd] = R.pens[ti], a = pry * Math.PI / 180, dx = pos.x - px, dz = pos.z - pz;
+          const lx = dx * Math.cos(a) - dz * Math.sin(a), lz = dx * Math.sin(a) + dz * Math.cos(a);
+          if (Math.abs(lx) < (pw - 0.5) / 2 + 0.2 && Math.abs(lz) < (pd - 0.5) / 2 + 0.2) return ti;
+        }
+        return -1;
+      }
+      POSH.push((id, pos) => { const ti = padAt(pos); if (ti >= 0) rJoin(ti, id); });
+      RY.pads = () => {
+        penSlab.forEach((sl) => { const g = sl._home; sl.remove(); g.insertBefore(sl, g.firstChild); });
+        let n = 0; ONLINE.forEach((id) => { const p = pl(id), ti = p.pos ? padAt(p.pos) : -1; if (ti >= 0 && RY.roster.get(id) !== ti && (RY.ph === "open" || RY.ph === "done")) { rJoin(ti, id); n++; } });
+        rCounts();
+        return "TEAM PADS REFRESHED" + (RY.ph === "live" ? " (A GAME IS RUNNING - TEAMS ARE LOCKED UNTIL IT ENDS)" : "") + (n ? " - " + n + " PLAYERS STANDING ON PADS PUT ON THEIR TEAMS" : "") + ". " + RY.status();
+      };
       (R.art || []).forEach(([n, x, y, z, ry, w, h]) => { el("m-image", { src: BASE + "royale/w_" + String(n).padStart(3, "0") + ".jpg" + VER, x, y, z, ry, width: w, height: h, emissive: 0.3, collide: "false", "cast-shadows": "false" })._global = true; });   // (v39) framed cards on the walls
       (R.signs || []).forEach(([x, y, z, ry]) => { model("sg_royale_rules.glb", { x, y, z, ry, collide: "false" })._global = true; });
       // ---- (v36) the four corner score signs at eye level (owner: no jumbotron, just see who's winning from signs round the board).
@@ -732,7 +753,7 @@
       }
       // ---- the game
       function rJoin(ti, id) {
-        if (RY.ph !== "open" || REMOTES.has(id)) return;
+        if ((RY.ph !== "open" && RY.ph !== "done") || REMOTES.has(id)) return;          // (v57) pads also work after a game ended
         if (RY.roster.get(id) === ti) return;
         RY.roster.set(id, ti);
         const s = penSlab[ti]; s.setAttribute("color", "#ffffff"); later(220, () => s.setAttribute("color", dim(TM[ti][2])));
@@ -2397,6 +2418,7 @@
       if (inside(pos.x, pos.z, 6) && pos.y > -5 && pos.y < 60) INSIDE.add(id); else INSIDE.delete(id);
       zoneSee(id, p.pos);
       if (tagOn && id === H.winner) tagTo(p.pos);                   // (v57) the WINNER tag follows the champion
+      POSH.forEach((f) => { try { f(id, p.pos); } catch (e2) {} });
       greetCheck(p);
       bioStep(p);
     };
@@ -2414,7 +2436,7 @@
                   setRound(H.ph === "hunt" ? "round" + H.round : H.ph === "between" ? "round" + (H.round + 1) : ""); if (H.ph !== "between") setCounter(); boards(); },
       game(tn) {
         const finals = H.ph === "finals" || H.ph === "done";
-        return { esc: ES.on && ES.info ? ES.info() : null, ph: H.ph, left: finals ? VT.length - H.vremoved.size : HL.length - H.removed.size, fin: H.fin.length, finMax: FINALISTS,
+        return { roy: RY.on ? RY.status() : "", esc: ES.on && ES.info ? ES.info() : null, ph: H.ph, left: finals ? VT.length - H.vremoved.size : HL.length - H.removed.size, fin: H.fin.length, finMax: FINALISTS,
                  finalists: H.fin.map((id) => nameOf(pl(id))), ready: H.ph === "allfound", round: H.round, rounds: FINALISTS, auto: H.auto, nextIn: H.ph === "between" && H.nextAt ? Math.max(0, Math.ceil((H.nextAt - tn) / 1000)) : -1, inVault: H.fin.filter((id) => inVaultRoom(pl(id))).length, vaultDoor: H.doorOpen, vaultDoorAll: H.doorAll, finIds: H.fin.slice(), intruders: Array.from(ONLINE).filter((id) => !pl(id).fin && inVaultRoom(pl(id))).map((id) => nameOf(pl(id))), winner: H.winner !== null ? nameOf(pl(H.winner)) : "",
                  huntSecs: H.t0 ? Math.round((tn - H.t0) / 1000) : 0, inside: INSIDE.size, npcMode: NPC_MODE,
                  talking: Object.values(NPCS).filter((n) => n.talking).map((n) => n.key), liftMusic: Object.values(LIFTS).some((s) => s.music.parentNode), instruments: BAND.on, music: MUSIC.on, song: MUSIC.title, musicVol: MUSIC.pct,
@@ -2433,6 +2455,7 @@
           if (a1 === "stop" || a1 === "end") return RY.end();
           if (a1 === "clear") return RY.clear();
           if (a1 === "demo") return RY.demo();
+          if (a1 === "pads" || a1 === "refresh") return RY.pads();
           return RY.status();
         }
         if (cmd === "escape") {                                       // escape open | start | end | reset | clear | hint <team> | skip <team> | raffle
