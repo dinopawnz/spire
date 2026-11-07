@@ -509,7 +509,7 @@ details.cheat dl { margin: 8px 0 0; } details.cheat dt { color: var(--sky); font
       R.btn(g, "BRING THE BOATS BACK", "they sink into the lake and come up at the start pier (~10 s)", () => R.say("boats back"), { cls: "b-sky" });
       ui.boatStay = R.btn(g, "BOATS GO BACK BY THEMSELVES", "40 s after landing", () => R.say(ui.bStay ? "boats auto" : "boats stay"), { cls: "b-sky" });
       R.btn(g, "PUT ALL BOATS AT THE PIER NOW", "emergency: every boat straight back to the start pier", () => R.say("boats reset"), { cls: "b-warn", confirm: "Snap all 12 boats back to the pier right now? Anyone on a boat out on the water drops into the (ankle-deep) water." });
-      R.note(p, ["The build now starts at a pier out on the lake (the spot where you place it), with 12 boats in a row in front of it. Players pile into the boats (8 or more each). Press ", { b: "GO" }, " and all 12 glide straight ahead together, smoothly, for 50 seconds and stop at the landing pier at the foot of the Spire's bridge. ",
+      R.note(p, ["The build now starts at a pier out on the lake (the spot where you place it), with 12 boats in a row in front of it. Players pile into the boats (8 or more each). Press ", { b: "GO" }, " and all 12 glide straight ahead together, smoothly, for 90 seconds - out of the open lake, through the wall of the sky dome - and stop at the landing pier at the foot of the Spire's bridge. ",
         "After landing they wait 40 s for everyone to get off, then sink into the lake and come back up at the start pier for the next group (or press BRING THE BOATS BACK)."]);
 
       p = R.panel(R.left, "Hall of Fakes - Mud Match", "the tower - find the real Founder");
