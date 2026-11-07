@@ -34,7 +34,7 @@
 | Where | Version | What |
 |---|---|---|
 | branch `main` | v13 | the old LIVE build. Untouched. Push to main ONLY when the owner says. |
-| branch **`handoff-v14`** | **v53** | everything from sessions 6–11. This is what the owner tests. |
+| branch **`handoff-v14`** | **v54** | everything from sessions 6–11. This is what the owner tests. |
 
 The owner's files load assets from `https://raw.githubusercontent.com/dinopawnz/spire/handoff-v14/` (baked into spire.html by `build_html.py`), so **assets must be pushed to `handoff-v14` before the owner's HTML works.** Remote PIN: **7747**, then press LIVE BUILD.
 
@@ -280,6 +280,9 @@ Raised dark-timber photo stage with steps, Meshy photo arch (8 m) with the Mudwa
 
 ### v53 (session 11) - lift trap fix
 - Owner: "i went to hall of fakes and the elevator door opened but the 2nd door didnt open and im trapped in the elevator" (the screenshot showed the ESCAPE floor through the cab glass = his screen still had the cab at the floor he LEFT). Cause: every ride ended by REMOVING its m-attr-anim, and removing an anim can snap a client back to the anim's start value. Fix: `glider()` now leaves a finished ride's anim in place (it holds the end value) and removes it only at the start of the next ride, right after the new anim is added. `resync()` adds an already-finished here-to-here anim: used by heal() and when someone presses the button of the floor the cab is already at (so a trapped player can press their floor's button to fix their screen). `viewer/liftanim.py` checks exactly one y/sy anim stays on each lift part after rides; lifttest.py (30 bots, 15 min) no problems.
+
+### v54 (session 11) - piano
+- Owner: "what is this weird thing below the piano" - the stage piano model (sp_band_piano.glb, from the castle build) had a slanted board hanging from its body to the floor (62 triangles of its wood mesh). `fix_piano.py out/glb/sp_band_piano.glb` empties every wood triangle that sits fully below the body (legs are gold and stay). Already applied to the file in the repo - run it again only if the piano GLB is ever re-copied from the castle.
 
 ### Tests that pass on v32
 `chrometest.py simtest.js` → ERRORS none · `bandtest.js` (instruments off blocks sounds) · `musictest.js` (13 speakers in sync, next/off/on, 6 Kodas animated, frogs croak on click) · `pooltest.js` (break shot works).
