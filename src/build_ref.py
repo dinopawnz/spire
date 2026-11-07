@@ -53,4 +53,7 @@ def pillar(card, out, cw, l1, l2, H=None):
     print(out, write('/home/claude/spire/out/glb/' + out, m, mats))
     return H
 pillar(62, 'sp_ref_founder.glb', 2.4, 'THE REAL ONE', 'FIND ITS TWIN ON THE STAIRS')
-pillar(100, 'sp_ref_flag.glb', 0.72, 'THE REAL BLACK FLAG', 'FIND ITS TWIN IN THE VAULT', H=1.75)
+# (v55, owner: "the image of the real black flag in the center of the room is too small and it even has a piece of wood going through
+# the portrait... incredibly important") the card was 0.72 m wide and the column was cut short (H=1.75) so its wooden cap and brass band
+# crossed the card. Now the card is 1.5 m wide (2.1 m tall) and the column is tall enough for it (the cap sits above the frame).
+pillar(100, 'sp_ref_flag.glb', 1.5, 'THE REAL BLACK FLAG', 'FIND ITS TWIN IN THE VAULT')

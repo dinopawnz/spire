@@ -486,7 +486,7 @@ details.cheat dl { margin: 8px 0 0; } details.cheat dt { color: var(--sky); font
   const { h, setText, clock } = Remote;
   const PH = { idle: ["HALL CLOSED", "idle"], hunt: ["HUNT ON", "play"], between: ["SHUFFLING - NEXT ROUND", "idle"], allfound: ["ALL 4 FOUND - START THE FINALS", "idle"], finals: ["FINALS IN THE VAULT", "play"], done: ["CHAMPION CROWNED", "over"] };
   const FLOOR = { lounge: "Lounge", hall: "Hall of Fakes", gallery: "Gallery", cards: "Mud Royale", rooms: "Mudwater Escape", roof: "Roof Deck" };
-  const ZONE = { f1: "Lounge", f2: "Hall of Fakes", f3: "Mud Royale", f4: "Mudwater Escape", out: "Outside / roof", "?": "-" };
+  const ZONE = { f1: "Lounge", f2: "Hall of Fakes", f3: "Mud Royale", f4: "Mudwater Escape", out: "Outside / roof", "?": "never seen here" };
   const ui = {};
   const NPCLINES = __NPCLINES__;
   const LABEL = (k) => k === "greet" ? "Hello" : /^t\d+$/.test(k) ? "Line " + k.slice(1) : /^s_/.test(k) ? "Stop: " + (FLOOR[k.slice(2)] || k.slice(2)) : /^pour\d$/.test(k) ? "Pour " + (+k.slice(4) + 1) :
@@ -510,11 +510,15 @@ details.cheat dl { margin: 8px 0 0; } details.cheat dt { color: var(--sky); font
       ui.nextB = R.btn(g, "NEXT ROUND NOW", "skip the countdown - start the next round", () => R.say("hall next"), { cls: "b-go big1" });
       ui.autoB = R.btn(g, "AUTO NEXT ROUND: ON", "next round starts by itself 10 s after a finalist is found", () => R.say("hall auto"), { cls: "big1" });
       R.btn(g, "THIN THE FAKES", "take half the forgeries down (never below 10)", () => R.say("hall thin"), { cls: "b-warn big1" });
-      ui.finB = R.btn(g, "START THE FINALS", "unfrost the vault - find the real Black Flag", () => R.say("hall finals"), { cls: "b-sky big1", confirm: () => (ui.inV < ui.nFin ? "Only " + ui.inV + " of the " + ui.nFin + " finalists are inside the glass room. Start anyway?" : "Unfrost the glass room and start the finals?") });
+      ui.doorB = R.btn(g, "OPEN THE VAULT DOOR", "let the finalists (only) walk into the glass room", () => R.say("hall door " + (ui.door ? "close" : "open")), { cls: "b-go big1" });
+      ui.finB = R.btn(g, "START THE FINALS", "unfrost the vault - find the real Black Flag", () => R.say("hall finals"), { cls: "b-sky big1", confirm: () => (!ui.door && ui.inV < ui.nFin ? "The vault door is still LOCKED and only " + ui.inV + " of the " + ui.nFin + " finalists are inside. Start anyway?" : ui.inV < ui.nFin ? "Only " + ui.inV + " of the " + ui.nFin + " finalists are inside the glass room. Start anyway?" : "Unfrost the glass room and start the finals?") });
       R.btn(g, "Reset Mud Match", "back to closed", () => R.say("hall reset"), { cls: "b-stop", confirm: "Reset Mud Match? Finalists and the champion are cleared." });
-      R.note(p, [{ b: "4 rounds." }, " Each round, the first player to click the real #62 Founder becomes a finalist. Then the 400 portraits are shuffled and the next round starts by itself 10 seconds later (turn AUTO off to start each round yourself with NEXT ROUND NOW). A wrong pick costs that player ", { b: "5 seconds" }, ". The vault's glass door opens for the finalists only. ",
-        "The vault glass stays ", { b: "frosted" }, " until you press START THE FINALS - wait until the finalists are all inside (the count shows below). ", { b: "THIN" }, " works on whichever round is running (the walls, or the glass room)."]);
+      R.note(p, [{ b: "4 rounds." }, " Each round, the first player to click the real #62 Founder becomes a finalist. Then the 400 portraits are shuffled and the next round starts by itself 10 seconds later (turn AUTO off to start each round yourself with NEXT ROUND NOW). A wrong pick costs that player ", { b: "5 seconds" }, " (", { b: "10 seconds" }, " in the vault). ",
+        "The vault door stays ", { b: "locked for everyone" }, " until you press OPEN THE VAULT DOOR - then it opens for the finalists only (everyone else still bumps into it). ",
+        "The glass stays ", { b: "frosted" }, " until you press START THE FINALS - wait until the finalists are all inside (the count shows below), then you can lock the door again if you like. ", { b: "THIN" }, " works on whichever round is running (the walls, or the glass room)."]);
       ui.finList = R.note(p, "");
+      ui.finBox = R.grid(p, "narrow"); ui.finKeys = "";
+      ui.intr = R.note(p, "");
 
       p = R.panel(R.left, "The lifts", "call either cage to any of its floors");
       ui.liftBox = h("div", { class: "lifts" }); p.append(ui.liftBox);
@@ -524,6 +528,8 @@ details.cheat dl { margin: 8px 0 0; } details.cheat dt { color: var(--sky); font
         const s = h("div", { class: "st", text: "-" }); c.append(s);
         const gg = R.grid(c, "narrow");
         stops.forEach((k) => R.btn(gg, FLOOR[k], null, () => R.say("lift " + id + " " + k)));
+        R.btn(gg, "FORCE OPEN", "someone stuck? opens it where it is", () => R.say("lift " + id + " open"), { cls: "b-warn", confirm: "Force " + nm + " open at the floor it's at?" });
+        R.btn(gg, "OPEN ALL FLOORS", "every door of this shaft", () => R.say("lift " + id + " openall"), { cls: "b-stop", confirm: "Open the doors on EVERY floor of " + nm + "? On floors where the cage isn't, the shaft is open and people can fall in. The next ride shuts them again." });
         ui.liftBox.append(c); ui.liftCards[id] = s;
       });
       g = R.grid(p); g.style.marginTop = "10px";
@@ -593,6 +599,7 @@ details.cheat dl { margin: 8px 0 0; } details.cheat dt { color: var(--sky); font
       R.btn(g, "CLEAR WALL", "wipe all the paint and names", () => R.say("art clear"), { cls: "b-warn", confirm: "Wipe the whole art wall?" });
       R.btn(g, "LOCK WALL", "nobody can paint or sign", () => R.say("art lock"), { cls: "b-sky" });
       R.btn(g, "UNLOCK WALL", "painting allowed again", () => R.say("art unlock"), { cls: "b-go" });
+      R.btn(g, "ART WALL CHECK", "shows what the last click on the wall sent", () => R.say("art"), { cls: "b-sky" });
       R.note(p, "Players pick a paint pot on one of the two tables, then click the canvas to paint small dots where they click (the pink block is the eraser; the wall keeps the newest 5000 dots). Names typed at the lectern go on the board along the top.");
 
       p = R.panel(R.left, "If people lag", "nobody loses progress");
@@ -608,7 +615,7 @@ details.cheat dl { margin: 8px 0 0; } details.cheat dt { color: var(--sky); font
 
       p = R.panel(R.right, "Players"); ui.pp = p;
       ui.pl = R.table(p, ["#", "Player", "Where", "Hall", "Wait"], "Nobody here yet.");
-      R.note(p, ["Players show their guest-book name once they sign the book on the porch. ", { b: "Make finalist" }, " puts someone into the finals by hand."]);
+      R.note(p, ["Players show their guest-book name once they sign the book on the porch. ", { b: "Make finalist" }, " puts someone into the finals by hand; ", { b: "Remove finalist" }, " takes them out (the vault door shuts for them)."]);
     },
     render(R) {
       const G = R.data.game; if (!G) return;
@@ -633,19 +640,27 @@ details.cheat dl { margin: 8px 0 0; } details.cheat dt { color: var(--sky); font
       ui.inV = G.inVault || 0; ui.nFin = G.fin || 0;
       setText(ui.finList, ((G.finalists || []).length ? "Finalists: " + G.finalists.map((n, i) => (i + 1) + ". " + n).join("   ") + "   -   inside the glass room: " + ui.inV + " / " + ui.nFin : "No finalists yet.") + (G.ready ? "   -   ALL FOUND: PRESS START THE FINALS" : ""));
       R.lit(ui.finB, !!G.ready); R.lit(ui.nextB, G.ph === "between"); R.lit(ui.autoB, !!G.auto);
+      ui.door = !!G.vaultDoor; setText(ui.doorB.lab, ui.door ? "LOCK THE VAULT DOOR" : "OPEN THE VAULT DOOR"); setText(ui.doorB.sub, ui.door ? "the door is OPEN for the finalists - press to lock it for everyone" : "LOCKED for everyone - press to let the finalists (only) in"); R.lit(ui.doorB, ui.door);
+      const fk = (G.finIds || []).join(",") + "|" + (G.finalists || []).join(",");
+      if (fk !== ui.finKeys) { ui.finKeys = fk; ui.finBox.textContent = ""; (G.finIds || []).forEach((pid, i) => R.btn(ui.finBox, "REMOVE " + (G.finalists[i] || "#" + pid), "take them out of the finals", () => R.say("hall unfinalist " + pid), { cls: "b-stop", confirm: "Take " + (G.finalists[i] || "#" + pid) + " out of the finals?" })); }
+      setText(ui.intr, (G.intruders || []).length ? "NOT A FINALIST BUT INSIDE THE GLASS ROOM: " + G.intruders.join(", ") + " - they can't pick anything, but you may want to ask them to leave." : "");
       setText(ui.autoB.lab, G.auto ? "AUTO NEXT ROUND: ON" : "AUTO NEXT ROUND: OFF");
       setText(ui.nextB.sub, G.ph === "between" ? (G.nextIn >= 0 ? "round " + (G.round + 1) + " starts by itself in " + G.nextIn + " s - or press now" : "round " + (G.round + 1) + " is waiting for you") : G.ph === "hunt" ? "round " + G.round + " of " + (G.rounds || 4) + " is on" : "skip the countdown - start the next round");
       const Ls = G.lifts || {};
       for (const id in ui.liftCards) { const s = Ls[id]; setText(ui.liftCards[id], s ? (s.busy && !s.open ? "moving" : "at the " + (FLOOR[s.at] || s.at) + (s.open ? ", doors open" : "")) + (s.req.length ? " - called to " + s.req.map((k) => FLOOR[k]).join(", ") : "") : "-"); }
-      const P = R.data.players || [];
-      setText(ui.pp.note, P.length ? P.length + " connected" : "");
+      // (v55, owner: "I am the only person in the building and yet my remote says there are 8 other players") the count now says how
+      // many are actually in the building; connections the game has never seen near the building (other people elsewhere in the
+      // Otherside world, or extra connections) are listed last as "never seen here"
+      const PA = R.data.players || [], seen = PA.filter((q) => q[2] !== "?"), P = seen.concat(PA.filter((q) => q[2] === "?")), ghosts = PA.length - seen.length;
+      setText(ui.pp.note, (G.inside || 0) + " in the building" + (ghosts ? "  -  " + ghosts + " more connected but never seen here" : ""));
       ui.pl.render(P, (q) => q[0], () => {
         const r = { el: h("tr"), id: h("td", { class: "num" }), nm: h("td"), z: h("td"), hall: h("td", { class: "hero" }), w: h("td", { class: "num" }), a: h("td") };
-        R.mini(r.a, "Make finalist", () => R.say("finalist " + r.pid), { confirm: "Put this player into the finals?" });
+        r.fb = R.mini(r.a, "Make finalist", () => R.say(r.fin ? "hall unfinalist " + r.pid : "finalist " + r.pid), { confirm: () => (r.fin ? "Take this player OUT of the finals?" : "Put this player into the finals?") });
         r.el.append(r.id, r.nm, r.z, r.hall, r.w, r.a); return r;
       }, (r, q) => {
         r.pid = q[0]; setText(r.id, "#" + q[0]); setText(r.nm, q[1]); setText(r.z, ZONE[q[2]] || q[2]);
         setText(r.hall, q[5] ? "CHAMPION" : q[3] ? "FINALIST" : ""); setText(r.w, q[4] ? q[4] + " s" : "");
+        r.fin = !!q[3]; if (r.fb) setText(r.fb, r.fin ? "Remove finalist" : "Make finalist");
       });
     },
   });

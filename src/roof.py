@@ -53,8 +53,12 @@ def apply(D, L, FL):
         sh = h * (3 - k) / 3; pads.append([0.0, y + sh / 2, z1 + 0.275 + k * 0.55, (x1 - x0) * 0.6, sh, 0.55, 0])
     ys = y + h
     if have('photoarch'):
-        add(place('photoarch', 0.0, ys, z0 + 2.2, 0, 8.0, 'h'))
-        mn, mx = outside.META['photoarch']; s = 8.0 / (mx[1] - mn[1]); half = (mx[0] - mn[0]) * s / 2
+        # (v55, owner: "2 lanterns block the mudwater sign, move those lanterns farther to the edges") the lanterns hang from the
+        # arch's own beam just inside its posts, right where the sign's ends are. The arch is now 45% wider (same height), so its
+        # posts and lanterns stand outside the ends of the sign
+        AW = 1.45
+        e = place('photoarch', 0.0, ys, z0 + 2.2, 0, 8.0, 'h'); e[1] = r3(e[1] * AW); add(e + [1.0, AW])
+        mn, mx = outside.META['photoarch']; s = 8.0 / (mx[1] - mn[1]); half = (mx[0] - mn[0]) * s / 2 * AW
         for sx in (-1, 1): pads.append([sx * (half - 0.45), ys + 4.0, z0 + 2.2, 0.8, 8.0, 0.8, 0])
     # the Mudwater logo (Coliseum GLB, an image-like plaque) high on the stage, under the arch
     # (v44, owner: "the mudwater sign cannot be cut off by the arch") hung IN FRONT of the arch posts, not between them

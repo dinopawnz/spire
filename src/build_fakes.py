@@ -84,7 +84,7 @@ def straight(a, b, y0, y1):
     tube(hall, 'dark', [(p[0], p[1] - 0.6, p[2]) for p in rail], 0.03, 5)
     for i_, p in enumerate(rail):
         bevel_box(hall, 'dark', 0.12, 1.05, 0.12, 0.02, m=T(p[0], p[1] - 0.52, p[2]))
-    collider_box(col, 0.25, 1.3, ln, M(T((e0[0] + e1[0]) / 2, (y0 + y1) / 2 + 0.65, (e0[1] + e1[1]) / 2), Ry(ry), Rx(-ang)))
+    collider_box(col, 0.25, 1.1, ln, M(T((e0[0] + e1[0]) / 2, (y0 + y1) / 2 + 0.55, (e0[1] + e1[1]) / 2), Ry(ry), Rx(-ang)))   # (v55) only as high as the rail: you can jump over it
     for t in np.arange(0.4, ln, 1.3):                      # moss beards hanging from the inner edge
         if rng.random() < 0.3: continue
         p = e0 + (e1 - e0) * t / ln; y = y0 + (y1 - y0) * t / ln - 0.42
@@ -156,7 +156,10 @@ def grand_steps():
     rail = [(x0, Y0 + 1.05 + (YS - Y0) * t, z0 + 6.4 * t) for t in np.linspace(0, 1, 6)]
     tube(hall, 'pale', rail, 0.06, 8)
     for p in rail: bevel_box(hall, 'dark', 0.14, 1.05, 0.14, 0.02, m=T(p[0], p[1] - 0.52, p[2]))
-    collider_box(col, 0.25, 1.3 + (YS - Y0), 6.4, T(x0, (Y0 + YS) / 2 + 0.65, (z0 + z1) / 2))
+    # (v55, owner: "these stairs have an invisible wall that makes it impossible to jump over the railing from the side") the rail's
+    # collider was one upright box as tall as the whole flight + 1.3 m, so at the bottom it stood metres above the rail. Now it is a
+    # sloped bar that follows the rail and is only as high as the rail
+    collider_box(col, 0.25, 1.1, ln, M(T(x0, (Y0 + YS) / 2 + 0.55, (z0 + z1) / 2), Rx(-ang)))
     # the newel posts with lanterns at the foot
     for x in (x0 + 0.2, x1 - 0.2):
         bevel_box(hall, 'dark', 0.4, 1.6, 0.4, 0.04, m=T(x, Y0 + 0.8, z0 - 0.3))
@@ -193,7 +196,10 @@ def end_walls():
                         nn = [-s, 0, 0] if mat == 'dark' else [s, 0, 0]
                         idx = [0, 1, 2, 0, 2, 3] if (s > 0) == (mat == 'dark') else [0, 2, 1, 0, 3, 2]
                         hall.add(mat, P, [nn] * 4, [[z0_ / 3, lo / 3], [z1_ / 3, lo / 3], [z1_ / 3, hi / 3], [z0_ / 3, hi / 3]], idx, tint(rng, 0.12))
-                    collider_box(col, 0.4, hi - lo, z1_ - z0_, T(x + s * 0.15, (lo + hi) / 2, zm))
+                    # (v55, owner: "fix the portrait frames but make sure for 100 percent certainty that they remain clickable") the
+                    # invisible wall used to stick out 5 cm in front of the wall face - right through the portraits hung on it, so it caught
+                    # their clicks (v48 moved the pictures off their frames to get round it). Now it starts 15 cm BEHIND the wall face.
+                    collider_box(col, 0.2, hi - lo, z1_ - z0_, T(x + s * 0.25, (lo + hi) / 2, zm))
         # the stair-door strip above the door (z -9.5..-6), up to the ceiling, so nobody steps off the stair into the well
         for (xx, mat) in ((x, 'dark'),):
             P = np.array([[xx, Y0 + 3.6, SW['zl']], [xx, Y0 + 3.6, SW['z0']], [xx, YCEIL, SW['z0']], [xx, YCEIL, SW['zl']]])
@@ -329,10 +335,12 @@ def frost_sleeve():
     m = Mesh(); H = 9.5; o = 0.12
     for (p0, p1) in (((-RX - o, RZ + o), (RX + o, RZ + o)), ((RX + o, RZ + o), (RX + o, -RZ - o)), ((RX + o, -RZ - o), (-RX - o, -RZ - o)), ((-RX - o, -RZ - o), (-RX - o, RZ + o))):
         mm, ln = place(p0, p1, 0)
-        quad(m, 'frost', ln, H - 0.6, M(mm, T(ln / 2, 0.6 + (H - 0.6) / 2, 0)), uv=(0, 0, ln / 2, H / 2), double=True)
+        quad(m, 'frost', ln, H, M(mm, T(ln / 2, H / 2, 0)), uv=(0, 0, ln / 3, H / 3), double=True)      # (v55) right down to the floor
     quad(m, 'frost', 2 * RX + 0.3, 2 * RZ + 0.3, M(T(0, H + 0.45, 0), Rx(-90)), uv=(0, 0, 6, 5), double=True)
     mats = dict(MATS)
-    mats['frost'] = dict(tex=TEX + 'glass.png', color=(0.9, 0.95, 0.93, 0.93), emis=(0.12, 0.14, 0.13), rough=0.9, alpha='BLEND', double=True)
+    # (v55, owner: "even with the frost, I'm still easily able to see inside the room") the frost was see-through glass (a mostly
+    # clear texture); now it is solid, milky frosted ice you can't see through at all
+    mats['frost'] = dict(tex=TEX + 'frost_ice.jpg', color=(1, 1, 1, 1), emis=(0.16, 0.18, 0.2), emis_tex=TEX + 'frost_ice.jpg', rough=0.85, double=True)
     print('frost', write(OUT + 'sp_vault_frost.glb', m, mats))
 
 def vault_door():

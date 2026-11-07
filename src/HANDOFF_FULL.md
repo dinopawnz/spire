@@ -34,7 +34,7 @@
 | Where | Version | What |
 |---|---|---|
 | branch `main` | v13 | the old LIVE build. Untouched. Push to main ONLY when the owner says. |
-| branch **`handoff-v14`** | **v54** | everything from sessions 6–11. This is what the owner tests. |
+| branch **`handoff-v14`** | **v55** | everything from sessions 6–11. This is what the owner tests. |
 
 The owner's files load assets from `https://raw.githubusercontent.com/dinopawnz/spire/handoff-v14/` (baked into spire.html by `build_html.py`), so **assets must be pushed to `handoff-v14` before the owner's HTML works.** Remote PIN: **7747**, then press LIVE BUILD.
 
@@ -283,6 +283,18 @@ Raised dark-timber photo stage with steps, Meshy photo arch (8 m) with the Mudwa
 
 ### v54 (session 11) - piano
 - Owner: "what is this weird thing below the piano" - the stage piano model (sp_band_piano.glb, from the castle build) had a slanted board hanging from its body to the floor (62 triangles of its wood mesh). `fix_piano.py out/glb/sp_band_piano.glb` empties every wood triangle that sits fully below the body (legs are gold and stay). Already applied to the file in the repo - run it again only if the piano GLB is ever re-copied from the castle.
+
+### v55 (session 11)
+- **Hall of Fakes vault**: the door is LOCKED FOR EVERYONE until the host presses OPEN THE VAULT DOOR (`hall door open|close`); then only the finalists can pass (visible-to on the glass door + its invisible wall; late joiners stay shut out). REMOVE buttons per finalist (`hall unfinalist <id>`), also "Remove finalist" in the players table. The remote warns when a non-finalist stands inside the glass room. Wrong pick in the vault = 10 s (`VAULT_LOCK_MS`). Frost is now solid milky ice (`tex/frost_ice.jpg`, opaque, down to the floor). The real Black Flag pillar (`build_ref.py`) is 1.5 m wide with nothing across the card (was 0.72 m with the column cap crossing it). `viewer/vaulttest.py`.
+- **Stair-tower portraits back on their frames** and still clickable: the SHELL collider's stair-tower boxes stuck 7 cm in front of them; `fix_shellcol.py out/glb/sp_shell_col.glb` moves that face 12 cm behind (RUN IT AGAIN after any build_rect_v9.py). build_fakes.py's own tower collider now starts 15 cm behind the wall face. Click test (`clicktest/export.py` + `run.py`): 400 hall portraits x 9 rays = 0 blocked.
+- **Grand stair rail**: its collider was an upright box 4.5 m tall at the bottom step; now a sloped bar as high as the rail (jumpable). Ramp rail colliders 1.3 -> 1.1 m.
+- **Lifts**: remote FORCE OPEN (`lift B open`: stops wherever it is, re-sends the cab position, opens at that floor) and OPEN ALL FLOORS (`lift B openall`: every landing door of the shaft; the next ride shuts them).
+- **Players list**: never-seen connections (other people in the Otherside world) listed last as "never seen here"; the header counts people in the building.
+- **Art wall**: click spot read in every likely form (wall axes / world axes / cm / Unreal axes) and the form that works is learnt; ART WALL CHECK button shows what the last click sent. No sounds on paint pots, art-wall signing or the sign-up book. `viewer/arttest.py`.
+- **Mud Royale deal**: half of all new cards are an upgrade for one of your team's squares (one level up); rest random I 30 / II 32 / III 18 / IV 12 / V 8. With a board of level Is you now get ~55% level IIs (`viewer/dealtest.py`).
+- **Fireworks** (CELEBRATE): `build_fireworks.py` makes 14 shell types (peony with pistil + colour change, chrysanthemum with crackle, golden willow, double ring, palm) x 3 stages (_a burst, _b droop/colour change, _c embers) + a rocket; the game launches a 30 s silent show (16 volleys + an 18-shell finale) over the tower; every piece removed after. ~13 MB of models, downloaded the first time a show runs.
+- **Roof photo arch** 45% wider (sdeco entry gets an 8th field: x stretch), so its two lanterns hang outside the MUDWATER sign.
+- Mud Match: confirmed the real Founder hangs in a new random spot every round (v55check).
 
 ### Tests that pass on v32
 `chrometest.py simtest.js` → ERRORS none · `bandtest.js` (instruments off blocks sounds) · `musictest.js` (13 speakers in sync, next/off/on, 6 Kodas animated, frogs croak on click) · `pooltest.js` (break shot works).

@@ -36,6 +36,7 @@
   const LIFT_DWELL = 7000;           // doors stay open this long at a stop
   const LIFT_HOME_MS = 45000;        // an idle cage goes back down to the lounge after this
   const LOCKOUT_MS = 5000;           // wrong portrait
+  const VAULT_LOCK_MS = 10000;       // (v55, owner: "in the finals vault... increase wrong clicks to at least 10 seconds") wrong pick in the vault
   const FINALISTS = 4;               // = rounds: each round's first finder is a finalist
   const ROUND_GAP_MS = 10000;        // finalist found -> shuffle -> next round starts after this (if auto)
   const MUG_LIFE = 30000;
@@ -319,7 +320,7 @@
       model("sp_lantern_ring.glb", { collide: "false", sx: s, sy: s, sz: s }, g);
     });
     // single iron lanterns hanging from the lounge ceiling at different heights
-    (D.sdeco || []).forEach(([f, x, y, z, ry, s, syr]) => model(f + ".glb", { x, y, z, ry, sx: s, sy: s * (syr || 1), sz: s, collide: "false" }));      // syr: stretch to fit (windows)
+    (D.sdeco || []).forEach(([f, x, y, z, ry, s, syr, sxr]) => model(f + ".glb", { x, y, z, ry, sx: s * (sxr || 1), sy: s * (syr || 1), sz: s, collide: "false" }));      // syr: stretch to fit (windows)
 
     // ---------------------------------------------------- sprites (words as pictures)
     const ASP = D.ms;
@@ -506,11 +507,42 @@
       // no longer switches itself to big squares when one click arrives without a spot (one odd client used to flip it for everyone);
       // such a click just does nothing. The host can still force squares with "art grid". Counts show on the remote's art status.
       ART.okClicks = 0; ART.noPos = 0;
+      // (v55, owner: "a huge bug - the artwall isn't working. I click on paint and then on the art wall, it doesn't make dots") the click
+      // spot was read ONLY as metres along the wall's own axes. MML only promises "relative to the element's origin" - Otherside may send
+      // it along the WORLD's axes (this wall is turned 90 degrees, so that put every click off the canvas), or in centimetres, or with
+      // Unreal's axes (x forward, z up). Now every reading is tried and the one that lands ON the canvas (closest to its surface) wins.
+      // The last few raw clicks are kept for the remote ("ART WALL" status) so we can see exactly what Otherside sends.
+      const aRy = (AW.ry || 0) * Math.PI / 180, cR = Math.cos(aRy), sR = Math.sin(aRy);
+      ART.raw = []; ART.fmt = [0, 0, 0, 0, 0, 0, 0, 0];
+      const spotOf = (p) => {
+        const cands = [];
+        for (const k of [1, 0.01]) {
+          const x = p.x * k, y = p.y * k, z = (p.z || 0) * k;
+          cands.push([x, y, z]);                                          // the wall's own axes (the MML web viewer)
+          cands.push([x * cR - z * sR, y, x * sR + z * cR]);              // the world's axes, from the wall's centre
+          cands.push([y, z, x]); cands.push([-y, z, x]);                  // Unreal's axes (x forward, y right, z up)
+        }
+        // metres first, centimetres only if no metre reading fits; among the readings that land on the canvas, the one that has worked
+        // most often so far wins (Otherside always sends the same kind, so after the first clicks the wall knows which it is), then the
+        // one closest to the canvas surface
+        for (const [a, b] of [[0, 4], [4, 8]]) {
+          let best = null, bi = -1;
+          for (let i = a; i < b; i++) { const [lx, ly, d] = cands[i];
+            if (!(Math.abs(lx) <= W / 2 + 0.05 && Math.abs(ly) <= H / 2 + 0.05 && Math.abs(d) < 0.2)) continue;
+            if (!best || ART.fmt[i] > ART.fmt[bi] || (ART.fmt[i] === ART.fmt[bi] && Math.abs(d) < Math.abs(best[2]) - 1e-6)) { best = cands[i]; bi = i; } }
+          if (best) { ART.fmt[bi]++; return best; }
+        }
+        return null;
+      };
       big.addEventListener("click", (e) => {
-        const p = e.detail && (e.detail.position || (e.detail.hit && e.detail.hit.position)), id = e.detail && e.detail.connectionId;
-        if (!p || typeof p.x !== "number" || (Math.abs(p.x) < 1e-6 && Math.abs(p.y) < 1e-6)) { ART.noPos++; return; }
+        const dt = e.detail || {}, id = dt.connectionId;
+        const p = dt.position || (dt.hit && dt.hit.position) || (dt.elementRelative && dt.elementRelative.position) || (dt.documentRelative && dt.documentRelative.position);
+        ART.raw.push(JSON.stringify(Object.assign({}, dt, { connectionId: undefined })).slice(0, 160)); if (ART.raw.length > 3) ART.raw.shift();
+        if (!p || typeof p.x !== "number") { ART.noPos++; return; }
+        const b = spotOf(p);
+        if (!b) { ART.noPos++; return; }
         ART.okClicks++;
-        dotAt(p.x, p.y + H / 2, id);
+        dotAt(b[0], b[1] + H / 2, id);
       });
       ART.toGrid = toGrid;
       // the paint stands: a row of paint pots (13 colours + the eraser) on each table; click one to load your brush
@@ -526,7 +558,7 @@
             el("m-cylinder", { x: px, y: 0.165, radius: 0.068, height: 0.012, color: col, collide: "false", "cast-shadows": "false" }, g);             // the paint
           }
           const hb = hitBox({ x: px, y: 0.12, width: 0.18, height: 0.3, depth: 0.5 }, g);
-          hb.addEventListener("click", (e) => { const id = e.detail && e.detail.connectionId; if (id === undefined) return; ART.brush.set(id, i); sfx("pool_clack_0.mp3", sx + px, sy + 0.2, sz, 0.25); });
+          hb.addEventListener("click", (e) => { const id = e.detail && e.detail.connectionId; if (id === undefined) return; ART.brush.set(id, i); });      // (v55) silent
         });
       });
       // sign the wall: the lectern opens a box to type your name; the newest names fill the board along the top
@@ -550,8 +582,7 @@
         const raw = String(e.detail.value || "").replace(/[<>\u0000-\u001f]/g, "").replace(/\s+/g, " ").trim().slice(0, 18);
         if (!raw || ART.names.includes(raw)) return;
         ART.names.push(raw); if (ART.names.length > 45) ART.names.shift();
-        setBoard(ART.names.join("  ·  "));
-        sfx("lift_chime.mp3", lx, ly + 1, lz, 0.5);
+        setBoard(ART.names.join("  ·  "));           // (v55, owner: too many sounds) no chime
       });
       ART.clear = () => { ART.cells.forEach((c) => c.remove()); ART.cells.clear(); ART.dots.forEach((d) => d.remove()); ART.dots.clear(); ART.names = []; setBoard(null); };
     }
@@ -568,8 +599,19 @@
       // (v52, owner: "we get way too many level 1 cards") about 3 cards in 4 were level I. Now each new card picks its LEVEL first:
       // I 35%, II 28%, III 17%, IV 12%, V 8% (so there are cards to upgrade with), then a random card of that level. A hand with no level I
       // still always gets one (you can always place something).
-      const BYLV = [1, 2, 3, 4, 5].map((l) => LV.map((v, i) => v === l ? i : -1).filter((i) => i >= 0)), LW = [0.35, 0.28, 0.17, 0.12, 0.08];
-      const deal = (n1) => { if (n1) return LV1[Math.floor(Math.random() * LV1.length)]; let r = Math.random(), l = 0; while (l < 4 && (r -= LW[l]) > 0) l++; const P = BYLV[l].length ? BYLV[l] : LV1; return P[Math.floor(Math.random() * P.length)]; };
+      const BYLV = [1, 2, 3, 4, 5].map((l) => LV.map((v, i) => v === l ? i : -1).filter((i) => i >= 0)), LW = [0.3, 0.32, 0.18, 0.12, 0.08];
+      // (v55, owner: "no matter how many cards I looked through, I almost never got any level 2 cards, making it basically impossible to
+      // upgrade the level 1s on the board") the deal now LOOKS AT THE BOARD: half of all new cards are an upgrade for one of your own
+      // team's squares (one level up from a square you already hold), the rest are random (I 30%, II 32%, III 18%, IV 12%, V 8%).
+      const ofLv = (l) => { const P = BYLV[l - 1].length ? BYLV[l - 1] : LV1; return P[Math.floor(Math.random() * P.length)]; };
+      const deal = (n1, team) => {
+        if (n1) return LV1[Math.floor(Math.random() * LV1.length)];
+        if (team !== undefined && Math.random() < 0.5) {
+          const ups = RY.board.filter((b) => b && b.team === team && !b.rock && LV[b.c] < 5).map((b) => LV[b.c] + 1);
+          if (ups.length) return ofLv(ups[Math.floor(Math.random() * ups.length)]);
+        }
+        let r = Math.random(), l = 0; while (l < 4 && (r -= LW[l]) > 0) l++; return ofLv(l + 1);
+      };
       const CW = 1.78, CH = 2.47;                                            // a card on its square (the art is 720 x 1000)
       const rg = el("m-group", {}); rg._global = true;
       const tileXZ = (i) => [-HB + TS * (i % N + 0.5), -HB + TS * (Math.floor(i / N) + 0.5)];
@@ -713,7 +755,7 @@
             H.cards.forEach((cc, k) => {
               if (cc !== null) { H.due[k] = 0; return; }
               if (!H.due[k]) H.due[k] = t + R.refill * 1000;
-              else if (t >= H.due[k]) { H.cards[k] = deal(H.cards.every((c2) => c2 === null || LV[c2] > 1)); H.due[k] = 0; if (H.cards[H.sel] === null) { H.sel = k; H.chosen = false; } ch = true; }
+              else if (t >= H.due[k]) { H.cards[k] = deal(H.cards.every((c2) => c2 === null || LV[c2] > 1), RY.roster.get(pid)); H.due[k] = 0; if (H.cards[H.sel] === null) { H.sel = k; H.chosen = false; } ch = true; }
             });
             if (ch) handDraw(pid);
           });
@@ -1562,26 +1604,48 @@
       hb.addEventListener("click", (e) => bandPlay(inst, k, e.detail && e.detail.connectionId, x, y, z));
     });
     // CELEBRATE (host remote): warm firework bursts over the roof terrace for the finale photo
-    function celebrate() {
-      const Y = D.L.roof, COL = ["#ffd27a", "#ffb347", "#fff2c8", "#9fffe0", "#ffe08a"];
-      for (let b = 0; b < 14; b++) later(b * 650 + Math.random() * 300, () => {
-        const cx = (Math.random() - 0.5) * 50, cy = Y + 26 + Math.random() * 18, cz = -10 + (Math.random() - 0.5) * 40;
-        const g = el("m-group", { x: cx, y: cy, z: cz });
-        const c = COL[b % COL.length], n = 22;
-        const rocket = el("m-sphere", { y: -(cy - Y), radius: 0.12, color: "#fff2c8", emissive: 6, collide: "false", "cast-shadows": "false" }, g);
-        tween(rocket, "y", -(cy - Y), 0, 700, "easeOutQuad"); later(720, () => rocket.remove());
-        later(700, () => {
-          for (let i = 0; i < n; i++) {
-            const th = Math.acos(1 - 2 * (i + 0.5) / n), ph = Math.PI * (1 + Math.sqrt(5)) * i, R = 7 + Math.random() * 3;
-            const s = el("m-sphere", { radius: 0.22, color: c, emissive: 7, collide: "false", "cast-shadows": "false" }, g);
-            tween(s, "x", 0, R * Math.sin(th) * Math.cos(ph), 1500, "easeOutQuad"); tween(s, "z", 0, R * Math.sin(th) * Math.sin(ph), 1500, "easeOutQuad");
-            tween(s, "y", 0, R * Math.cos(th) - 2.5, 1500, "easeOutQuad"); tween(s, "opacity", 1, 0, 1500, "easeInQuad");
-          }
-          sfx("winner.mp3", cx, cy, cz, 0.35);
+    // (v55, owner: "those are the absolute worst fireworks... add real fireworks. the coolest looking fireworks you can find... remove the
+    // sound") a real 30-second show over the roof, SILENT (the jazz plays on). Each shell: a rocket climbs on a spark with a tail, a
+    // white flash, then the burst (one glowing model of hundreds of light streaks: peony, chrysanthemum, willow, ring, palm) grows out of
+    // a point, droops and dims under gravity (stage _b) and ends as glittering embers (stage _c). Volleys of 1-3, then a big finale.
+    const FW_HEAD = { red: "#ffd0a0", blue: "#d8ecff", green: "#e0ffd8", purple: "#ffd8ff", teal: "#d8fffa", gold: "#fff2c0", pink: "#ffe0f0" };
+    let FW_TOK = 0; const FWG = el("m-group", {}); FWG._global = true;      // fireworks: seen from everywhere
+    function fwShell(name, bx, by, bz, delay, tok) {
+      const Y = D.L.roof, A = (n, attr, a, b, ms, ease) => el("m-attr-anim", { attr, start: r3(a), end: r3(b), duration: Math.round(ms), loop: "false", easing: ease || "linear", "start-time": Math.round(now()) }, n);
+      later(delay, () => {
+        if (tok !== FW_TOK) return;
+        const climb = 1200 + Math.random() * 400, x0 = bx + (Math.random() - 0.5) * 6;
+        const rk = el("m-group", { x: x0, y: Y + 3, z: bz }, FWG); model("fw_rocket.glb", { collide: "false" }, rk);
+        A(rk, "y", Y + 3, by, climb, "easeOutQuad"); A(rk, "x", x0, bx, climb, "easeOutQuad");
+        later(climb, () => {
+          rk.remove(); if (tok !== FW_TOK) return;
+          const kind = name.split("_")[1], col = name.split("_")[2], wil = kind === "willow";
+          const g = el("m-group", { x: bx, y: by, z: bz, ry: Math.random() * 360, rx: kind === "ring" ? 35 + Math.random() * 40 : (Math.random() - 0.5) * 16 }, FWG);
+          const fl = el("m-sphere", { radius: 0.6, color: FW_HEAD[col] || "#ffffff", emissive: 10, opacity: 1, collide: "false", "cast-shadows": "false" }, g);
+          A(fl, "radius", 0.6, 3.2, 260, "easeOutQuad"); A(fl, "opacity", 1, 0, 300, "easeInQuad"); later(320, () => fl.remove());
+          const sz = 1.4 + Math.random() * 0.7, s = el("m-group", { sx: 0.05, sy: 0.05, sz: 0.05 }, g);           // 28-42 m across
+          ["sx", "sy", "sz"].forEach((k) => A(s, k, 0.05 * sz, sz, 1100, "easeOutCubic"));
+          A(g, "y", by, by - (wil ? 4 : 2.5), wil ? 5600 : 4000, "easeInQuad");
+          let cur = model(name + "_a.glb", { collide: "false" }, s);
+          const swap = (st, t) => later(t, () => { const n = model(name + "_" + st + ".glb", { collide: "false" }, s); const old = cur; cur = n; later(120, () => old.remove()); });
+          swap("b", wil ? 1500 : 1250); swap("c", wil ? 3600 : 2500);
+          later(wil ? 5600 : 4000, () => g.remove());
         });
-        later(2600, () => g.remove());
       });
-      return "CELEBRATION! FIREWORKS OVER THE ROOF";
+    }
+    function celebrate() {
+      const tok = ++FW_TOK, SH = D.fwShells || [], pick = () => SH[Math.floor(Math.random() * SH.length)], Y = D.L.roof;
+      if (!SH.length) return "NO FIREWORKS IN THIS BUILD";
+      const spot = () => [(Math.random() - 0.5) * 140, Y + 36 + Math.random() * 26, -10 + (Math.random() - 0.5) * 120];      // all round the tower, high over the roof
+      let t = 0;
+      for (let v = 0; v < 16; v++) {                                 // the show: volleys of 1-3 shells every ~1.5 s
+        const n = 1 + Math.floor(Math.random() * 3), nm = pick();
+        for (let i = 0; i < n; i++) { const [x, y, z] = spot(); fwShell(Math.random() < 0.6 ? nm : pick(), x, y, z, t + i * 180, tok); }
+        t += 1200 + Math.random() * 700;
+      }
+      t += 800;
+      for (let i = 0; i < 18; i++) { const [x, y, z] = spot(); fwShell(pick(), x, y, z, t + i * 160, tok); }   // the finale
+      return "CELEBRATION! A 30-SECOND FIREWORK SHOW OVER THE ROOF (SILENT - THE MUSIC PLAYS ON)";
     }
     if (D.fire) {
       const [fx, fy, fz] = D.fire;
@@ -1832,8 +1896,7 @@
         const id = e.detail && e.detail.connectionId; if (id === undefined) return;
         const raw = String(e.detail.value || "").replace(/[<>\u0000-\u001f]/g, "").replace(/\s+/g, " ").trim().slice(0, 18);
         if (!raw) return;
-        const p = pl(id); p.name = raw; NAMES.set(id, raw);
-        sfx("lift_chime.mp3", x, y + 1, z, 0.5);
+        const p = pl(id); p.name = raw; NAMES.set(id, raw);           // (v55, owner: too many sounds) no chime
         hostMsg("PLAYER " + id + " SIGNED IN AS " + raw.toUpperCase());
         boards();
       });
@@ -2020,6 +2083,7 @@
       st.heal = heal;
       every(3000, () => { if (heal("watchdog")) pump(); });
       function request(s, k, who) {
+        if (s.allOpen && !(k === s.at && s.open)) shutExtras();
         if (heal("button")) { s.req.add(k); pump(); return; }
         if (k === s.at && s.open && !s.busy) {
           // (v33) the doors are open here already - but if this player's screen missed it they see shut doors and a dead button.
@@ -2034,6 +2098,20 @@
         if (!s.req.has(k) && k !== s.at) { const l = LANDS[k]; if (!l.glow.parentNode) l.cb.appendChild(l.glow); }
         s.req.add(k); pump();
       }
+      // (v55, owner: "add a button on the remote that lets me force open the elevator... if you dont know what floor, let me force open
+      // all floors at the same time") FORCE OPEN: whatever the cage is doing, it stops at the floor it is at (or was heading to), every
+      // screen is sent its true position again, and its doors + that floor's doors open. ALL FLOORS: also opens the landing doors on
+      // every other floor of this shaft (the cage is NOT there - the shaft is open!). The next ride shuts every door again first.
+      function shutExtras() {
+        if (!st.allOpen) return; st.allOpen = false;
+        LANDS.forEach((l, k) => { if (k === st.at) return; stepAttr(l.gR, "sx", 0.15, 1, 1100, 9); stepAttr(l.gL, "sx", 0.15, 1, 1100, 9); later(750, () => l.gp.setAttribute("y", l.gpY)); });
+      }
+      st.force = (all) => {
+        st.busy = true; st.deadline = 0; heal("host"); st.req.clear(); LANDS.forEach((l) => { if (l.glow.parentNode) l.glow.remove(); });
+        const k = st.at; st.busy = true; st.deadline = now() + 6000; arrive(k, true); later(1500, () => { st.busy = false; });
+        if (all) { st.allOpen = true; LANDS.forEach((l, j) => { if (j === k) return; stepAttr(l.gR, "sx", 1, 0.15, 1100, 9); stepAttr(l.gL, "sx", 1, 0.15, 1100, 9); later(850, () => l.gp.setAttribute("y", -300)); }); }
+        return k;
+      };
       st.request = (k) => request(st, k);
       st.home = () => { if (!st.busy && st.at !== 0 && now() - st.lastUse > LIFT_HOME_MS) request(st, 0); };
       st.status = () => ({ at: Lf.keys[st.at], busy: st.busy, open: st.open, req: Array.from(st.req).map((k) => Lf.keys[k]), heals: st.heals || 0, err: LAST_ERR });
@@ -2046,7 +2124,7 @@
     // ==================================================== THE HALL OF FAKES
     const HL = D.hall, VT = D.vault;
     const fz = el("m-group", { "data-zone": "f2" });              // the 200 portraits only go to players on Floor 2
-    const H = { ph: "idle", round: 0, auto: false, nextAt: 0, tok: 0, map: [], removed: new Set(), fin: [], vmap: [], vremoved: new Set(), winner: null, t0: 0, finT0: 0 };
+    const H = { doorOpen: false, ph: "idle", round: 0, auto: false, nextAt: 0, tok: 0, map: [], removed: new Set(), fin: [], vmap: [], vremoved: new Set(), winner: null, t0: 0, finT0: 0 };
     const shuffled = (n) => { const a = Array.from({ length: n }, (_, i) => i); for (let i = n - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
     H.map = D.hallImgs.slice(); H.vmap = Array.from({ length: VT.length }, (_, i) => i);
     const HALLM = HL.map(([x, y, z, ry], s) => {
@@ -2065,7 +2143,11 @@
     const VD = D.vaultDoor;
     const door = model("sp_vault_door.glb", { x: VD[0], y: VD[1], z: VD[2], ry: VD[3], collide: "false" });
     const doorPad = pad({ x: VD[0], y: VD[1] + 1.8, z: VD[2], ry: VD[3], width: 3.2, height: 3.6, depth: 0.3 });
-    const doorFix = () => { const f = H.fin.map(String); hideFrom(door, f); hideFrom(doorPad, f); };
+    // (v55, owner: "when a player becomes a finalist, can they just walk into the room or do I need to press start... I need more
+    // controls over the finals") the vault door stays SHUT FOR EVERYONE until the host presses OPEN THE VAULT DOOR - then it opens for
+    // the finalists only (everyone else still meets the glass door and its invisible wall). LOCK THE VAULT DOOR shuts it again for all.
+    // A player who connects later is not on the finalist list, so the door stays shut for them (doorFix runs on every connect).
+    const doorFix = () => { const f = H.doorOpen ? H.fin.map(String) : []; hideFrom(door, f); hideFrom(doorPad, f); };
     // signs: rules by the Hall door and by the vault, the big FIND THE REAL ... banner, the PORTRAITS LEFT counter
     model("sg_hall_rules.glb", { x: D.signs.hall[0], y: D.signs.hall[1], z: D.signs.hall[2], ry: D.signs.hall[3], collide: "false" }, fz);
     model("sg_vault_rules.glb", { x: D.signs.vault[0], y: D.signs.vault[1], z: D.signs.vault[2], ry: D.signs.vault[3], collide: "false" }, fz);
@@ -2107,10 +2189,10 @@
     }
     setBanner("notyet"); setCounter();
     function appraiser(line) { if (NPCS.appraiser) npcTalk(NPCS.appraiser, line, undefined, true); }
-    function lockMsg(p, at, ry, wrongWord) {
-      p.lock = now() + LOCKOUT_MS;
+    function lockMsg(p, at, ry, wrongWord, ms) {
+      ms = ms || LOCKOUT_MS; p.lock = now() + ms;
       const g = privWords([wrongWord || "forgery", "wait"], [at[0], at[1] + 0.95, at[2]], ry, p.id, 0, 0.36);
-      const dg = el("m-group", { y: -0.95 }, g); let left = Math.round(LOCKOUT_MS / 1000);
+      const dg = el("m-group", { y: -0.95 }, g); let left = Math.round(ms / 1000);
       const tick = () => { Array.from(dg.children).forEach((c) => c.remove()); if (left <= 0) { g.remove(); return; } digits(left, 0.42, {}, dg, true); word("secs", 0.24, { y: -0.36 }, dg); left--; later(1000, tick); };
       tick();
       // (v48, owner: "we're going to have a problem with sound in the hall of fakes if hundreds of people are clicking portraits and all
@@ -2170,7 +2252,7 @@
       if (!p.fin) { privWords(["finalsonly"], [at[0], at[1] + 0.95, at[2]], at[3], id, 3500, 0.36); return; }
       if (H.ph !== "finals") { privWords([H.ph === "done" ? "roundover" : "vaultwait"], [at[0], at[1] + 0.95, at[2]], at[3], id, 3500, 0.36); return; }
       if (now() < p.lock || H.vremoved.has(s)) return;
-      if (s !== vRealSlot()) { lockMsg(p, at, at[3]); return; }
+      if (s !== vRealSlot()) { lockMsg(p, at, at[3], undefined, VAULT_LOCK_MS); return; }
       H.ph = "done"; H.winner = id; if (refFlag.parentNode) refFlag.remove();
       setBanner("winner"); appraiser("won");
       const pg = el("m-group", { x: D.refFlag[0], y: D.refFlag[1], z: D.refFlag[2] }, fz);
@@ -2183,7 +2265,7 @@
     }
     function hallOpen() {
       if (H.ph === "hunt" || H.ph === "between") return "THE HUNT IS ALREADY ON (ROUND " + H.round + ")";
-      shuffleHall(); H.fin = []; H.winner = null; H.ph = "hunt"; H.round = 1; H.t0 = now(); H.nextAt = 0;
+      shuffleHall(); H.fin = []; H.winner = null; H.doorOpen = false; H.ph = "hunt"; H.round = 1; H.t0 = now(); H.nextAt = 0;
       P.forEach((p) => { p.fin = false; p.lock = 0; });
       doorFix(); setBanner("findfounder"); setRound("round1"); setCounter(); appraiser("open"); boards();
       return "THE HALL OF FAKES IS OPEN - ROUND 1 OF " + FINALISTS + " (PORTRAITS SHUFFLED)";
@@ -2214,7 +2296,7 @@
       return "THE FORGERS FLED - " + cut + " FAKES TAKEN DOWN, " + (list.length - gone.size) + " PORTRAITS LEFT";
     }
     function hallReset() {
-      H.ph = "idle"; H.round = 0; H.nextAt = 0; H.fin = []; H.winner = null; H.removed.clear(); H.vremoved.clear(); setRound("");
+      H.ph = "idle"; H.round = 0; H.nextAt = 0; H.fin = []; H.winner = null; H.doorOpen = false; H.removed.clear(); H.vremoved.clear(); setRound("");
       P.forEach((p) => { p.fin = false; p.lock = 0; });
       HALLM.forEach((m) => { if (!m.parentNode) fz.appendChild(m); ["sx", "sy", "sz"].forEach((k) => m.setAttribute(k, 1)); });
       VAULTM.forEach((m) => { if (!m.parentNode) fz.appendChild(m); ["sx", "sy", "sz"].forEach((k) => m.setAttribute(k, 1)); });
@@ -2260,6 +2342,7 @@
 
     // ==================================================== host commands + what the remote shows
     const zoneOf = (p) => (p.pos ? zKey(p.pos.x, p.pos.y, p.pos.z) : "?");
+    const inVaultRoom = (p) => !!(p.pos && Math.abs(p.pos.x) < D.room[0] && Math.abs(p.pos.z) < D.room[1] && Math.abs(p.pos.y - D.yv) < 3);
     return {
       _P: P,
       refresh() { doorFix(); setBanner(H.ph === "hunt" ? "findfounder" : H.ph === "between" ? "shuffling" : H.ph === "allfound" ? "allfound" : H.ph === "finals" ? "findflag" : H.ph === "done" ? "winner" : "notyet");
@@ -2267,7 +2350,7 @@
       game(tn) {
         const finals = H.ph === "finals" || H.ph === "done";
         return { esc: ES.on && ES.info ? ES.info() : null, ph: H.ph, left: finals ? VT.length - H.vremoved.size : HL.length - H.removed.size, fin: H.fin.length, finMax: FINALISTS,
-                 finalists: H.fin.map((id) => nameOf(pl(id))), ready: H.ph === "allfound", round: H.round, rounds: FINALISTS, auto: H.auto, nextIn: H.ph === "between" && H.nextAt ? Math.max(0, Math.ceil((H.nextAt - tn) / 1000)) : -1, inVault: H.fin.filter((id) => { const p = pl(id); return p.pos && Math.abs(p.pos.x) < D.room[0] && Math.abs(p.pos.z) < D.room[1] && Math.abs(p.pos.y - D.yv) < 3; }).length, winner: H.winner !== null ? nameOf(pl(H.winner)) : "",
+                 finalists: H.fin.map((id) => nameOf(pl(id))), ready: H.ph === "allfound", round: H.round, rounds: FINALISTS, auto: H.auto, nextIn: H.ph === "between" && H.nextAt ? Math.max(0, Math.ceil((H.nextAt - tn) / 1000)) : -1, inVault: H.fin.filter((id) => inVaultRoom(pl(id))).length, vaultDoor: H.doorOpen, finIds: H.fin.slice(), intruders: Array.from(ONLINE).filter((id) => !pl(id).fin && inVaultRoom(pl(id))).map((id) => nameOf(pl(id))), winner: H.winner !== null ? nameOf(pl(H.winner)) : "",
                  huntSecs: H.t0 ? Math.round((tn - H.t0) / 1000) : 0, inside: INSIDE.size, npcMode: NPC_MODE,
                  talking: Object.values(NPCS).filter((n) => n.talking).map((n) => n.key), liftMusic: Object.values(LIFTS).some((s) => s.music.parentNode), instruments: BAND.on, music: MUSIC.on, song: MUSIC.title, musicVol: MUSIC.pct,
                  lifts: Object.fromEntries(Object.entries(LIFTS).map(([k, s]) => [k, s.status()])) };
@@ -2304,7 +2387,7 @@
           if (a1 === "lock") { ART.locked = true; return "ART WALL LOCKED - NOBODY CAN PAINT OR SIGN"; }
           if (a1 === "unlock") { ART.locked = false; return "ART WALL OPEN FOR PAINTING"; }
           if (a1 === "grid") { ART.toGrid(); return "ART WALL SWITCHED TO BIG SQUARES (FALLBACK) - REBUILD TO GO BACK TO DOTS"; }
-          return "ART WALL: " + (ART.dots ? ART.dots.size : 0) + " DOTS + " + ART.cells.size + " SQUARES PAINTED, " + ART.names.length + " NAMES" + (ART.locked ? " (LOCKED)" : "") + (ART.grid ? " [GRID MODE]" : "") + " | clicks with a spot " + ART.okClicks + ", without " + ART.noPos;
+          return "ART WALL: " + (ART.dots ? ART.dots.size : 0) + " DOTS + " + ART.cells.size + " SQUARES PAINTED, " + ART.names.length + " NAMES" + (ART.locked ? " (LOCKED)" : "") + (ART.grid ? " [GRID MODE]" : "") + " | clicks that painted " + ART.okClicks + ", that missed " + ART.noPos + ((ART.raw || []).length ? " | LAST CLICK SENT: " + ART.raw[ART.raw.length - 1] : "");
         }
         if (cmd === "pool") { POOL.forEach((T) => { T.busy = false; POOL.rack(T); }); return "BOTH POOL TABLES RACKED"; }
         if (cmd === "music" && (a1 === "vol" || a1 === "volume" || a1 === "up" || a1 === "down" || a1 === "louder" || a1 === "softer")) {
@@ -2324,12 +2407,22 @@
             if (H.ph === "between") { if (H.auto && !H.nextAt) armNext(); if (!H.auto) { H.nextAt = 0; H.tok++; setCounter(); } }
             return "NEXT ROUND: " + (H.auto ? "STARTS BY ITSELF AFTER " + ROUND_GAP_MS / 1000 + " SECONDS" : "WAITS FOR YOU (PRESS NEXT ROUND)"); }
           if (a1 === "finals") return startFinals();
+          if (a1 === "door") {                                        // hall door open | close
+            const v = (parts[2] || "").toLowerCase(); H.doorOpen = v === "open" ? true : v === "close" || v === "lock" ? false : !H.doorOpen; doorFix();
+            return H.doorOpen ? "VAULT DOOR OPEN FOR THE " + H.fin.length + " FINALISTS ONLY (" + H.fin.map((i) => nameOf(pl(i))).join(", ") + ")" : "VAULT DOOR LOCKED FOR EVERYONE";
+          }
+          if (a1 === "unfinalist") {                                  // hall unfinalist <id>
+            const id = +parts[2], i = H.fin.indexOf(id); if (i < 0) return "#" + parts[2] + " IS NOT A FINALIST";
+            H.fin.splice(i, 1); pl(id).fin = false; doorFix(); boards(); if (H.ph === "allfound" && H.fin.length < FINALISTS) H.ph = "between";
+            return nameOf(pl(id)).toUpperCase() + " IS NO LONGER A FINALIST";
+          }
           if (a1 === "reset") return hallReset();
-          return "HALL: open / next / auto on|off / thin / finals / reset";
+          return "HALL: open / next / auto on|off / thin / door open|close / finals / unfinalist <id> / reset";
         }
         if (cmd === "lift") {                                         // lift A lounge | lift B 3
           const s = LIFTS[(parts[1] || "").toUpperCase()]; if (!s) return "LIFT A or LIFT B";
           const want = (parts[2] || "").toLowerCase(); let k = s.Lf.keys.indexOf(want);
+          if (want === "open" || want === "openall") { const at = s.force(want === "openall"); return "LIFT " + s.id + " FORCED OPEN AT THE " + s.Lf.keys[at].toUpperCase() + (want === "openall" ? " - AND THE DOORS ON EVERY OTHER FLOOR (THE SHAFT IS OPEN THERE! THE NEXT RIDE SHUTS THEM)" : ""); }
           if (k < 0 && /^\d$/.test(want)) k = +want; if (k < 0 || k >= s.Lf.keys.length) return "LIFT " + s.id + " STOPS: " + s.Lf.keys.join(" / ");
           s.request(k); return "LIFT " + s.id + " CALLED TO " + s.Lf.keys[k].toUpperCase();
         }

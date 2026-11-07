@@ -1,34 +1,29 @@
-import sys, time, json
+"""(v55) ART WALL: whichever way Otherside sends the click spot (the wall's axes, the world's axes, centimetres, Unreal's axes), the
+dots must land exactly where the player clicked. Each format gets a fresh world and 3 clicks; the dots' places are checked.
+   python3 arttest.py /home/claude/spire/out/spire.html"""
+import sys, time, json, math
 from playwright.sync_api import sync_playwright
+fails = []
+def ok(c, m): print(('OK   ' if c else 'FAIL ') + m); (None if c else fails.append(m))
+D = json.loads(open(sys.argv[1]).read().split('const D = ')[1].split(';\n')[0]); AW = D['artwall']; W = AW['cols'] * AW['cell']; H = AW['rows'] * AW['cell']; ry = math.radians(AW['ry'])
+F = {'wall axes, metres': lambda lx, ly, d: {'x': lx, 'y': ly, 'z': d},
+     'world axes, metres': lambda lx, ly, d: {'x': lx * math.cos(ry) + d * math.sin(ry), 'y': ly, 'z': -lx * math.sin(ry) + d * math.cos(ry)},
+     'wall axes, centimetres': lambda lx, ly, d: {'x': lx * 100, 'y': ly * 100, 'z': d * 100},
+     'world axes, centimetres': lambda lx, ly, d: {'x': (lx * math.cos(ry) + d * math.sin(ry)) * 100, 'y': ly * 100, 'z': (-lx * math.sin(ry) + d * math.cos(ry)) * 100},
+     'Unreal axes, centimetres': lambda lx, ly, d: {'x': d * 100, 'y': lx * 100, 'z': ly * 100}}
 with sync_playwright() as p:
-    b = p.chromium.launch(args=["--no-sandbox"]); pg = b.new_page(); errs = []
-    pg.on("pageerror", lambda e: errs.append(str(e)))
-    pg.goto("file://" + sys.argv[1]); time.sleep(1)
-    say = lambda c: pg.evaluate("(c) => document.getElementById('sp-host').dispatchEvent(new CustomEvent('prompt', {detail:{value:'7747 '+c, connectionId:1}, bubbles:true}))", c)
-    ack = lambda: json.loads(pg.evaluate("() => document.querySelector('[data-ack]').getAttribute('data-ack')"))['t']
-    pg.evaluate("() => { for (const id of [1,2,3]) window.dispatchEvent(new CustomEvent('connected', {detail:{connectionId:id}})); }")
-    say("build"); time.sleep(3)
-    r = pg.evaluate("""() => {
-      const fire = (n, name, d) => n.dispatchEvent(new CustomEvent(name, {detail: d, bubbles: true}));
-      // the canvas group: the m-group holding the 24 m wide click target
-      const big = Array.from(document.querySelectorAll('m-cube')).find(c => c.getAttribute('width') === '24' && c.getAttribute('height') === '8');
-      const AG = big.parentNode;
-      const pots = Array.from(document.querySelectorAll('m-cube')).filter(c => c.getAttribute('width') === '0.18' && c.getAttribute('height') === '0.3');
-      fire(pots[8], 'click', {connectionId: 2});          // player 2 picks blue
-      fire(big, 'click', {connectionId: 2, position: {x: -11.9, y: -3.9, z: 0.03}});   // bottom-left square
-      fire(big, 'click', {connectionId: 3, position: {x: 0.1, y: 0.1, z: 0.03}});      // player 3, default red, middle
-      const painted = () => Array.from(AG.children).filter(c => c.tagName === 'M-CUBE' && c.getAttribute('depth') === '0.02').map(c => [c.getAttribute('x'), c.getAttribute('y'), c.getAttribute('color')]);
-      const a = painted();
-      fire(pots[13], 'click', {connectionId: 2});         // eraser
-      return new Promise(res => setTimeout(() => { fire(big, 'click', {connectionId: 2, position: {x: -11.9, y: -3.9, z: 0}}); 
-        const b_ = painted();
-        fire(big, 'click', {connectionId: 3});            // a click with no position -> grid mode
-        const grid = Array.from(AG.children).filter(c => c.tagName === 'M-CUBE' && c.getAttribute('depth') === '0.05');
-        setTimeout(() => { fire(grid[31], 'click', {connectionId: 3}); 
-          const pr = Array.from(document.querySelectorAll('m-prompt')).find(p => (p.getAttribute('message') || '').includes('Art Wall'));
-          fire(pr, 'prompt', {connectionId: 3, value: 'Dinopawnz'});
-          const lab = Array.from(document.querySelectorAll('m-label')).find(l => (l.getAttribute('content') || '').includes('Dinopawnz'));
-          res({pots: pots.length, a, b: b_, grid: grid.length, afterGrid: painted(), board: lab && lab.getAttribute('content')}); }, 100); }, 100)); }""")
-    print(json.dumps(r, indent=0)[:900])
-    say("art"); print(ack()); say("art clear"); print(ack()); say("art"); print(ack())
-    print("ERRORS:", errs or "none"); b.close()
+    b = p.chromium.launch(args=["--no-sandbox"])
+    for nm, f in F.items():
+        pg = b.new_page(); pg.goto("file://" + sys.argv[1]); time.sleep(1)
+        pg.evaluate("() => { for (let i = 1; i < 6; i++) window.dispatchEvent(new CustomEvent('connected', {detail:{connectionId:i}})); document.getElementById('sp-host').dispatchEvent(new CustomEvent('prompt', {detail:{value:'7747 build', connectionId:1}, bubbles:true})); }"); time.sleep(3)
+        good = 0
+        for (lx, ly) in ((-7.3, 2.1), (4.45, -2.85), (10.05, 0.35)):
+            pg.evaluate("""([W, pos]) => { const b = Array.from(document.querySelectorAll('m-cube')).find(c => c.getAttribute('collide') === 'true' && c.getAttribute('opacity') === '0' && Math.abs(+c.getAttribute('width') - W) < 0.01);
+              b.dispatchEvent(new CustomEvent('click', {detail: {connectionId: 2, position: pos}, bubbles: true})); }""", [W, f(lx, ly, 0.04)]); time.sleep(0.15)
+            d = pg.evaluate("() => { const c = Array.from(document.querySelectorAll('m-cylinder')).filter(c => c.getAttribute('rx') === '90' && c.getAttribute('height') === '0.01').pop(); return c ? [+c.getAttribute('x'), +c.getAttribute('y')] : null; }")
+            if d and abs(d[0] - lx) < 0.08 and abs(d[1] - (ly + H / 2)) < 0.08: good += 1
+            else: print('    clicked', (lx, ly), 'dot at', d)
+        ok(good == 3, "%s: 3 of 3 dots exactly where clicked (%d)" % (nm, good))
+        pg.close()
+    b.close()
+print("FAILS:", len(fails))

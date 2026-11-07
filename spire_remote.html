@@ -486,7 +486,7 @@ details.cheat dl { margin: 8px 0 0; } details.cheat dt { color: var(--sky); font
   const { h, setText, clock } = Remote;
   const PH = { idle: ["HALL CLOSED", "idle"], hunt: ["HUNT ON", "play"], between: ["SHUFFLING - NEXT ROUND", "idle"], allfound: ["ALL 4 FOUND - START THE FINALS", "idle"], finals: ["FINALS IN THE VAULT", "play"], done: ["CHAMPION CROWNED", "over"] };
   const FLOOR = { lounge: "Lounge", hall: "Hall of Fakes", gallery: "Gallery", cards: "Mud Royale", rooms: "Mudwater Escape", roof: "Roof Deck" };
-  const ZONE = { f1: "Lounge", f2: "Hall of Fakes", f3: "Mud Royale", f4: "Mudwater Escape", out: "Outside / roof", "?": "-" };
+  const ZONE = { f1: "Lounge", f2: "Hall of Fakes", f3: "Mud Royale", f4: "Mudwater Escape", out: "Outside / roof", "?": "never seen here" };
   const ui = {};
   const NPCLINES = [["operator", "The Lift Boss (your ape - the Grand Cage)", [["greet", "Step lively, folks, and mind the gate! The Lift Boss, at your service."], ["t1", "This here's the Grand Cage. Solid brass, swamp glass, and the smoothest ride in the bayou. Push your floor on the panel, lounge at the bottom, roof at the top."], ["t2", "Lounge, Hall of Fakes, Mud Royale, the Mudroom Escape, and the roof deck. Name it and I'll haul it."], ["t3", "Hold the rail, sugar. Watch the floors go by through the glass."], ["t4", "Two cages, one in each back corner. If mine's full, my cousin across the way will haul you."], ["up", "Goin' up!"], ["down", "Goin' down!"], ["close", "Mind the gate!"], ["s_lounge", "Ground floor! The Lounge. Taps are flowin'."], ["s_hall", "The Hall of Fakes! Look close, now."], ["s_gallery", "The Gallery! Top of the Hall of Fakes ramp."], ["s_rooms", "The Mudroom Escape! Pick your team's door."], ["s_cards", "Mud Royale! Pick a team and grab some squares."], ["s_roof", "Top of the house! The roof deck. Mind the edge, y'all."]]], ["ferryman", "Ferryman Moss", [["greet", "Evenin', traveler. Welcome to the Mudwater Spire. Sign the book inside the doors, the lounge is straight ahead, and the games are upstairs. Mind the gators."], ["t1", "Two brass lifts wait in the back corners of the lounge, and there's a stair tower at each end. Ride up, climb up, just don't fall in."], ["t2", "Upstairs is the Hall of Fakes. Four hundred portraits, one true card. Find it first and you're a finalist."], ["t3", "Above that, Mud Royale: teams fightin' over a giant board. Then the Mudroom Escape, room after room of puzzles. And the roof... well. Go see the roof."], ["t4", "First thing inside, right in the middle of the entrance: the Mudwater Sign-Up Book. Sign it, so the swamp knows your name."]]], ["barkeep", "Mama Silt", [["greet", "Well, look what the tide dragged in! Pull up a stool, sugar. First round's on the swamp."], ["t1", "Pull any tap on the bar and I'll slide one down to you. Don't you drop it."], ["t2", "Them portraits upstairs? Half the forgers in the bayou painted 'em. Check the little things, darlin'. The little things."], ["t3", "Old Skipper up on the roof deck swears he sailed with the Drowned Captain. Ask him, if you've got an hour."], ["t4", "Sign the book out front before you head upstairs, sugar. The swamp likes to know who it's cheerin' for."], ["t5", "Hear that fire cracklin'? It's for warmin' hands, not roastin' marshmallows. Gator Pete learned that the hard way."], ["t6", "This spire's been standin' on these stilts longer than the cypress been growin'. Creaks a bit. So do I."], ["t7", "You win somethin' up there tonight, you come back and tell Mama all about it."], ["pour0", "Here she comes!"], ["pour1", "Catch!"], ["pour2", "One swamp ale, extra mud."], ["pour3", "Comin' down the bar!"]]], ["gator", "Gator Pete", [["greet", "Heh. Warm yourself by the fire, friend. Plenty of room. I only bite on Tuesdays."], ["t1", "I went up the Hall of Fakes once. Picked the wrong picture, had to wait five whole seconds. Felt like five years."], ["t2", "Thing about forgeries: the painter always gets bored on the details. Numbers. Colours. Dates. Look close."], ["t3", "Only four get into the big glass hall in the middle. Everybody else presses their snouts on the glass. I fogged it up good."], ["t4", "Card tables are free. I'm not allowed to play anymore. Long story. Involves a tail."], ["t5", "Ever seen the swamp from the roof deck? Prettiest thing in the whole bayou."]]], ["appraiser", "The Appraiser", [["greet", "Welcome to the Hall of Fakes. Three hundred and ninety-nine forgeries. One original. Climb, look, and choose wisely."], ["t1", "A wrong choice costs you five seconds. Patience is the cheapest tool an appraiser owns."], ["t2", "Four rounds. Each round, the first to find the original is summoned to the glass finals hall in the middle of this room."], ["t3", "Don't trust the frame. Trust the details. The numbers, the year, the colours of the smallest things."], ["t4", "Two rows of portraits, all the way up the ramp. The answer may be at the bottom... or at the very top."], ["open", "The hunt begins! Find the true Founder!"], ["thin", "The forgers lose their nerve. Fewer fakes remain."], ["finals", "The glass is clear. Finalists, find the true Black Flag!"], ["won", "We have a champion! The true Black Flag is found!"], ["round", "A finalist! Off to the glass hall with you. Everyone else, the portraits are being shuffled."], ["next", "A new round! Every portrait has moved. Find the Founder again!"]]], ["skipper", "Old Skipper", [["greet", "Ahoy there. Best view in the swamp, this roof. Mind the edge."], ["t1", "Forty years I poled these waters. Saw the Drowned Captain's lantern once. Still see it when I close my eyes."], ["t2", "On a clear night you can see the whole bayou from up here. On a stormy night... you see things you shouldn't."], ["t3", "That steeple behind me? Built from the mast of the Drowned Captain's ship. Or so the barkeep tells it."], ["t4", "Win somethin' tonight and they'll sing about you down at the lounge for a year."], ["t5", "Rule one of the bayou: never trust a smilin' gator. Rule two: never trust a portrait that smiles back."]]], ["dealer", "The Dealer", [["greet", "Step right up, friend. Pull up a chair, and let the swamp deal you in."], ["t1", "This floor's for Mud Royale. Join a team, take a hand of Mudwater cards, and capture squares on the giant board."], ["t2", "Two minutes on the clock. When it runs out, the team holdin' the most squares takes the whole board."], ["t3", "Play your cards by the Mudwater rules and you'll steal squares right out from under the other teams."], ["t4", "Upgrades, captures, rocks. It's all in the rules boards. Read 'em twice."], ["final", "Ladies and gators, the teams are set! Two minutes on the clock. Capture all you can!"], ["won", "Time! The team with the most squares takes Mud Royale!"]]]];
   const LABEL = (k) => k === "greet" ? "Hello" : /^t\d+$/.test(k) ? "Line " + k.slice(1) : /^s_/.test(k) ? "Stop: " + (FLOOR[k.slice(2)] || k.slice(2)) : /^pour\d$/.test(k) ? "Pour " + (+k.slice(4) + 1) :
@@ -510,11 +510,15 @@ details.cheat dl { margin: 8px 0 0; } details.cheat dt { color: var(--sky); font
       ui.nextB = R.btn(g, "NEXT ROUND NOW", "skip the countdown - start the next round", () => R.say("hall next"), { cls: "b-go big1" });
       ui.autoB = R.btn(g, "AUTO NEXT ROUND: ON", "next round starts by itself 10 s after a finalist is found", () => R.say("hall auto"), { cls: "big1" });
       R.btn(g, "THIN THE FAKES", "take half the forgeries down (never below 10)", () => R.say("hall thin"), { cls: "b-warn big1" });
-      ui.finB = R.btn(g, "START THE FINALS", "unfrost the vault - find the real Black Flag", () => R.say("hall finals"), { cls: "b-sky big1", confirm: () => (ui.inV < ui.nFin ? "Only " + ui.inV + " of the " + ui.nFin + " finalists are inside the glass room. Start anyway?" : "Unfrost the glass room and start the finals?") });
+      ui.doorB = R.btn(g, "OPEN THE VAULT DOOR", "let the finalists (only) walk into the glass room", () => R.say("hall door " + (ui.door ? "close" : "open")), { cls: "b-go big1" });
+      ui.finB = R.btn(g, "START THE FINALS", "unfrost the vault - find the real Black Flag", () => R.say("hall finals"), { cls: "b-sky big1", confirm: () => (!ui.door && ui.inV < ui.nFin ? "The vault door is still LOCKED and only " + ui.inV + " of the " + ui.nFin + " finalists are inside. Start anyway?" : ui.inV < ui.nFin ? "Only " + ui.inV + " of the " + ui.nFin + " finalists are inside the glass room. Start anyway?" : "Unfrost the glass room and start the finals?") });
       R.btn(g, "Reset Mud Match", "back to closed", () => R.say("hall reset"), { cls: "b-stop", confirm: "Reset Mud Match? Finalists and the champion are cleared." });
-      R.note(p, [{ b: "4 rounds." }, " Each round, the first player to click the real #62 Founder becomes a finalist. Then the 400 portraits are shuffled and the next round starts by itself 10 seconds later (turn AUTO off to start each round yourself with NEXT ROUND NOW). A wrong pick costs that player ", { b: "5 seconds" }, ". The vault's glass door opens for the finalists only. ",
-        "The vault glass stays ", { b: "frosted" }, " until you press START THE FINALS - wait until the finalists are all inside (the count shows below). ", { b: "THIN" }, " works on whichever round is running (the walls, or the glass room)."]);
+      R.note(p, [{ b: "4 rounds." }, " Each round, the first player to click the real #62 Founder becomes a finalist. Then the 400 portraits are shuffled and the next round starts by itself 10 seconds later (turn AUTO off to start each round yourself with NEXT ROUND NOW). A wrong pick costs that player ", { b: "5 seconds" }, " (", { b: "10 seconds" }, " in the vault). ",
+        "The vault door stays ", { b: "locked for everyone" }, " until you press OPEN THE VAULT DOOR - then it opens for the finalists only (everyone else still bumps into it). ",
+        "The glass stays ", { b: "frosted" }, " until you press START THE FINALS - wait until the finalists are all inside (the count shows below), then you can lock the door again if you like. ", { b: "THIN" }, " works on whichever round is running (the walls, or the glass room)."]);
       ui.finList = R.note(p, "");
+      ui.finBox = R.grid(p, "narrow"); ui.finKeys = "";
+      ui.intr = R.note(p, "");
 
       p = R.panel(R.left, "The lifts", "call either cage to any of its floors");
       ui.liftBox = h("div", { class: "lifts" }); p.append(ui.liftBox);
@@ -524,6 +528,8 @@ details.cheat dl { margin: 8px 0 0; } details.cheat dt { color: var(--sky); font
         const s = h("div", { class: "st", text: "-" }); c.append(s);
         const gg = R.grid(c, "narrow");
         stops.forEach((k) => R.btn(gg, FLOOR[k], null, () => R.say("lift " + id + " " + k)));
+        R.btn(gg, "FORCE OPEN", "someone stuck? opens it where it is", () => R.say("lift " + id + " open"), { cls: "b-warn", confirm: "Force " + nm + " open at the floor it's at?" });
+        R.btn(gg, "OPEN ALL FLOORS", "every door of this shaft", () => R.say("lift " + id + " openall"), { cls: "b-stop", confirm: "Open the doors on EVERY floor of " + nm + "? On floors where the cage isn't, the shaft is open and people can fall in. The next ride shuts them again." });
         ui.liftBox.append(c); ui.liftCards[id] = s;
       });
       g = R.grid(p); g.style.marginTop = "10px";
@@ -593,6 +599,7 @@ details.cheat dl { margin: 8px 0 0; } details.cheat dt { color: var(--sky); font
       R.btn(g, "CLEAR WALL", "wipe all the paint and names", () => R.say("art clear"), { cls: "b-warn", confirm: "Wipe the whole art wall?" });
       R.btn(g, "LOCK WALL", "nobody can paint or sign", () => R.say("art lock"), { cls: "b-sky" });
       R.btn(g, "UNLOCK WALL", "painting allowed again", () => R.say("art unlock"), { cls: "b-go" });
+      R.btn(g, "ART WALL CHECK", "shows what the last click on the wall sent", () => R.say("art"), { cls: "b-sky" });
       R.note(p, "Players pick a paint pot on one of the two tables, then click the canvas to paint small dots where they click (the pink block is the eraser; the wall keeps the newest 5000 dots). Names typed at the lectern go on the board along the top.");
 
       p = R.panel(R.left, "If people lag", "nobody loses progress");
@@ -608,7 +615,7 @@ details.cheat dl { margin: 8px 0 0; } details.cheat dt { color: var(--sky); font
 
       p = R.panel(R.right, "Players"); ui.pp = p;
       ui.pl = R.table(p, ["#", "Player", "Where", "Hall", "Wait"], "Nobody here yet.");
-      R.note(p, ["Players show their guest-book name once they sign the book on the porch. ", { b: "Make finalist" }, " puts someone into the finals by hand."]);
+      R.note(p, ["Players show their guest-book name once they sign the book on the porch. ", { b: "Make finalist" }, " puts someone into the finals by hand; ", { b: "Remove finalist" }, " takes them out (the vault door shuts for them)."]);
     },
     render(R) {
       const G = R.data.game; if (!G) return;
@@ -633,19 +640,27 @@ details.cheat dl { margin: 8px 0 0; } details.cheat dt { color: var(--sky); font
       ui.inV = G.inVault || 0; ui.nFin = G.fin || 0;
       setText(ui.finList, ((G.finalists || []).length ? "Finalists: " + G.finalists.map((n, i) => (i + 1) + ". " + n).join("   ") + "   -   inside the glass room: " + ui.inV + " / " + ui.nFin : "No finalists yet.") + (G.ready ? "   -   ALL FOUND: PRESS START THE FINALS" : ""));
       R.lit(ui.finB, !!G.ready); R.lit(ui.nextB, G.ph === "between"); R.lit(ui.autoB, !!G.auto);
+      ui.door = !!G.vaultDoor; setText(ui.doorB.lab, ui.door ? "LOCK THE VAULT DOOR" : "OPEN THE VAULT DOOR"); setText(ui.doorB.sub, ui.door ? "the door is OPEN for the finalists - press to lock it for everyone" : "LOCKED for everyone - press to let the finalists (only) in"); R.lit(ui.doorB, ui.door);
+      const fk = (G.finIds || []).join(",") + "|" + (G.finalists || []).join(",");
+      if (fk !== ui.finKeys) { ui.finKeys = fk; ui.finBox.textContent = ""; (G.finIds || []).forEach((pid, i) => R.btn(ui.finBox, "REMOVE " + (G.finalists[i] || "#" + pid), "take them out of the finals", () => R.say("hall unfinalist " + pid), { cls: "b-stop", confirm: "Take " + (G.finalists[i] || "#" + pid) + " out of the finals?" })); }
+      setText(ui.intr, (G.intruders || []).length ? "NOT A FINALIST BUT INSIDE THE GLASS ROOM: " + G.intruders.join(", ") + " - they can't pick anything, but you may want to ask them to leave." : "");
       setText(ui.autoB.lab, G.auto ? "AUTO NEXT ROUND: ON" : "AUTO NEXT ROUND: OFF");
       setText(ui.nextB.sub, G.ph === "between" ? (G.nextIn >= 0 ? "round " + (G.round + 1) + " starts by itself in " + G.nextIn + " s - or press now" : "round " + (G.round + 1) + " is waiting for you") : G.ph === "hunt" ? "round " + G.round + " of " + (G.rounds || 4) + " is on" : "skip the countdown - start the next round");
       const Ls = G.lifts || {};
       for (const id in ui.liftCards) { const s = Ls[id]; setText(ui.liftCards[id], s ? (s.busy && !s.open ? "moving" : "at the " + (FLOOR[s.at] || s.at) + (s.open ? ", doors open" : "")) + (s.req.length ? " - called to " + s.req.map((k) => FLOOR[k]).join(", ") : "") : "-"); }
-      const P = R.data.players || [];
-      setText(ui.pp.note, P.length ? P.length + " connected" : "");
+      // (v55, owner: "I am the only person in the building and yet my remote says there are 8 other players") the count now says how
+      // many are actually in the building; connections the game has never seen near the building (other people elsewhere in the
+      // Otherside world, or extra connections) are listed last as "never seen here"
+      const PA = R.data.players || [], seen = PA.filter((q) => q[2] !== "?"), P = seen.concat(PA.filter((q) => q[2] === "?")), ghosts = PA.length - seen.length;
+      setText(ui.pp.note, (G.inside || 0) + " in the building" + (ghosts ? "  -  " + ghosts + " more connected but never seen here" : ""));
       ui.pl.render(P, (q) => q[0], () => {
         const r = { el: h("tr"), id: h("td", { class: "num" }), nm: h("td"), z: h("td"), hall: h("td", { class: "hero" }), w: h("td", { class: "num" }), a: h("td") };
-        R.mini(r.a, "Make finalist", () => R.say("finalist " + r.pid), { confirm: "Put this player into the finals?" });
+        r.fb = R.mini(r.a, "Make finalist", () => R.say(r.fin ? "hall unfinalist " + r.pid : "finalist " + r.pid), { confirm: () => (r.fin ? "Take this player OUT of the finals?" : "Put this player into the finals?") });
         r.el.append(r.id, r.nm, r.z, r.hall, r.w, r.a); return r;
       }, (r, q) => {
         r.pid = q[0]; setText(r.id, "#" + q[0]); setText(r.nm, q[1]); setText(r.z, ZONE[q[2]] || q[2]);
         setText(r.hall, q[5] ? "CHAMPION" : q[3] ? "FINALIST" : ""); setText(r.w, q[4] ? q[4] + " s" : "");
+        r.fin = !!q[3]; if (r.fb) setText(r.fb, r.fin ? "Remove finalist" : "Make finalist");
       });
     },
   });

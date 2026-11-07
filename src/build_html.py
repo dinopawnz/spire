@@ -31,7 +31,8 @@ D = {
   'lifts': LL['lifts'], 'sheaveY': LL['sheave_y'], 'hitch': LL['hitch'], 'rope': LL['rope'], 'sheaveR': LL['sheave_r'], 'cwZ': LL['cw_z'], 'cabApo': L['cab_apo'], 'doorW': L['door_w'], 'doorH': L['door_h'], 'cabWallH': 3.45, 'cabGateH': 3.35,       # v24: taller cabs (2.6 / 2.5 + 0.85)
   # (v48, owner: "ALL THE PORTRAITS ON THE WALL WHERE THE STAIRS ARE cannot be clicked") the stair towers' invisible wall stands 7 cm
   # in front of the portraits hung on it (x +-51.74, z -9.5..9.5), so it caught every click. Those portraits now hang 15 cm further out.
-  'hall': [[(p['x'] - math.copysign(0.15, p['x'])) if (abs(p['x']) > 51.5 and abs(p['z']) < 9.7) else p['x'], p['y'], p['z'], p['ry']] for p in F2['hall']], 'vault': [[p['x'], p['y'], p['z'], p['ry']] for p in F2['vault']],
+  # (v55) the stair towers' invisible wall now stands behind the wall face, so those portraits hang back on their frames
+  'hall': [[p['x'], p['y'], p['z'], p['ry']] for p in F2['hall']], 'vault': [[p['x'], p['y'], p['z'], p['ry']] for p in F2['vault']],
   'realHall': real_hall, 'realVault': real_vault, 'hallImgs': F2['imgs'],
   'vaultDoor': F2['door'],
   'refs': [[r(-24.0 * KX_), Y2, r(12.0 * KZ_)], [r(24.0 * KX_), Y2, r(-12.0 * KZ_)], [r(-12.0 * KX_), Y2, r(-20.0 * KZ_)], [r(12.0 * KX_), Y2, r(20.0 * KZ_)]], 'refFlag': F2['plinth'],
@@ -175,6 +176,9 @@ SDECO = F1['lanterns']        # iron lanterns over the lounge (placed in build_l
 SDECO = SDECO + F1.get('trees', [])   # the giant Meshy tree trunks growing through the lounge
 SDECO = SDECO + F1.get('mprops', [])  # Meshy furniture, pond rim, grottos, booths, hearth (sp_m_*.glb)
 D['sdeco'] = SDECO
+# (v55) the firework shells for CELEBRATE (built by build_fireworks.py): each name + _a / _b / _c stages
+import glob as _gl
+D['fwShells'] = sorted(set(os.path.basename(f)[:-6] for f in _gl.glob('/home/claude/spire/out/glb/fw_*_a.glb')))
 D['deco'] = DECO
 gal = []; cards = list(range(1, 121)); rg.shuffle(cards); ci = 0
 for (n, rad, y, rx, rz, per, sc) in ((34, 106.0, 60.0, 7.0, -4.0, 300000, 10.5), (40, 132.0, 74.0, -5.0, 6.0, 380000, 12.5), (46, 158.0, 48.0, 4.0, 8.0, 460000, 14.5)):
