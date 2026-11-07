@@ -501,6 +501,17 @@ details.cheat dl { margin: 8px 0 0; } details.cheat dt { color: var(--sky); font
         { cls: "big1", confirm: () => (ui.built ? "Fold the whole Spire back into the placer cube? Every game is reset and everyone inside drops to the water." : "") });
       ui.buildNote = R.note(p, "");
 
+      // (v59) the boat ride
+      p = R.panel(R.left, "The boats", "12 lantern boats (8 people each) from the pier at the start of the boardwalk to the Spire");
+      ui.boatNow = R.note(p, "");
+      g = R.grid(p);
+      ui.boatGo = R.btn(g, "GO! SEND THE BOATS", "all 12 leave the pier together", () => R.say("boats go"), { cls: "b-go big1" });
+      R.btn(g, "BRING THE BOATS BACK", "they sink into the swamp and come up at the pier (~10 s)", () => R.say("boats back"), { cls: "b-sky" });
+      ui.boatStay = R.btn(g, "BOATS GO BACK BY THEMSELVES", "40 s after landing", () => R.say(ui.bStay ? "boats auto" : "boats stay"), { cls: "b-sky" });
+      R.btn(g, "PUT ALL BOATS AT THE PIER NOW", "emergency: every boat straight back to its spot", () => R.say("boats reset"), { cls: "b-warn", confirm: "Snap all 12 boats back to the pier right now? Anyone on a boat out on the water drops into the (ankle-deep) water." });
+      R.note(p, ["Players hop into the boats at the pier (8 to a boat). Press ", { b: "GO" }, " and all 12 glide off together - six round the west side, six round the east - and land at the two stairs up to the porch. ",
+        "After landing they wait 40 s for everyone to get off, then sink into the swamp and come back up at the pier for the next group (or press BRING THE BOATS BACK)."]);
+
       p = R.panel(R.left, "Hall of Fakes - Mud Match", "the tower - find the real Founder");
       ui.phase = h("span", { class: "chip" }); ui.big = h("span", { class: "big" }); ui.what = h("span", { class: "note", style: { margin: 0 } });
       p.append(h("div", { class: "statusline" }, ui.phase, ui.big, ui.what));
@@ -634,6 +645,12 @@ details.cheat dl { margin: 8px 0 0; } details.cheat dt { color: var(--sky); font
       setText(ui.liteB.lab, G.lite ? "LITE MODE: ON" : "LITE MODE: OFF"); R.lit(ui.liteB, !!G.lite);
       ui.npcMode.set(G.npcMode);
       if (ui.royNow) setText(ui.royNow, G.roy ? "LIVE: " + G.roy : "");
+      if (G.boats && ui.boatNow) {
+        const n = G.boats.aboard.reduce((a, b) => a + b, 0);
+        setText(ui.boatNow, "THE BOATS: " + G.boats.where + "  -  " + n + " aboard" + (n ? " (" + G.boats.aboard.filter((x) => x).length + " boats in use)" : ""));
+        ui.bStay = !!G.boats.stay; setText(ui.boatStay.lab, ui.bStay ? "BOATS WAIT AT THE SPIRE" : "BOATS GO BACK BY THEMSELVES"); setText(ui.boatStay.sub, ui.bStay ? "until you press BRING THE BOATS BACK" : "40 s after landing");
+        R.lit(ui.boatGo, G.boats.state === "dock");
+      }
       if (G.esc && ui.escNow) { const E = G.esc; setText(ui.escNow, (E.ph === "live" ? "RUNNING " + Math.floor(E.secs / 60) + ":" + String(E.secs % 60).padStart(2, "0") + " - " : E.ph === "open" ? "DOORS OPEN (joining) - " : "ENDED - ") + E.teams.map((t) => t[0].toUpperCase() + " " + t[2] + "p " + (t[3] > 3 ? "OUT" : "room " + (t[3] + 1))).join(" | ") + (E.order.length ? "   ORDER: " + E.order.join(", ").toUpperCase() : "")); }
       ui.bgm = G.music !== false; setText(ui.musicAllB.lab, ui.bgm ? "MUSIC: ON" : "MUSIC: OFF"); R.lit(ui.musicAllB, ui.bgm); setText(ui.songNow, (ui.bgm && G.song ? "Now playing: " + G.song : "") + (typeof G.musicVol === "number" ? "   -   volume " + G.musicVol + "%" : ""));
       ui.band = G.instruments !== false; setText(ui.bandB.lab, ui.band ? "INSTRUMENTS: ON" : "INSTRUMENTS: OFF"); setText(ui.bandB.sub, ui.band ? "press to stop anyone playing them (trolls)" : "press to let players play again"); R.lit(ui.bandB, !ui.band);
