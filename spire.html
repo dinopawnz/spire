@@ -1124,12 +1124,16 @@
       const BS = 8.6 / 1880, BX = (px) => (px - 940) * BS, BY = (py) => (480 - py) * BS, BCOL = (k) => 270 + (1840 - 270) / 6 * (k + 0.5), BROWS = [272, 357, 442, 527];
       const BOARDS = E.boards.map(([bx, by, bz, bry]) => {
         const g = el("m-group", { x: bx, y: by, z: bz, ry: bry }, eg);
-        img("board_bg.jpg", { width: 8.6, height: 4.392, emissive: 0.55 }, g);
-        const gems = TM.map((t, k) => BROWS.map((py) => img("gem_" + k + ".png", { x: BX(BCOL(k)), y: BY(py), z: 0.02, width: 0.44, height: 0.44, emissive: 1.0, visible: "false" }, g)));
-        const cnt = TM.map((t, k) => el("m-group", { x: BX(BCOL(k)), y: BY(628), z: 0.03 }, g));
-        const medals = TM.map((t, k) => el("m-group", { x: BX(BCOL(k) + 100), y: BY(628), z: 0.03 }, g));
-        const clock = el("m-group", { x: BX(1730), y: BY(92), z: 0.03 }, g);
-        const big = el("m-group", { x: 0, y: BY(822), z: 0.03 }, g);
+        // (v60, owner: "this sign is bugged - from one angle I see everything lit up, from another I see nothing") the painting behind
+        // is now a SOLID model (sp_escboard.glb), not a picture: see-through pictures are drawn in an order that depends on where you stand,
+        // so from some angles the big background picture was drawn over the gems and medals. In front of a solid back they always show
+        // (Emberhold's boards: solid block behind, pictures in front). Russian readers get sp_escboard_ru.glb.
+        langPair({}, g, (l, gg) => model(l === "ru" ? "sp_escboard_ru.glb" : "sp_escboard.glb", { collide: "false", "cast-shadows": "false" }, gg));
+        const gems = TM.map((t, k) => BROWS.map((py) => img("gem_" + k + ".png", { x: BX(BCOL(k)), y: BY(py), z: 0.05, width: 0.44, height: 0.44, emissive: 1.0, visible: "false" }, g)));
+        const cnt = TM.map((t, k) => el("m-group", { x: BX(BCOL(k)), y: BY(628), z: 0.06 }, g));
+        const medals = TM.map((t, k) => el("m-group", { x: BX(BCOL(k) + 100), y: BY(628), z: 0.06 }, g));
+        const clock = el("m-group", { x: BX(1730), y: BY(92), z: 0.06 }, g);
+        const big = el("m-group", { x: 0, y: BY(822), z: 0.06 }, g);
         return { g, gems, cnt, medals, clock, big, shown: {} };
       });
       const clockShow = (secs) => BOARDS.forEach((B) => { Array.from(B.clock.children).forEach((c) => c.remove()); const m = Math.min(99, Math.floor(secs / 60)), s = secs % 60; digits(m, 0.34, { x: -0.36 }, B.clock); word("r_colon", 0.34, { x: -0.05 }, B.clock); word("d" + Math.floor(s / 10), 0.34, { x: 0.16 }, B.clock); word("d" + (s % 10), 0.34, { x: 0.38 }, B.clock); });
