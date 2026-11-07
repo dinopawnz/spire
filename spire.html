@@ -2580,8 +2580,9 @@
       zoneSee(id, p.pos);
       if (tagOn && id === H.winner) tagTo(p.pos);                   // (v57) the WINNER tag follows the champion
       if (!fromTouch) POSH.forEach((f) => { try { f(id, p.pos); } catch (e2) {} });     // (the Royale pad backup trusts only the real position tracker)
-      greetCheck(p);
-      bioStep(p);
+      if (!fromTouch) greetCheck(p);                               // (v58) no surprise NPC hellos from the floor-touch spots
+      // (v58, owner: "what are these weird yellow circles that keep spawning on the ground... we don't need those rings") the old glowing
+      // footstep rings (bioStep) are switched off for good: they never showed before because Otherside never reported positions.
     }
     // (v58, owner: "the remote shows so many people... it says 0 in the building but there are 3 of us in here") Otherside does not
     // report players to the position probe, so nobody was ever counted. Now a player counts as IN THE BUILDING when they stand on
