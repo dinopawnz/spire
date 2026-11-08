@@ -1,26 +1,26 @@
 <!--
-  SPARKLE TRAIL  v5  -  Otherside MML
+  SPARKLE TRAIL  v6  -  Otherside MML
   The ORIGINAL look (glowing rainbow ribbon full of twinkling stars + the golden swirl with orbiting stars at your feet), now it bends
-  along the exact path you walk and the end of it melts away after about a second.
+  along the exact path you walk: a wide, soft, glittery pastel ribbon that fades away after a couple of seconds.
 
   HOW IT FOLLOWS YOU: Otherside tells a build every spot you step on when you walk on something the build owns, so this lays a big
   INVISIBLE FLOOR (100 x 100 m) where you place it. Place it on flat ground.
   Click the glowing star in the middle -> the trail is yours. Click again to change colour: rainbow -> gold -> ice -> rose -> off.
 
   LIGHT ON THE WORLD: every picture is loaded once at the start and reused (nothing pops in), the trail only updates when you've moved,
-  at most 4 times a second, and sends nothing at all while you stand still.
+  at most about 6 times a second, and sends nothing at all while you stand still.
   PLACE ONLY ONE COPY: every copy you place follows you separately - remove old copies and older versions first.
 -->
 <m-group id="root"></m-group>
 
 <script>
   const BASE = "https://raw.githubusercontent.com/dinopawnz/spire/handoff-v14/trail/";
-  const VER = "?v=5";
+  const VER = "?v=6";
   const ROOT = document.getElementById("root");
   const SIZE = 100;                // invisible floor, metres each way
-  const LIFE = 1100;               // how long each piece of trail lasts before it has melted away (ms)
-  const NPIECE = 8;                // ribbon pieces kept loaded and reused round and round
-  const MOVE = 0.35;               // a new piece once you've moved this far (m)
+  const LIFE = 2400;               // how long each piece of trail lasts before it has faded away (ms)
+  const NPIECE = 20;               // ribbon pieces kept loaded and reused round and round
+  const MOVE = 0.3;                // a new piece once you've moved this far (m)
   const GLIDE = 260;               // the swirl glides to each new spot over this long (ms)
   const COLOURS = ["rainbow", "gold", "ice", "rose"];
   let owner = null, colour = -1, steps = 0, noPos = 0, at = null, pieceI = 0, rigAnims = [];
@@ -53,27 +53,26 @@
   const IMG = { collide: "false", "cast-shadows": "false" };
 
   // ---------------- the invisible floor that feels your footsteps
-  const floor = el("m-cube", { y: -0.05, width: SIZE, height: 0.1, depth: SIZE, color: "#000000", visible: "false", collide: "true", "collision-interval": 250, "cast-shadows": "false" });
+  const floor = el("m-cube", { y: -0.05, width: SIZE, height: 0.1, depth: SIZE, color: "#000000", visible: "false", collide: "true", "collision-interval": 150, "cast-shadows": "false" });
 
-  // ---------------- ribbon pieces, each full of twinkling stars (loaded once, reused). A piece "melts" by shrinking to nothing,
-  // which takes its stars with it - so one set of 3 shrink animations per step does the whole job.
+  // ---------------- ribbon pieces (loaded once, reused round and round): one wide, soft, glittery band lying flat, with a few
+  // twinkling stars in it. A piece fades out (opacity), narrows a little, and its stars squash away - 3 small animations per step.
   const PIECES = [];
   for (let i = 0; i < NPIECE; i++) {
     const g = el("m-group", { y: -50 });                       // parked out of sight until first used
-    const melt = el("m-group", { sx: 0, sy: 0, sz: 0 }, g);
-    const a = el("m-group", { y: 0.3, ry: 90 }, melt), b = el("m-group", { y: 0.58, ry: 90 }, melt);
-    const imgs = [el("m-image", Object.assign({ width: 1.6, height: 1.0, rx: -90, emissive: 1.3 }, IMG), a),
-                  el("m-image", Object.assign({ width: 1.6, height: 0.62, emissive: 1.3 }, IMG), b)];
+    const melt = el("m-group", {}, g);
+    const a = el("m-group", { y: 0.38, ry: 90 }, melt);
+    const band = el("m-image", Object.assign({ width: 1.6, height: 1.25, rx: -90, emissive: 1.1, opacity: 0 }, IMG), a);
+    const sg = el("m-group", { sy: 0 }, g);
     const stars = [];
-    for (let k = 0; k < 3; k++) {                              // stars bobbing and twinkling inside the piece
-      const s = el("m-group", { x: rnd(-0.35, 0.35), z: rnd(-0.6, 0.6) }, melt);
-      loop(s, "y", rnd(0.15, 0.4), rnd(0.6, 1.0), rnd(700, 1200), { pingPong: true, easing: "easeInOutSine", delay: rnd(0, 1200) });
-      const tw = el("m-group", {}, s); const sc = rnd(0.7, 1.2);
-      loop(tw, "sx", sc * 0.45, sc, rnd(250, 500), { pingPong: true, delay: rnd(0, 500) });
-      loop(tw, "sy", sc * 0.45, sc, rnd(250, 500), { pingPong: true, delay: rnd(0, 500) });
-      [0, 90].forEach((ry) => stars.push(el("m-image", Object.assign({ width: 0.3, height: 0.3, ry, emissive: 2 }, IMG), tw)));
+    for (let k = 0; k < 2; k++) {
+      const st = el("m-group", { x: rnd(-0.4, 0.4), z: rnd(-0.5, 0.5) }, sg);
+      loop(st, "y", rnd(0.3, 0.5), rnd(0.7, 1.1), rnd(700, 1200), { pingPong: true, easing: "easeInOutSine", delay: rnd(0, 1200) });
+      const tw = el("m-group", {}, st); const sc = rnd(0.6, 1.0);
+      loop(tw, "sx", sc * 0.4, sc, rnd(250, 500), { pingPong: true, delay: rnd(0, 500) });
+      [0, 90].forEach((ry) => stars.push(el("m-image", Object.assign({ width: 0.24, height: 0.24, ry, emissive: 2 }, IMG), tw)));
     }
-    PIECES.push({ g, melt, imgs, stars, anims: [], k: i % 8 });
+    PIECES.push({ g, melt, band, sg, stars, anims: [], k: i % 8 });
   }
 
   // ---------------- the golden swirl at your feet, with stars circling round you (the original)
@@ -99,7 +98,7 @@
 
   function paint() {    // put the current colour's pictures on everything (only when the colour changes)
     const c = col();
-    PIECES.forEach((p) => { p.imgs.forEach((im) => im.setAttribute("src", pic("piece_" + c + "_" + p.k))); p.stars.forEach((s) => s.setAttribute("src", pic("star_" + c))); });
+    PIECES.forEach((p) => { p.band.setAttribute("src", pic("fluff_" + c + "_" + p.k)); p.stars.forEach((s) => s.setAttribute("src", pic("star_" + (c === "rainbow" ? "gold" : c)))); });
     orbitStars.forEach((s) => s.setAttribute("src", pic("star_" + (c === "gold" ? "rainbow" : "gold"))));
     hubPics.forEach((p) => p.setAttribute("src", pic("star_" + (colour < 0 ? "gold" : c))));
   }
@@ -116,11 +115,11 @@
   // ---------------- a new piece of ribbon from where you were to where you are, then it melts away
   function piece(a, b) {
     const p = PIECES[pieceI]; pieceI = (pieceI + 1) % NPIECE;
-    const dx = b.x - a.x, dz = b.z - a.z, len = Math.min(Math.hypot(dx, dz), 4) + 0.6;   // a little overlap so the pieces join up
+    const dx = b.x - a.x, dz = b.z - a.z, len = Math.min(Math.hypot(dx, dz), 4) * 1.5 + 0.9;   // overlapping, so the soft ends melt into one ribbon
     p.g.setAttribute("x", r3((a.x + b.x) / 2)); p.g.setAttribute("y", r3((a.y + b.y) / 2)); p.g.setAttribute("z", r3((a.z + b.z) / 2));
     p.g.setAttribute("ry", r3(Math.atan2(dx, dz) * 180 / Math.PI));
-    p.imgs.forEach((im) => im.setAttribute("width", r3(len)));
-    const fresh = [once(p.melt, "sx", 1, 0, LIFE, "easeInQuad"), once(p.melt, "sy", 1, 0, LIFE, "easeInQuad"), once(p.melt, "sz", 1, 0.3, LIFE, "easeInQuad")];
+    p.band.setAttribute("width", r3(len));
+    const fresh = [once(p.band, "opacity", 1, 0, LIFE, "easeInQuad"), once(p.melt, "sx", 1, 0.55, LIFE), once(p.sg, "sy", 1, 0, LIFE * 0.8, "easeInQuad")];
     const old = p.anims; p.anims = fresh; old.forEach((x) => x.remove());          // new on first, then old off
   }
 
