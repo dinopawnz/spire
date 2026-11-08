@@ -1,7 +1,7 @@
 <!--
-  SPARKLE TRAIL  v6  -  Otherside MML
+  SPARKLE TRAIL  v7  -  Otherside MML
   The ORIGINAL look (glowing rainbow ribbon full of twinkling stars + the golden swirl with orbiting stars at your feet), now it bends
-  along the exact path you walk: a wide, soft, glittery pastel ribbon that fades away after a couple of seconds.
+  along the exact path you walk: a thick, soft, glittery pastel smoke trail that thins away after a couple of seconds.
 
   HOW IT FOLLOWS YOU: Otherside tells a build every spot you step on when you walk on something the build owns, so this lays a big
   INVISIBLE FLOOR (100 x 100 m) where you place it. Place it on flat ground.
@@ -15,7 +15,7 @@
 
 <script>
   const BASE = "https://raw.githubusercontent.com/dinopawnz/spire/handoff-v14/trail/";
-  const VER = "?v=6";
+  const VER = "?v=7";
   const ROOT = document.getElementById("root");
   const SIZE = 100;                // invisible floor, metres each way
   const LIFE = 2400;               // how long each piece of trail lasts before it has faded away (ms)
@@ -55,14 +55,16 @@
   // ---------------- the invisible floor that feels your footsteps
   const floor = el("m-cube", { y: -0.05, width: SIZE, height: 0.1, depth: SIZE, color: "#000000", visible: "false", collide: "true", "collision-interval": 150, "cast-shadows": "false" });
 
-  // ---------------- ribbon pieces (loaded once, reused round and round): one wide, soft, glittery band lying flat, with a few
+  // ---------------- smoke pieces (loaded once, reused round and round), each with a few twinkling stars in it
   // twinkling stars in it. A piece fades out (opacity), narrows a little, and its stars squash away - 3 small animations per step.
   const PIECES = [];
   for (let i = 0; i < NPIECE; i++) {
     const g = el("m-group", { y: -50 });                       // parked out of sight until first used
-    const melt = el("m-group", {}, g);
-    const a = el("m-group", { y: 0.38, ry: 90 }, melt);
-    const band = el("m-image", Object.assign({ width: 1.6, height: 1.25, rx: -90, emissive: 1.1, opacity: 0 }, IMG), a);
+    // (v7, owner: "doesn't look thick like smoke, looks like a flat surface") three soft cloudy layers crossed round the path, like a
+    // tube of glittery smoke - it looks thick from every side. It thins away to nothing (shrinks round its middle) as it clears.
+    const melt = el("m-group", { y: 0.55, sx: 0, sy: 0 }, g);
+    const a = el("m-group", { ry: 90 }, melt);
+    const bands = [-90, -30, 30].map((rx) => el("m-image", Object.assign({ width: 1.6, height: 1.15, rx, emissive: 1.0, opacity: 0.8 }, IMG), a));
     const sg = el("m-group", { sy: 0 }, g);
     const stars = [];
     for (let k = 0; k < 2; k++) {
@@ -72,7 +74,7 @@
       loop(tw, "sx", sc * 0.4, sc, rnd(250, 500), { pingPong: true, delay: rnd(0, 500) });
       [0, 90].forEach((ry) => stars.push(el("m-image", Object.assign({ width: 0.24, height: 0.24, ry, emissive: 2 }, IMG), tw)));
     }
-    PIECES.push({ g, melt, band, sg, stars, anims: [], k: i % 8 });
+    PIECES.push({ g, melt, bands, sg, stars, anims: [], k: i % 8 });
   }
 
   // ---------------- the golden swirl at your feet, with stars circling round you (the original)
@@ -98,7 +100,7 @@
 
   function paint() {    // put the current colour's pictures on everything (only when the colour changes)
     const c = col();
-    PIECES.forEach((p) => { p.band.setAttribute("src", pic("fluff_" + c + "_" + p.k)); p.stars.forEach((s) => s.setAttribute("src", pic("star_" + (c === "rainbow" ? "gold" : c)))); });
+    PIECES.forEach((p) => { p.bands.forEach((b) => b.setAttribute("src", pic("puff_" + c + "_" + p.k))); p.stars.forEach((s) => s.setAttribute("src", pic("star_" + (c === "rainbow" ? "gold" : c)))); });
     orbitStars.forEach((s) => s.setAttribute("src", pic("star_" + (c === "gold" ? "rainbow" : "gold"))));
     hubPics.forEach((p) => p.setAttribute("src", pic("star_" + (colour < 0 ? "gold" : c))));
   }
@@ -118,8 +120,8 @@
     const dx = b.x - a.x, dz = b.z - a.z, len = Math.min(Math.hypot(dx, dz), 4) * 1.5 + 0.9;   // overlapping, so the soft ends melt into one ribbon
     p.g.setAttribute("x", r3((a.x + b.x) / 2)); p.g.setAttribute("y", r3((a.y + b.y) / 2)); p.g.setAttribute("z", r3((a.z + b.z) / 2));
     p.g.setAttribute("ry", r3(Math.atan2(dx, dz) * 180 / Math.PI));
-    p.band.setAttribute("width", r3(len));
-    const fresh = [once(p.band, "opacity", 1, 0, LIFE, "easeInQuad"), once(p.melt, "sx", 1, 0.55, LIFE), once(p.sg, "sy", 1, 0, LIFE * 0.8, "easeInQuad")];
+    p.bands.forEach((b) => b.setAttribute("width", r3(len)));
+    const fresh = [once(p.melt, "sx", 1, 0.08, LIFE, "easeInQuad"), once(p.melt, "sy", 1, 0.08, LIFE, "easeInQuad"), once(p.sg, "sy", 1, 0, LIFE * 0.8, "easeInQuad")];
     const old = p.anims; p.anims = fresh; old.forEach((x) => x.remove());          // new on first, then old off
   }
 
