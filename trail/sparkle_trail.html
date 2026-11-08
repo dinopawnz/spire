@@ -1,0 +1,85 @@
+<!--
+  SPARKLE TRAIL  v1  -  Otherside MML
+  A glowing ribbon behind you with twinkling stars streaming along it, and a golden swirl spinning at your feet.
+  Click the swirl at your feet  -> change colour (rainbow, gold, ice, rose).
+  Click the trail               -> flip it round (use this if it comes out of your front instead of your back).
+  Light on frame rate: 10 pictures that only move with simple looping animations, no lights.
+-->
+<m-group id="root"></m-group>
+
+<script>
+  const BASE = "https://raw.githubusercontent.com/dinopawnz/spire/handoff-v14/trail/";
+  const VER = "?v=1";
+  const ROOT = document.getElementById("root");
+  const LEN = 7.0;                 // how long the trail is, in metres
+  const STARS = 26;                // how many stars stream along it
+  const COLOURS = ["rainbow", "gold", "ice", "rose"];
+  let colour = 0, flipped = false;
+
+  const r3 = (v) => Math.round(v * 1000) / 1000;
+  function el(tag, attrs, parent) {
+    const n = document.createElement(tag);
+    for (const k in attrs) n.setAttribute(k, typeof attrs[k] === "number" ? String(r3(attrs[k])) : String(attrs[k]));
+    (parent || ROOT).appendChild(n);
+    return n;
+  }
+  function anim(target, attr, a, b, ms, opts) {
+    const o = opts || {};
+    const x = { attr, start: a, end: b, duration: Math.round(ms), loop: "true" };
+    if (o.pingPong) x["ping-pong"] = "true";
+    if (o.easing) x.easing = o.easing;
+    if (o.delay) x["start-time"] = -Math.round(o.delay);     // started in the past, so every star is already mid-way along
+    return el("m-attr-anim", x, target);
+  }
+  const pic = (name) => BASE + name + ".png" + VER;
+  const rnd = (a, b) => a + Math.random() * (b - a);
+
+  // ---------------- the trail (points backwards along -z; click it to flip)
+  const trail = el("m-group", { ry: 0 });
+  const ribbons = [];
+  // two ribbons, one lying flat and one standing up, so it looks full from any angle
+  [[0.32, -90], [0.55, 0]].forEach(([y, rx]) => {
+    const g = el("m-group", { y, z: -LEN / 2, ry: 90 }, trail);
+    ribbons.push(el("m-image", { src: pic("ribbon_rainbow"), width: LEN, height: rx ? 0.95 : 0.6, rx, emissive: 1.2, collide: "false", "cast-shadows": "false" }, g));
+  });
+  // stars streaming from your feet to the tip, fading as they go
+  const stars = [];
+  for (let i = 0; i < STARS; i++) {
+    const ms = rnd(2200, 3400), delay = rnd(0, ms);
+    const g = el("m-group", { x: rnd(-0.4, 0.4) }, trail);
+    anim(g, "z", -0.15, -LEN * rnd(0.75, 0.95), ms, { delay });
+    anim(g, "y", rnd(0.15, 0.45), rnd(0.6, 1.05), rnd(900, 1600), { pingPong: true, easing: "easeInOutSine", delay: rnd(0, 1600) });
+    const tw = el("m-group", {}, g);
+    const sc = rnd(0.7, 1.25);
+    anim(tw, "sx", sc * 0.5, sc, rnd(300, 600), { pingPong: true, delay: rnd(0, 600) });
+    anim(tw, "sy", sc * 0.5, sc, rnd(300, 600), { pingPong: true, delay: rnd(0, 600) });
+    [0, 90].forEach((ry) => {
+      const s = el("m-image", { src: pic("star_rainbow"), width: 0.3, height: 0.3, ry, emissive: 2, collide: "false", "cast-shadows": "false" }, tw);
+      anim(s, "opacity", 1, 0, ms, { delay });
+      stars.push(s);
+    });
+  }
+  // invisible click strip along the trail: flips it round
+  const trailHit = el("m-cube", { y: 0.5, z: -LEN / 2, width: 0.9, height: 0.6, depth: LEN - 1, color: "#ffffff", opacity: 0, collide: "false", "cast-shadows": "false" }, trail);
+  trailHit.addEventListener("click", () => { flipped = !flipped; trail.setAttribute("ry", flipped ? "180" : "0"); });
+
+  // ---------------- the golden swirl at your feet, with stars circling round you
+  const feet = el("m-group", { y: 0.04 });
+  const swirl = el("m-group", {}, feet);
+  anim(swirl, "ry", 0, 360, 4000);
+  el("m-image", { src: pic("swirl"), width: 1.5, height: 1.5, rx: -90, emissive: 1.2, collide: "false", "cast-shadows": "false" }, swirl);
+  const orbit = el("m-group", {}, feet);
+  anim(orbit, "ry", 360, 0, 3200);
+  for (let k = 0; k < 6; k++) {
+    const a = k * Math.PI / 3, g = el("m-group", { x: Math.sin(a) * 0.6, z: Math.cos(a) * 0.6 }, orbit);
+    anim(g, "y", 0.1, 0.9, rnd(1000, 1500), { pingPong: true, easing: "easeInOutSine", delay: k * 250 });
+    [0, 90].forEach((ry) => stars.push(el("m-image", { src: pic("star_gold"), width: 0.22, height: 0.22, ry, emissive: 2, collide: "false", "cast-shadows": "false" }, g)));
+  }
+  // invisible click pad on the swirl: changes the colour
+  const feetHit = el("m-cube", { y: 0.05, width: 1.4, height: 0.1, depth: 1.4, color: "#ffffff", opacity: 0, collide: "false", "cast-shadows": "false" }, feet);
+  feetHit.addEventListener("click", () => {
+    colour = (colour + 1) % COLOURS.length; const c = COLOURS[colour];
+    ribbons.forEach((r) => r.setAttribute("src", pic("ribbon_" + c)));
+    stars.forEach((s, i) => s.setAttribute("src", pic("star_" + (i < STARS * 2 ? c : (c === "gold" ? "rainbow" : "gold")))));
+  });
+</script>
