@@ -1,8 +1,8 @@
 <!--
-  SPARKLE TRAIL  v8  -  Otherside MML
+  SPARKLE TRAIL  v9  -  Otherside MML
   The ORIGINAL look (glowing rainbow ribbon full of twinkling stars + the golden swirl with orbiting stars at your feet), now it bends
   along the exact path you walk: a thick, soft, glittery pastel smoke trail that thins away after a couple of seconds.
-  NEW: waves of colour roll back along the smoke; the faster you go the thicker and longer it gets; landing a jump pops a ring of sparkles.
+  NEW: waves of colour roll back along the smoke; the faster you go the thicker and longer it gets.
 
   HOW IT FOLLOWS YOU: Otherside tells a build every spot you step on when you walk on something the build owns, so this lays a big
   INVISIBLE FLOOR (100 x 100 m) where you place it. Place it on flat ground.
@@ -16,14 +16,13 @@
 
 <script>
   const BASE = "https://raw.githubusercontent.com/dinopawnz/spire/handoff-v14/trail/";
-  const VER = "?v=8";
+  const VER = "?v=9";
   const ROOT = document.getElementById("root");
   const SIZE = 100;                // invisible floor, metres each way
   const LIFE = 2400;               // how long each piece of trail lasts before it has faded away (ms)
   const NPIECE = 20;               // ribbon pieces kept loaded and reused round and round
   const MOVE = 0.3;                // a new piece once you've moved this far (m)
   const GLIDE = 260;               // the swirl glides to each new spot over this long (ms)
-  var ringsReady = false;
   const WAVE = 700;               // (v8) shimmer: how fast the colour waves roll along the trail (ms)
   const COLOURS = ["rainbow", "gold", "ice", "rose"];
   let owner = null, colour = -1, steps = 0, noPos = 0, at = null, pieceI = 0, rigAnims = [];
@@ -112,7 +111,6 @@
     PIECES.forEach((p) => { p.bands.forEach((b, j) => b.setAttribute("src", pic("puff_" + c + "_" + ((p.k + j * 3) % 8)))); p.stars.forEach((s) => s.setAttribute("src", pic("star_" + (c === "rainbow" ? "gold" : c)))); });
     orbitStars.forEach((s) => s.setAttribute("src", pic("star_" + (c === "gold" ? "rainbow" : "gold"))));
     hubPics.forEach((p) => p.setAttribute("src", pic("star_" + (colour < 0 ? "gold" : c))));
-    if (ringsReady) paintRings(c);
   }
   paint();
 
@@ -151,33 +149,6 @@
     setTimeout(() => { if (at === p) { rig.setAttribute("x", r3(p.x)); rig.setAttribute("z", r3(p.z)); rig.setAttribute("y", r3(p.y)); } }, GLIDE + 20);
   }
 
-  // ---------------- (v8) LANDING BURST: feet leave the floor (a jump) and come back down -> a ring of sparkles bursts out where you land.
-  // Two rings kept loaded and reused; each burst is 4 small animations.
-  const RINGS = [];
-  for (let i = 0; i < 2; i++) {
-    const g = el("m-group", { y: -50 });
-    const grow = el("m-group", { sx: 0, sz: 0 }, g);
-    const flat = el("m-image", Object.assign({ src: pic("ring"), width: 2, height: 2, rx: -90, y: 0.08, emissive: 1.6, opacity: 0 }, IMG), grow);
-    const up = el("m-group", { sy: 0 }, grow);
-    const rs = [];
-    for (let k = 0; k < 10; k++) {
-      const a = k * Math.PI / 5, st = el("m-group", { x: Math.sin(a) * 0.75, z: Math.cos(a) * 0.75, y: 0.35 }, up);
-      const tw = el("m-group", {}, st); loop(tw, "sx", 0.5, 1.1, 300, { pingPong: true, delay: k * 60 });
-      [0, 90].forEach((ry) => rs.push(el("m-image", Object.assign({ width: 0.32, height: 0.32, ry, emissive: 2.2 }, IMG), tw)));
-    }
-    RINGS.push({ g, grow, flat, up, rs, anims: [] });
-  }
-  let ringI = 0, leftAt = 0;
-  function landBurst(p) {
-    const r = RINGS[ringI]; ringI = (ringI + 1) % RINGS.length;
-    r.g.setAttribute("x", r3(p.x)); r.g.setAttribute("y", r3(p.y)); r.g.setAttribute("z", r3(p.z));
-    const fresh = [once(r.grow, "sx", 0.25, 1.9, 700, "easeOutQuad"), once(r.grow, "sz", 0.25, 1.9, 700, "easeOutQuad"),
-                   once(r.flat, "opacity", 1, 0, 700, "easeInQuad"), once(r.up, "sy", 1.4, 0, 750, "easeInQuad")];
-    const old = r.anims; r.anims = fresh; old.forEach((x) => x.remove());
-  }
-  function paintRings(c) { RINGS.forEach((r) => r.rs.forEach((im) => im.setAttribute("src", pic("star_" + (c === "rainbow" ? "gold" : c))))); }
-  ringsReady = true; paintRings(col());
-
   // ---------------- footsteps
   function stepped(id, e) {
     if (owner === null || id !== owner) return;
@@ -186,11 +157,8 @@
     const q = d.position || (d.elementRelative && d.elementRelative.position) || (d.documentRelative && d.documentRelative.position);
     if (!q || typeof q.x !== "number" || isNaN(q.x)) { noPos++; if (noPos % 20 === 1) setSign(); return; }
     const p = { x: q.x, y: Math.max(0, q.y), z: q.z };
-    if (leftAt && now() - leftAt > 280 && now() - leftAt < 4000) landBurst(p);   // you were in the air for a moment: landed!
-    leftAt = 0;
     follow(p);
   }
-  floor.addEventListener("collisionend", (e) => { if (owner !== null && e.detail && e.detail.connectionId === owner) leftAt = now(); });
   ["collisionstart", "collisionmove"].forEach((ev) => floor.addEventListener(ev, (e) => stepped(e.detail && e.detail.connectionId, e)));
   window.addEventListener("disconnected", (e) => { if (e.detail && e.detail.connectionId === owner) { owner = null; colour = -1; rig.setAttribute("visible", "false"); at = null; paint(); setSign(); } });
 </script>
