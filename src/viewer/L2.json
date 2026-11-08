@@ -1,8 +1,0 @@
-{"page": "/home/claude/spire/out/spire.html", "pos": [0, 3.5, 20],
- "opts": {"w": 1280, "h": 720},
- "shots": [
-  {"out": "/home/claude/shots/L2_front.png", "cam": [0, 4.8, 27], "at": [0, 5.6, 0], "fov": 70},
-  {"out": "/home/claude/shots/L2_bar.png", "cam": [6, 4.8, 15], "at": [0, 6.5, 1], "fov": 66},
-  {"out": "/home/claude/shots/L2_side.png", "cam": [-30, 6, 18], "at": [5, 5, -10], "fov": 70},
-  {"out": "/home/claude/shots/L2_back.png", "cam": [0, 5.5, -17], "at": [0, 5, 15], "fov": 70}
- ]}
