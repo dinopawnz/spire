@@ -1,28 +1,24 @@
 <!--
-  SPARKLE TRAIL  v3  -  Otherside MML
-  A glowing ribbon that follows your exact path (it curves when you turn, in bands of colour), stars bursting up out of it and
-  twinkling away, and a golden swirl with orbiting stars gliding under your feet.
+  SPARKLE TRAIL  v4  -  Otherside MML
+  The ORIGINAL design (the glowing rainbow ribbon with twinkling stars streaming along it, and the golden swirl with orbiting stars at
+  your feet) - now it FOLLOWS YOU and swings round to always point out behind you.
 
   HOW IT FOLLOWS YOU: Otherside tells a build every spot you step on when you walk on something the build owns, so this lays a big
   INVISIBLE FLOOR (100 x 100 m) where you place it. Place it on flat ground.
-  Click the glowing star in the middle -> the trail is yours. Click again to change colour:
-  rainbow -> gold -> ice -> rose -> mudwater -> off. Whoever clicked last owns the trail.
-
-  NO "MML" FLASHES: every picture is loaded once at the start and reused, so nothing new ever has to load while you walk.
-  (Changing colour swaps the pictures, so you may see it flash once right then.)
+  Click the glowing star in the middle -> the trail is yours. Click again to change colour: rainbow -> gold -> ice -> rose -> off.
+  Every picture is loaded once at the start, so nothing pops in while you walk.
 -->
 <m-group id="root"></m-group>
 
 <script>
   const BASE = "https://raw.githubusercontent.com/dinopawnz/spire/handoff-v14/trail/";
-  const VER = "?v=3";
+  const VER = "?v=4";
   const ROOT = document.getElementById("root");
-  const SIZE = 100;                  // invisible floor, metres each way
-  const LIFE = 1900;                 // how long a piece of trail glows before it's gone (ms)
-  const STEP = 0.45;                 // a new piece of ribbon every 0.45 m you move
-  const NSEG = 28, NSTAR = 48;       // how many ribbon pieces / stars are kept loaded and reused
-  const COLOURS = ["rainbow", "gold", "ice", "rose", "mudwater"];
-  let owner = null, colour = -1, steps = 0, noPos = 0, lastDrop = null, swirlAt = null, swirlAnims = [], segI = 0, starI = 0;
+  const SIZE = 100;                // invisible floor, metres each way
+  const LEN = 7.0;                 // how long the trail is, in metres
+  const NSTARS = 26;               // how many stars stream along it
+  const COLOURS = ["rainbow", "gold", "ice", "rose"];
+  let owner = null, colour = -1, steps = 0, noPos = 0;
 
   const r3 = (v) => Math.round(v * 1000) / 1000;
   const T0 = Date.now();
@@ -33,114 +29,112 @@
     (parent || ROOT).appendChild(n);
     return n;
   }
-  function once(target, attr, a, b, ms, easing) {      // a one-off animation starting right now
-    const x = { attr, start: r3(a), end: r3(b), duration: Math.round(ms), "start-time": Math.round(now()) };
-    if (easing) x.easing = easing;
+  function loop(target, attr, a, b, ms, opts) {
+    const o = opts || {};
+    const x = { attr, start: a, end: b, duration: Math.round(ms), loop: "true" };
+    if (o.pingPong) x["ping-pong"] = "true";
+    if (o.easing) x.easing = o.easing;
+    if (o.delay) x["start-time"] = -Math.round(o.delay);     // started in the past, so every star is already mid-way along
     return el("m-attr-anim", x, target);
   }
-  function loop(target, attr, a, b, ms, pingPong, delay) {
-    const x = { attr, start: a, end: b, duration: Math.round(ms), loop: "true" };
-    if (pingPong) { x["ping-pong"] = "true"; x.easing = "easeInOutSine"; }
-    if (delay) x["start-time"] = -Math.round(delay);
-    return el("m-attr-anim", x, target);
+  function once(target, attr, a, b, ms) {                  // a one-off glide starting right now
+    return el("m-attr-anim", { attr, start: r3(a), end: r3(b), duration: Math.round(ms), "start-time": Math.round(now()) }, target);
   }
   const pic = (name) => BASE + name + ".png" + VER;
   const rnd = (a, b) => a + Math.random() * (b - a);
   const col = () => COLOURS[Math.max(0, colour)];
   const IMG = { collide: "false", "cast-shadows": "false" };
-  // swap an item's running animations: the new ones go on first, then the old ones come off (so nothing ever jumps)
-  const swap = (item, fresh) => { const old = item.anims; item.anims = fresh; old.forEach((a) => a.remove()); };
 
   // ---------------- the invisible floor that feels your footsteps
   const floor = el("m-cube", { y: -0.05, width: SIZE, height: 0.1, depth: SIZE, color: "#000000", visible: "false", collide: "true", "collision-interval": 100, "cast-shadows": "false" });
 
-  // ---------------- ribbon pieces (loaded once, reused round and round)
-  const SEG = [];
-  for (let i = 0; i < NSEG; i++) {
-    const g = el("m-group", { y: 0 });
-    const taper = el("m-group", {}, g);
-    const a = el("m-group", { y: 0.2, ry: 90 }, taper), b = el("m-group", { y: 0.58, ry: 90 }, taper);
-    const flat = el("m-image", Object.assign({ width: 0.8, height: 1.05, rx: -90, emissive: 1.6, opacity: 0 }, IMG), a);
-    const up = el("m-image", Object.assign({ width: 0.8, height: 0.72, emissive: 1.6, opacity: 0 }, IMG), b);
-    SEG.push({ g, taper, imgs: [flat, up], anims: [], k: i % 6 });
-  }
-  // ---------------- stars (loaded once, reused) - each twinkles all the time; we just move it and fade it
-  const STARS = [];
-  for (let i = 0; i < NSTAR; i++) {
-    const g = el("m-group", { y: 0 });
+  // ---------------- THE RIG: everything that follows you (moves to your feet, turns so the trail points behind you)
+  const rig = el("m-group", { visible: "false" });
+
+  // the trail (the original design: points out behind along -z)
+  const trail = el("m-group", {}, rig);
+  const ribbons = [];
+  [[0.32, -90], [0.55, 0]].forEach(([y, rx]) => {      // one lying flat, one standing up, so it looks full from any angle
+    const g = el("m-group", { y, z: -LEN / 2, ry: 90 }, trail);
+    ribbons.push(el("m-image", Object.assign({ src: pic("ribbon_rainbow"), width: LEN, height: rx ? 0.95 : 0.6, rx, emissive: 1.2 }, IMG), g));
+  });
+  const stars = [];
+  for (let i = 0; i < NSTARS; i++) {                   // stars streaming from your feet to the tip, fading as they go
+    const ms = rnd(2200, 3400), delay = rnd(0, ms);
+    const g = el("m-group", { x: rnd(-0.4, 0.4) }, trail);
+    loop(g, "z", -0.15, -LEN * rnd(0.75, 0.95), ms, { delay });
+    loop(g, "y", rnd(0.15, 0.45), rnd(0.6, 1.05), rnd(900, 1600), { pingPong: true, easing: "easeInOutSine", delay: rnd(0, 1600) });
     const tw = el("m-group", {}, g);
-    const sc = rnd(0.75, 1.3);
-    loop(tw, "sx", sc * 0.45, sc, rnd(260, 520), true, rnd(0, 500));
-    loop(tw, "sy", sc * 0.45, sc, rnd(260, 520), true, rnd(0, 500));
-    loop(tw, "rz", 0, i % 2 ? 360 : -360, rnd(2500, 4500));
-    const kind = i % 3 ? "star4" : "star6";
-    const imgs = [0, 90].map((ry) => el("m-image", Object.assign({ width: 0.34, height: 0.34, ry, emissive: 2.4, opacity: 0 }, IMG), tw));
-    STARS.push({ g, imgs, anims: [], kind });
+    const sc = rnd(0.7, 1.25);
+    loop(tw, "sx", sc * 0.5, sc, rnd(300, 600), { pingPong: true, delay: rnd(0, 600) });
+    loop(tw, "sy", sc * 0.5, sc, rnd(300, 600), { pingPong: true, delay: rnd(0, 600) });
+    [0, 90].forEach((ry) => {
+      const s = el("m-image", Object.assign({ src: pic("star_rainbow"), width: 0.3, height: 0.3, ry, emissive: 2 }, IMG), tw);
+      loop(s, "opacity", 1, 0, ms, { delay });
+      stars.push(s);
+    });
+  }
+  // the golden swirl at your feet, with stars circling round you
+  const feet = el("m-group", { y: 0.04 }, rig);
+  const swirl = el("m-group", {}, feet);
+  loop(swirl, "ry", 0, 360, 4000);
+  el("m-image", Object.assign({ src: pic("swirl"), width: 1.5, height: 1.5, rx: -90, emissive: 1.2 }, IMG), swirl);
+  const orbit = el("m-group", {}, feet);
+  loop(orbit, "ry", 360, 0, 3200);
+  const orbitStars = [];
+  for (let k = 0; k < 6; k++) {
+    const a = k * Math.PI / 3, g = el("m-group", { x: Math.sin(a) * 0.6, z: Math.cos(a) * 0.6 }, orbit);
+    loop(g, "y", 0.1, 0.9, rnd(1000, 1500), { pingPong: true, easing: "easeInOutSine", delay: k * 250 });
+    [0, 90].forEach((ry) => orbitStars.push(el("m-image", Object.assign({ src: pic("star_gold"), width: 0.22, height: 0.22, ry, emissive: 2 }, IMG), g)));
   }
 
-  function paint() {    // put the current colour's pictures on everything
+  function paint() {
     const c = col();
-    SEG.forEach((s) => s.imgs.forEach((im) => im.setAttribute("src", pic("seg_" + c + "_" + s.k))));
-    STARS.forEach((s) => s.imgs.forEach((im) => im.setAttribute("src", pic(s.kind + "_" + c))));
-    hubPics.forEach((p) => p.setAttribute("src", pic("star4_" + c)));
+    ribbons.forEach((r) => r.setAttribute("src", pic("ribbon_" + c)));
+    stars.forEach((s) => s.setAttribute("src", pic("star_" + c)));
+    orbitStars.forEach((s) => s.setAttribute("src", pic("star_" + (c === "gold" ? "rainbow" : "gold"))));
+    hubPics.forEach((p) => p.setAttribute("src", pic("star_" + (colour < 0 ? "gold" : c))));
   }
 
   // ---------------- the star you click (in the middle of where you placed it)
   const hub = el("m-group", { y: 1.2 });
   const spin = el("m-group", {}, hub); loop(spin, "ry", 0, 360, 5000);
-  const hubPics = [0, 90].map((ry) => el("m-image", Object.assign({ src: pic("star4_gold"), width: 0.8, height: 0.8, ry, emissive: 2.4 }, IMG), spin));
+  const hubPics = [0, 90].map((ry) => el("m-image", Object.assign({ src: pic("star_gold"), width: 0.7, height: 0.7, ry, emissive: 2 }, IMG), spin));
   const hubHit = el("m-cube", { width: 0.8, height: 0.8, depth: 0.8, color: "#ffffff", opacity: 0, collide: "false", "cast-shadows": "false" }, hub);
   const sign = el("m-label", Object.assign({ y: 0.8, width: 2.8, height: 0.45, "font-size": 18, alignment: "center", color: "#1a1030", "font-color": "#ffe6a8", emissive: 0.4, content: "CLICK THE STAR FOR SPARKLES" }, IMG), hub);
   const setSign = () => sign.setAttribute("content", owner === null ? "CLICK THE STAR FOR SPARKLES" : "SPARKLES ON (" + col().toUpperCase() + ") - STEPS FELT: " + steps + (noPos ? " (" + noPos + " WITHOUT A SPOT)" : ""));
-  paint();
 
   hubHit.addEventListener("click", (e) => {
     const id = e.detail && e.detail.connectionId;
     if (id === undefined) return;
-    if (id !== owner) { owner = id; colour = Math.max(colour, 0); steps = 0; noPos = 0; lastDrop = null; }
-    else { colour++; if (colour >= COLOURS.length) { owner = null; colour = -1; hideSwirl(); } }
+    if (id !== owner) { owner = id; colour = Math.max(colour, 0); steps = 0; noPos = 0; }
+    else { colour++; if (colour >= COLOURS.length) { owner = null; colour = -1; hideRig(); } }
     paint(); setSign();
   });
 
-  // ---------------- the golden swirl that glides under your feet
-  const swirl = el("m-group", { y: 0.06, visible: "false" });
-  const sw = el("m-group", {}, swirl); loop(sw, "ry", 0, 360, 4000);
-  el("m-image", Object.assign({ src: pic("swirl3"), width: 1.5, height: 1.5, rx: -90, emissive: 1.5 }, IMG), sw);
-  const orbit = el("m-group", {}, swirl); loop(orbit, "ry", 360, 0, 3000);
-  for (let k = 0; k < 6; k++) {
-    const a = k * Math.PI / 3, g = el("m-group", { x: Math.sin(a) * 0.6, z: Math.cos(a) * 0.6 }, orbit);
-    loop(g, "y", 0.1, 1.0, rnd(1000, 1500), true, k * 230);
-    const tw = el("m-group", {}, g); loop(tw, "sx", 0.5, 1.1, 400, true, k * 90); loop(tw, "sy", 0.5, 1.1, 400, true, k * 90);
-    [0, 90].forEach((ry) => el("m-image", Object.assign({ src: pic("star4_gold"), width: 0.22, height: 0.22, ry, emissive: 2.4 }, IMG), tw));
-  }
-  function hideSwirl() { swirl.setAttribute("visible", "false"); swirlAt = null; }
-  function moveSwirl(p) {
-    if (!swirlAt) { swirlAt = p; swirl.setAttribute("x", r3(p.x)); swirl.setAttribute("y", r3(p.y + 0.06)); swirl.setAttribute("z", r3(p.z)); swirl.setAttribute("visible", "true"); return; }
-    const from = swirlAt; swirlAt = p;
-    const fresh = ["x", "z"].map((k) => once(swirl, k, from[k], p[k], 120));
-    swirlAnims.forEach((a) => a.remove()); swirlAnims = fresh;
-    setTimeout(() => { if (swirlAt === p) { swirl.setAttribute("x", r3(p.x)); swirl.setAttribute("z", r3(p.z)); swirl.setAttribute("y", r3(p.y + 0.06)); } }, 130);
-  }
-
-  // ---------------- lay a piece of ribbon from a to b, and send stars up out of it
-  function ribbon(a, b) {
-    const s = SEG[segI]; segI = (segI + 1) % NSEG;
-    const dx = b.x - a.x, dz = b.z - a.z, len = Math.hypot(dx, dz) + 0.4;
-    s.g.setAttribute("x", r3((a.x + b.x) / 2)); s.g.setAttribute("y", r3((a.y + b.y) / 2)); s.g.setAttribute("z", r3((a.z + b.z) / 2));
-    s.g.setAttribute("ry", r3(Math.atan2(dx, dz) * 180 / Math.PI));
-    s.imgs.forEach((im) => im.setAttribute("width", r3(len)));
-    swap(s, [
-      once(s.imgs[0], "opacity", 0.95, 0, LIFE, "easeInQuad"), once(s.imgs[1], "opacity", 0.85, 0, LIFE, "easeInQuad"),
-      once(s.taper, "sx", 1, 0.25, LIFE), once(s.taper, "sy", 1, 0.45, LIFE),
-    ]);
-  }
-  function burst(p, n) {
-    for (let k = 0; k < n; k++) {
-      const s = STARS[starI]; starI = (starI + 1) % NSTAR;
-      const x = p.x + rnd(-0.45, 0.45), z = p.z + rnd(-0.45, 0.45), y0 = p.y + rnd(0.2, 0.6), life = LIFE * rnd(0.7, 1.1);
-      s.g.setAttribute("x", r3(x)); s.g.setAttribute("z", r3(z)); s.g.setAttribute("y", r3(y0));
-      swap(s, [once(s.g, "y", y0, y0 + rnd(0.8, 1.6), life, "easeOutSine"), once(s.imgs[0], "opacity", 1, 0, life, "easeInQuad"), once(s.imgs[1], "opacity", 1, 0, life, "easeInQuad")]);
+  // ---------------- moving the rig smoothly after you
+  let at = null, heading = 0, lastTurnAt = null, rigAnims = [];
+  function hideRig() { rig.setAttribute("visible", "false"); at = null; lastTurnAt = null; }
+  function follow(p) {
+    if (!at) {                                                    // first step: appear right at your feet
+      at = p; lastTurnAt = p;
+      rig.setAttribute("x", r3(p.x)); rig.setAttribute("y", r3(p.y)); rig.setAttribute("z", r3(p.z)); rig.setAttribute("visible", "true");
+      return;
     }
+    const from = at; at = p;
+    const fresh = [once(rig, "x", from.x, p.x, 120), once(rig, "z", from.z, p.z, 120)];
+    // turn so the trail points behind you (only once you've moved a little, so standing still doesn't spin it)
+    const dx = p.x - lastTurnAt.x, dz = p.z - lastTurnAt.z;
+    if (Math.hypot(dx, dz) > 0.3) {
+      let want = Math.atan2(dx, dz) * 180 / Math.PI;
+      while (want - heading > 180) want -= 360;                   // turn the short way round
+      while (want - heading < -180) want += 360;
+      fresh.push(once(rig, "ry", heading, want, 260));
+      heading = want; lastTurnAt = p;
+    }
+    rigAnims.forEach((a) => a.remove()); rigAnims = fresh;        // new glides on first, then the old ones off - so it never jumps
+    const h = heading;
+    setTimeout(() => { if (at === p) { rig.setAttribute("x", r3(p.x)); rig.setAttribute("z", r3(p.z)); rig.setAttribute("y", r3(p.y)); rig.setAttribute("ry", r3(h)); } }, 280);
   }
 
   // ---------------- footsteps
@@ -150,16 +144,9 @@
     steps++; if (steps % 10 === 1) setSign();
     const q = d.position || (d.elementRelative && d.elementRelative.position) || (d.documentRelative && d.documentRelative.position);
     if (!q || typeof q.x !== "number" || isNaN(q.x)) { noPos++; if (noPos % 10 === 1) setSign(); return; }
-    const p = { x: q.x, y: Math.max(0, q.y), z: q.z };
-    moveSwirl(p);
-    if (!lastDrop) { lastDrop = p; return; }
-    const dist = Math.hypot(p.x - lastDrop.x, p.z - lastDrop.z);
-    if (dist < STEP) return;
-    if (dist < 6) { ribbon(lastDrop, p); burst(p, 2); }      // (a big jump - e.g. a teleport - just starts a fresh trail)
-    lastDrop = p;
+    follow({ x: q.x, y: Math.max(0, q.y), z: q.z });
   }
   ["collisionstart", "collisionmove"].forEach((ev) => floor.addEventListener(ev, (e) => stepped(e.detail && e.detail.connectionId, e)));
-  floor.addEventListener("collisionend", (e) => { if (e.detail && e.detail.connectionId === owner) { hideSwirl(); lastDrop = null; } });
 
   // backup: if Otherside ever reports positions the normal way, use those too
   const probe = el("m-position-probe", { range: SIZE / 2, interval: 150 });
@@ -168,5 +155,5 @@
     const q = (d.documentRelative && d.documentRelative.position) || d.position;
     if (q) stepped(d.connectionId, { detail: { position: { x: q.x, y: q.y, z: q.z } } });
   }));
-  window.addEventListener("disconnected", (e) => { if (e.detail && e.detail.connectionId === owner) { owner = null; colour = -1; hideSwirl(); paint(); setSign(); } });
+  window.addEventListener("disconnected", (e) => { if (e.detail && e.detail.connectionId === owner) { owner = null; colour = -1; hideRig(); paint(); setSign(); } });
 </script>
